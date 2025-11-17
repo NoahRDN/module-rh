@@ -1,7 +1,9 @@
 \c postgres
 DROP DATABASE IF EXISTS rh;
-CREATE DATABASE rh;
+CREATE DATABASE rh WITH ENCODING 'UTF8' TEMPLATE template0 LC_COLLATE 'C' LC_CTYPE 'C';
 \c rh
+
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE TABLE Genre(
    Id_Genre SERIAL PRIMARY KEY,
@@ -139,7 +141,8 @@ CREATE TABLE Conge (
    Date_Fin DATE NOT NULL,
    Commentaire TEXT,
    Date_Demande TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-   Valide_Par INTEGER REFERENCES Employe(Id_Employe)
+   Valide_Par INTEGER REFERENCES Employe(Id_Employe),
+   Id_Statut INTEGER NOT NULL REFERENCES Statut(Id_Statut) DEFAULT 1
 );
 
 CREATE TABLE Solde_Conge (
@@ -149,7 +152,7 @@ CREATE TABLE Solde_Conge (
    Total_Acquis NUMERIC(5,2) DEFAULT 30.0,
    Total_Pris NUMERIC(5,2) DEFAULT 0.0,
    Total_Restant NUMERIC(5,2) GENERATED ALWAYS AS (Total_Acquis - Total_Pris) STORED,
-   Date_MAJ TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+   Date_MAJ TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE Presence (
@@ -216,7 +219,7 @@ CREATE TABLE Jour_Ferie (
     Id_Jour SERIAL PRIMARY KEY,
     Nom VARCHAR(100),
     Date_Jour DATE UNIQUE NOT NULL,
-    Repetition_Annuelle BOOLEAN DEFAULT TRUE 
+    Repetition_Annuelle BOOLEAN DEFAULT TRUE
 );
 
 CREATE TABLE Fiche_Paie_Parametre (
@@ -246,5 +249,3 @@ CREATE TABLE Paiement (
    Id_Statut_Paiement INTEGER NOT NULL REFERENCES Statut_Paiement(Id_Statut_Paiement),
    Montant NUMERIC(12,2) NOT NULL
 );
-
-

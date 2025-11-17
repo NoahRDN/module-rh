@@ -4,6 +4,18 @@
 
 INSERT INTO Genre (Nom) VALUES ('Homme'), ('Femme');
 
+INSERT INTO Ville (Nom) VALUES
+('Antananarivo'),
+('Toamasina'),
+('Antsirabe'),
+('Fianarantsoa');
+
+INSERT INTO Personne (Nom, Prenom, Date_Naissance, Image, Id_Ville, Id_Genre) VALUES
+('Rakoto', 'Admin', '1988-05-12', NULL, 1, 1),
+('Randria', 'Hanitra', '1990-03-08', NULL, 2, 2),
+('Andrianina', 'Jean', '1985-01-22', NULL, 1, 1),
+('Rasoanirina', 'Tiana', '1995-11-04', NULL, 3, 2);
+
 INSERT INTO Type_Contrat (Nom, Description) VALUES
 ('CDI', 'Contrat à durée indéterminée'),
 ('CDD', 'Contrat à durée déterminée'),
@@ -36,10 +48,30 @@ INSERT INTO Role (Code, Nom, Description) VALUES
 
 INSERT INTO Utilisateur (Identifiant, Mdp, Id_Personne, Id_Role)
 VALUES
-('admin', 'admin123', 1, 1),  -- ADMIN
-('rh_user', 'rh2025', 2, 2),  -- RH
-('dg_user', 'dg2025', 3, 3),  -- DG
-('emp1', 'emp1', 4, 4); -- EMPLOYE
+(
+    'admin',
+    REPLACE(crypt('admin123', gen_salt('bf')), '$2a$', '$2y$'),
+    1,
+    4
+),  -- ADMIN
+(
+    'rh_user',
+    REPLACE(crypt('rh2025', gen_salt('bf')), '$2a$', '$2y$'),
+    2,
+    2
+),  -- RH
+(
+    'dg_user',
+    REPLACE(crypt('dg2025', gen_salt('bf')), '$2a$', '$2y$'),
+    3,
+    3
+),  -- DG
+(
+    'emp1',
+    REPLACE(crypt('emp1', gen_salt('bf')), '$2a$', '$2y$'),
+    4,
+    1
+); -- EMPLOYE
 
 INSERT INTO Jour_Ferie (Nom, Date_Jour) VALUES
 ('Nouvel An', '2025-01-01'),

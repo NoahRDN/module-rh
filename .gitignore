@@ -1,0 +1,49 @@
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.code-workspace
+
+# Environment files
+.env
+.env.local
+.env.production
+.env.development
+.env.backup
+backend/.env
+backend/.env.local
+backend/.env.production
+backend/.env.development
+frontend/.env
+frontend/.env.local
+frontend/.env.production
+frontend/.env.development
+
+# Dependencies
+node_modules/
+**/node_modules/
+vendor/
+backend/vendor/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Build outputs / caches
+frontend/dist/
+frontend/dist-ssr/
+frontend/coverage/
+backend/public/build/
+backend/public/hot
+backend/public/storage
+backend/bootstrap/cache/*.php
+backend/.phpunit.result.cache
+coverage/
+
+# Database artifacts
+*.sqlite

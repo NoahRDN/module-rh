@@ -32,7 +32,7 @@ LEFT JOIN departement dep ON po.id_departement = dep.id_departement
 LEFT JOIN profil prof ON po.id_profil = prof.id_profil
 LEFT JOIN niveau_carriere nc ON prof.id_niveau_carriere = nc.id_niveau_carriere
 LEFT JOIN type_contrat tc ON prof.id_type_contrat = tc.id_type_contrat
-LEFT JOIN utilisateur u ON e.id_utilisateur = u.id_utilisateur
+LEFT JOIN utilisateur u ON p.id_personne = u.id_personne
 LEFT JOIN contrat_employe c ON c.id_employe = e.id_employe
 ORDER BY e.id_employe;
 
@@ -77,7 +77,7 @@ SELECT
     tc.nom AS type_conge,
     c.date_debut,
     c.date_fin,
-    c.statut,
+    s.nom AS statut,
     c.commentaire,
     c.date_demande,
     v.nom AS ville,
@@ -88,6 +88,7 @@ JOIN personne p ON e.id_personne = p.id_personne
 LEFT JOIN poste po ON e.id_poste = po.id_poste
 LEFT JOIN departement dep ON po.id_departement = dep.id_departement
 JOIN type_conge tc ON c.id_type_conge = tc.id_type_conge
+JOIN statut s ON c.id_statut = s.id_statut
 LEFT JOIN ville v ON p.id_ville = v.id_ville
 ORDER BY c.date_demande DESC;
 
@@ -104,14 +105,19 @@ SELECT
     s.total_acquis,
     s.total_pris,
     s.total_restant,
-    COALESCE(SUM(EXTRACT(DAY FROM (c.date_fin - c.date_debut))), 0) AS jours_conges_pris
+    COALESCE(SUM(
+        CASE
+            WHEN stat.nom = 'Approuvé' THEN (c.date_fin - c.date_debut)
+            ELSE 0
+        END
+    ), 0) AS jours_conges_pris
 FROM solde_conge s
 JOIN employe e ON s.id_employe = e.id_employe
 JOIN personne p ON e.id_personne = p.id_personne
 LEFT JOIN conge c 
     ON c.id_employe = e.id_employe 
     AND EXTRACT(YEAR FROM c.date_debut) = s.annee 
-    AND c.statut = 'Approuve'
+LEFT JOIN statut stat ON c.id_statut = stat.id_statut
 GROUP BY s.id_solde, e.id_employe, p.nom, p.prenom, s.annee, s.total_acquis, s.total_pris, s.total_restant
 ORDER BY s.annee DESC;
 

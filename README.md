@@ -5,7 +5,7 @@ Ce dépôt rassemble un backend Laravel et un frontend Vue destinés à la gesti
 ## Architecture du dépôt
 - `backend/` – API Laravel 12 (PHP 8.2, Sanctum, Vite pour les assets).
 - `frontend/` – SPA Vue 3 + Vite consommant l'API exposée par le backend.
-- `utilitaires/` – scripts annexes (ex. `backend/create_db.sql` pour créer une base PostgreSQL).
+- `utilitaires/` – information sur le fonctionnement metier et fiche commande utile
 
 ## Prérequis
 - PHP 8.2+ et [Composer 2](https://getcomposer.org/).
@@ -97,6 +97,3 @@ npm run build
 
 ## Ressources supplémentaires
 - `backend/database/*.sql` : scripts PG pour créer la base `rh`, insérer les données métiers, vues, index et resynchroniser les séquences.
-- `utilitaires/` : rangez ici les exports ou scripts liés au domaine métier.
-
-N'hésitez pas à documenter vos endpoints (ex. via Laravel API Resources ou un outil comme Laravel Pulse) et à enrichir ce README avec les informations spécifiques à votre équipe (droits, jeux de données de démonstration, etc.).

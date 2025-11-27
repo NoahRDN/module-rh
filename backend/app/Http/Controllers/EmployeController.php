@@ -3,6 +3,9 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log; // N'oublie pas d'importer ça pour les logs
+use Illuminate\Database\QueryException;
+use Exception;
 
 /**
  * Models Utilisés
@@ -17,13 +20,21 @@ class EmployeController extends Controller
     public function liste_employe()
     {
         $employes = Employe::with(['personne', 'poste'])->get();
-        return response()->json($employes);
+        return response()->json([
+            'status' => 'success',
+            'data' => $employes,
+            'error' => null
+        ]);
     }
 
     public function fiche_actuelle($id)
     {
         $fiche_employe = FicheEmploye::where('id_employe', 1)->first();
-        return response()->json($fiche_employe);
+        return response()->json([
+            'status' => 'success',
+            'data' => $fiche_employe,
+            'error' => null
+        ]);
     }
 
     public function historique_poste_employe($id)
@@ -71,6 +82,10 @@ class EmployeController extends Controller
             ];
         });
 
-        return response()->json($resultat);
+        return response()->json([
+            'status' => 'success',
+            'data' => $resultat,
+            'error' => null
+        ]);
     }
 }

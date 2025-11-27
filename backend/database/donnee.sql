@@ -1,105 +1,230 @@
--- ==========================
--- DONNÉES DE BASE
--- ==========================
+-- =============================
+-- DONNÉES DE TEST POUR BASE RH
+-- Avec ID explicitement définis
+-- =============================
 
-INSERT INTO Genre (Nom) VALUES ('Homme'), ('Femme');
+-- =============================
+-- Genre
+-- =============================
+INSERT INTO Genre (Id_Genre, Nom) VALUES
+(1, 'Masculin'),
+(2, 'Féminin');
 
-INSERT INTO Ville (Nom) VALUES
-('Antananarivo'),
-('Toamasina'),
-('Antsirabe'),
-('Fianarantsoa');
+-- =============================
+-- Ville
+-- =============================
+INSERT INTO Ville (Id_Ville, Nom) VALUES
+(1, 'Antananarivo'),
+(2, 'Toamasina'),
+(3, 'Fianarantsoa');
 
-INSERT INTO Personne (Nom, Prenom, Date_Naissance, Image, Id_Ville, Id_Genre) VALUES
-('Rakoto', 'Admin', '1988-05-12', NULL, 1, 1),
-('Randria', 'Hanitra', '1990-03-08', NULL, 2, 2),
-('Andrianina', 'Jean', '1985-01-22', NULL, 1, 1),
-('Rasoanirina', 'Tiana', '1995-11-04', NULL, 3, 2);
+-- =============================
+-- Departement
+-- =============================
+INSERT INTO Departement (Id_Departement, Nom) VALUES
+(1, 'Informatique'),
+(2, 'Ressources Humaines'),
+(3, 'Finance');
 
-INSERT INTO Type_Contrat (Nom, Description) VALUES
-('CDI', 'Contrat a duree indeterminee'),
-('CDD', 'Contrat a duree determinee'),
-('Stage', 'Periode d apprentissage'),
-('Interim', 'Travail temporaire');
+-- =============================
+-- Unite
+-- =============================
+INSERT INTO Unite (Id_Unite, Nom, Niveau) VALUES
+(1, 'Direction Générale', 1),
+(2, 'Service IT', 2),
+(3, 'Service Comptable', 2);
 
-INSERT INTO Type_Travail (Nom, Description) VALUES
-('Temps plein', 'Travail a temps complet'),
-('Temps partiel', 'Travail a duree reduite');
+-- =============================
+-- Type_Contrat
+-- =============================
+INSERT INTO Type_Contrat VALUES
+(1, 'CDI', 'Contrat à durée indéterminée'),
+(2, 'CDD', 'Contrat à durée déterminée'),
+(3, 'Stage', 'Contrat de stage');
 
-INSERT INTO Niveau_Carriere (Nom, Description) VALUES
-('Ouvrier', 'Taches manuelles ou techniques'),
-('Employe', 'Taches administratives ou commerciales'),
-('TAM', 'Technicien ou Agent de Maitrise'),
-('Cadre', 'Responsabilite de gestion'),
-('Dirigeant', 'Decisions strategiques');
+-- =============================
+-- Type_Travail
+-- =============================
+INSERT INTO Type_Travail VALUES
+(1, 'Temps plein', 'Horaire complet'),
+(2, 'Temps partiel', 'Horaire réduit');
 
-INSERT INTO Type_Conge (Nom, Description, Est_Paye, Duree_Max_Jours) VALUES
-('Conge Paye', 'Repos annuel remunere', TRUE, 30),
-('Conge Maladie', 'Arret medical', TRUE, 60),
-('Conge Sans Solde', 'Absence non remuneree', FALSE, 90),
-('Conge Exceptionnel', 'Evenement familial', TRUE, 5),
-('Conge Maternite', 'Naissance d un enfant', TRUE, 90);
+-- =============================
+-- Niveau_Carriere
+-- =============================
+INSERT INTO Niveau_Carriere VALUES
+(1, 'Junior', 'Débutant'),
+(2, 'Senior', 'Expérimenté'),
+(3, 'Manager', 'Responsable département');
 
-INSERT INTO Role (Code, Nom, Description) VALUES
-(1, 'Employe', 'Acces limite a sa fiche et conges'),
-(2, 'RH', 'Gere le personnel et la paie'),
-(3, 'DG', 'Valide et supervise'),
-(4, 'Admin', 'Tous les droits systeme');
+-- =============================
+-- Profil
+-- =============================
+INSERT INTO Profil VALUES
+(1, 'Développeur Backend', '2024-01-10', 1, 1, 2),
+(2, 'Comptable', '2024-02-05', 1, 1, 1);
 
-INSERT INTO Utilisateur (Identifiant, Mdp, Id_Personne, Id_Role)
+-- =============================
+-- Personne
+-- =============================
+INSERT INTO Personne VALUES
+(1, 'RANDRIANAH', 'Noah', '1998-05-10', NULL, 1, 1),
+(2, 'RASOA', 'Marie', '1995-11-20', NULL, 2, 2);
+
+-- =============================
+-- Role
+-- =============================
+INSERT INTO Role VALUES
+(1, 100, 'ADMIN', 'Administrateur système'),
+(2, 200, 'EMPLOYE', 'Utilisateur standard');
+
+-- =============================
+-- Utilisateur
+-- =============================
+
+INSERT INTO Utilisateur
 VALUES
+
 (
+    1,
     'admin',
     REPLACE(crypt('admin123', gen_salt('bf')), '$2a$', '$2y$'),
     1,
-    4
+    1
 ),  -- ADMIN
 (
+    2,
     'rh_user',
     REPLACE(crypt('rh2025', gen_salt('bf')), '$2a$', '$2y$'),
     2,
     2
-),  -- RH
-(
-    'dg_user',
-    REPLACE(crypt('dg2025', gen_salt('bf')), '$2a$', '$2y$'),
-    3,
-    3
-),  -- DG
-(
-    'emp1',
-    REPLACE(crypt('emp1', gen_salt('bf')), '$2a$', '$2y$'),
-    4,
-    1
-); -- EMPLOYE
+);  -- RH
 
-INSERT INTO Jour_Ferie (Nom, Date_Jour) VALUES
-('Nouvel An', '2025-01-01'),
-('Fete du Travail', '2025-05-01'),
-('Independance', '2025-06-26'),
-('Assomption', '2025-08-15'),
-('Noel', '2025-12-25');
+-- =============================
+-- Poste
+-- =============================
+INSERT INTO Poste VALUES
+(1, 1, 1, 2, 'Développeur Java', 'Développement backend', 2),
+(2, 2, 3, 3, 'Comptable junior', 'Gestion comptable', 1);
 
-INSERT INTO Type_Demande (Nom, Description) VALUES
-('Conge', 'Demande de conge d un employe'),
-('Fiche_Paie', 'Validation d une fiche de paie'),
-('Contrat', 'Approbation de contrat'),
-('Autre', 'Autre type de validation');
+-- =============================
+-- Poste_Detail
+-- =============================
+INSERT INTO Poste_Detail VALUES
+(1, 1, 'Développement API', 'Créer des services REST'),
+(2, 2, 'Tenue des comptes', 'Gérer les bilans mensuels');
 
-INSERT INTO Statut (Nom, Description) VALUES
-('En attente', 'Demande soumise mais non encore traitee'),
-('Approuve', 'Demande acceptee'),
-('Refuse', 'Demande rejetee'),
-('Annule', 'Demande annulee par l auteur');
+-- =============================
+-- Employe
+-- =============================
+INSERT INTO Employe VALUES
+(1, '2023-03-01', 1, 1),
+(2, '2023-06-01', 2, 2);
 
-INSERT INTO Mode_Paiement (Nom, Description) VALUES
-('Virement', 'Transfert bancaire vers le compte du salarie'),
-('Especes', 'Paiement en liquide'),
-('Cheque', 'Cheque physique emis par l entreprise'),
-('Mobile Money', 'Paiement via service mobile comme MVola ou Orange Money');
+-- =============================
+-- Contrat_Employe
+-- =============================
+INSERT INTO Contrat_Employe VALUES
+(1, 1, 1, '2023-03-01', NULL),
+(2, 2, 2, '2023-06-01', '2024-06-01');
 
-INSERT INTO Statut_Paiement (Nom, Description) VALUES
-('En attente', 'Paiement prevu mais non encore effectue'),
-('Effectue', 'Paiement execute avec succes'),
-('Annule', 'Paiement annule avant execution'),
-('Echoue', 'Paiement tente mais non valide');
+-- =============================
+-- Statut
+-- =============================
+INSERT INTO Statut VALUES
+(1, 'EN_ATTENTE', 'En attente de validation'),
+(2, 'VALIDE', 'Demande validée'),
+(3, 'REFUSE', 'Demande refusée');
+
+-- =============================
+-- Type_Conge
+-- =============================
+INSERT INTO Type_Conge VALUES
+(1, 'Congé annuel', 'Congé payé annuel', true, 30),
+(2, 'Maladie', 'Congé maladie', true, 15);
+
+-- =============================
+-- Conge
+-- =============================
+INSERT INTO Conge VALUES
+(1, 1, 1, '2024-07-01', '2024-07-10', 'Vacances', CURRENT_TIMESTAMP, NULL, 2);
+
+-- =============================
+-- Solde_Conge
+-- =============================
+INSERT INTO Solde_Conge (Id_Solde, Id_Employe, Annee, Total_Acquis, Total_Pris)
+VALUES
+(1, 1, 2024, 30, 5),
+(2, 2, 2024, 30, 0);
+
+-- =============================
+-- Presence
+-- =============================
+INSERT INTO Presence VALUES
+(1, 1, '2024-07-15', '08:05', '17:00', 5, 1.5);
+
+-- =============================
+-- Document_Employe
+-- =============================
+INSERT INTO Document_Employe VALUES
+(1, 1, 'Contrat', '/docs/contrat_noah.pdf', CURRENT_TIMESTAMP);
+
+-- =============================
+-- Parametre_Paie
+-- =============================
+INSERT INTO Parametre_Paie VALUES
+(1, 'CNAPS', 1.0, CURRENT_DATE),
+(2, 'IRSA', 20.0, CURRENT_DATE);
+
+-- =============================
+-- Fiche_Paie
+-- =============================
+INSERT INTO Fiche_Paie (Id_Fiche, Id_Employe, Mois, Annee, Salaire_Base, Heures_Supp, Prime, Retenue, CNAPS, OSTIE, IRSA)
+VALUES
+(1, 1, 7, 2024, 800000, 5, 100000, 50000, 8000, 2000, 160000);
+
+-- =============================
+-- Type_Demande
+-- =============================
+INSERT INTO Type_Demande VALUES
+(1, 'Congé', 'Demande de congé'),
+(2, 'Paiement', 'Validation de paie');
+
+-- =============================
+-- Validation
+-- =============================
+INSERT INTO Validation VALUES
+(1, 1, 1, 2, 1, CURRENT_TIMESTAMP, 'Approuvé');
+
+-- =============================
+-- Jour_Ferie
+-- =============================
+INSERT INTO Jour_Ferie VALUES
+(1, 'Fête du Travail', '2024-05-01', true);
+
+-- =============================
+-- Fiche_Paie_Parametre
+-- =============================
+INSERT INTO Fiche_Paie_Parametre VALUES
+(1, 1, 8000),
+(1, 2, 160000);
+
+-- =============================
+-- Mode_Paiement
+-- =============================
+INSERT INTO Mode_Paiement VALUES
+(1, 'Virement bancaire', 'Paiement par banque'),
+(2, 'Espèces', 'Paiement en cash');
+
+-- =============================
+-- Statut_Paiement
+-- =============================
+INSERT INTO Statut_Paiement VALUES
+(1, 'PAYE', 'Paiement effectué'),
+(2, 'EN_ATTENTE', 'Paiement en attente');
+
+-- =============================
+-- Paiement
+-- =============================
+INSERT INTO Paiement VALUES
+(1, 1, CURRENT_DATE, 1, 1, 862000);

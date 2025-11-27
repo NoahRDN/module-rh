@@ -17,34 +17,34 @@ INSERT INTO Personne (Nom, Prenom, Date_Naissance, Image, Id_Ville, Id_Genre) VA
 ('Rasoanirina', 'Tiana', '1995-11-04', NULL, 3, 2);
 
 INSERT INTO Type_Contrat (Nom, Description) VALUES
-('CDI', 'Contrat à durée indéterminée'),
-('CDD', 'Contrat à durée déterminée'),
-('Stage', 'Période d’apprentissage'),
-('Intérim', 'Travail temporaire');
+('CDI', 'Contrat a duree indeterminee'),
+('CDD', 'Contrat a duree determinee'),
+('Stage', 'Periode d apprentissage'),
+('Interim', 'Travail temporaire');
 
 INSERT INTO Type_Travail (Nom, Description) VALUES
-('Temps plein', 'Travail à temps complet'),
-('Temps partiel', 'Travail à durée réduite');
+('Temps plein', 'Travail a temps complet'),
+('Temps partiel', 'Travail a duree reduite');
 
 INSERT INTO Niveau_Carriere (Nom, Description) VALUES
-('Ouvrier', 'Tâches manuelles ou techniques'),
-('Employé', 'Tâches administratives ou commerciales'),
-('TAM', 'Technicien ou Agent de Maîtrise'),
-('Cadre', 'Responsabilité de gestion'),
-('Dirigeant', 'Décisions stratégiques');
+('Ouvrier', 'Taches manuelles ou techniques'),
+('Employe', 'Taches administratives ou commerciales'),
+('TAM', 'Technicien ou Agent de Maitrise'),
+('Cadre', 'Responsabilite de gestion'),
+('Dirigeant', 'Decisions strategiques');
 
 INSERT INTO Type_Conge (Nom, Description, Est_Paye, Duree_Max_Jours) VALUES
-('Congé Payé', 'Repos annuel rémunéré', TRUE, 30),
-('Congé Maladie', 'Arrêt médical', TRUE, 60),
-('Congé Sans Solde', 'Absence non rémunérée', FALSE, 90),
-('Congé Exceptionnel', 'Événement familial', TRUE, 5),
-('Congé Maternité', 'Naissance d’un enfant', TRUE, 90);
+('Conge Paye', 'Repos annuel remunere', TRUE, 30),
+('Conge Maladie', 'Arret medical', TRUE, 60),
+('Conge Sans Solde', 'Absence non remuneree', FALSE, 90),
+('Conge Exceptionnel', 'Evenement familial', TRUE, 5),
+('Conge Maternite', 'Naissance d un enfant', TRUE, 90);
 
 INSERT INTO Role (Code, Nom, Description) VALUES
-(1, 'Employe', 'Accès limité à sa fiche et congés'),
-(2, 'RH', 'Gère le personnel et la paie'),
+(1, 'Employe', 'Acces limite a sa fiche et conges'),
+(2, 'RH', 'Gere le personnel et la paie'),
 (3, 'DG', 'Valide et supervise'),
-(4, 'Admin', 'Tous les droits système');
+(4, 'Admin', 'Tous les droits systeme');
 
 INSERT INTO Utilisateur (Identifiant, Mdp, Id_Personne, Id_Role)
 VALUES
@@ -75,31 +75,31 @@ VALUES
 
 INSERT INTO Jour_Ferie (Nom, Date_Jour) VALUES
 ('Nouvel An', '2025-01-01'),
-('Fête du Travail', '2025-05-01'),
-('Indépendance', '2025-06-26'),
+('Fete du Travail', '2025-05-01'),
+('Independance', '2025-06-26'),
 ('Assomption', '2025-08-15'),
-('Noël', '2025-12-25');
+('Noel', '2025-12-25');
 
 INSERT INTO Type_Demande (Nom, Description) VALUES
-('Conge', 'Demande de congé d’un employé'),
-('Fiche_Paie', 'Validation d’une fiche de paie'),
+('Conge', 'Demande de conge d un employe'),
+('Fiche_Paie', 'Validation d une fiche de paie'),
 ('Contrat', 'Approbation de contrat'),
 ('Autre', 'Autre type de validation');
 
 INSERT INTO Statut (Nom, Description) VALUES
-('En attente', 'Demande soumise mais non encore traitée'),
-('Approuvé', 'Demande acceptée'),
-('Refusé', 'Demande rejetée'),
-('Annulé', 'Demande annulée par l’auteur');
+('En attente', 'Demande soumise mais non encore traitee'),
+('Approuve', 'Demande acceptee'),
+('Refuse', 'Demande rejetee'),
+('Annule', 'Demande annulee par l auteur');
 
 INSERT INTO Mode_Paiement (Nom, Description) VALUES
-('Virement', 'Transfert bancaire vers le compte du salarié'),
-('Espèces', 'Paiement en liquide'),
-('Chèque', 'Chèque physique émis par l’entreprise'),
+('Virement', 'Transfert bancaire vers le compte du salarie'),
+('Especes', 'Paiement en liquide'),
+('Cheque', 'Cheque physique emis par l entreprise'),
 ('Mobile Money', 'Paiement via service mobile comme MVola ou Orange Money');
 
 INSERT INTO Statut_Paiement (Nom, Description) VALUES
-('En attente', 'Paiement prévu mais non encore effectué'),
-('Effectue', 'Paiement exécuté avec succès'),
-('Annule', 'Paiement annulé avant exécution'),
-('Echoue', 'Paiement tenté mais non validé');
+('En attente', 'Paiement prevu mais non encore effectue'),
+('Effectue', 'Paiement execute avec succes'),
+('Annule', 'Paiement annule avant execution'),
+('Echoue', 'Paiement tente mais non valide');

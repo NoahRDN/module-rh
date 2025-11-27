@@ -14,6 +14,11 @@ class Poste extends Model
         'id_profil', 'id_departement', 'id_unite', 'fonction', 'description', 'nombre'
     ];
 
+    public function unite()
+    {
+        return $this->belongsTo(Unite::class, 'id_unite');
+    }
+
     public function profil()
     {
         return $this->belongsTo(Profil::class, 'id_profil');

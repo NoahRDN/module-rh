@@ -19,4 +19,5 @@ Route::group(['prefix' => 'employes'], function()
 {
     Route::get('/', [EmployeController::class, 'liste_employe']);
     Route::get('/{id}/fiche_employe', [EmployeController::class, 'fiche_actuelle']);
+    Route::get('/{id}/historique_poste', [EmployeController::class, 'historique_poste_employe']);
 });

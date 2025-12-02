@@ -1,49 +1,64 @@
-
-# OS / IDE
+# OS
 .DS_Store
 Thumbs.db
-.idea/
+desktop.ini
+
+# Editor/IDE
 .vscode/
+.idea/
 *.code-workspace
 
-# Environment files
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.eggs/
+*.egg-info/
+dist/
+build/
+pip-wheel-metadata/
+.tox/
+.nox/
+.pytest_cache/
+.hypothesis/
+.cache/
+.mypy_cache/
+.pyre/
+.pytype/
+.dmypy.json
+.coverage
+.coverage.*
+
+# Environments
 .env
-.env.local
-.env.production
-.env.development
-.env.backup
-backend/.env
-backend/.env.local
-backend/.env.production
-backend/.env.development
-frontend/.env
-frontend/.env.local
-frontend/.env.production
-frontend/.env.development
+.env.*
+!.env.example
+**/.venv/
+venv/
+ENV/
+env/
 
-# Dependencies
-node_modules/
-**/node_modules/
-vendor/
-backend/vendor/
-
-# Logs
+# Django runtime output
+*.sqlite3
 *.log
+runserver.pid
+backend/hrms_project/staticfiles/
+backend/hrms_project/uploads/
+backend/hrms_project/exports/
+backend/hrms_project/documents/
+
+# Frontend build artefacts
+node_modules/
 npm-debug.log*
+yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-lerna-debug.log*
-
-# Build outputs / caches
-frontend/dist/
-frontend/dist-ssr/
-frontend/coverage/
-backend/public/build/
-backend/public/hot
-backend/public/storage
-backend/bootstrap/cache/*.php
-backend/.phpunit.result.cache
+.parcel-cache/
+.next/
+.nuxt/
+.svelte-kit/
+build/
+dist/
 coverage/
-
-# Database artifacts
-*.sqlite
+*.tsbuildinfo

@@ -2,10 +2,10 @@
 -- 🔍 VUES UTILITAIRES POUR APPLICATION RH
 -- ===========================================
 
--- 1️⃣ VUE FICHE EMPLOYÉ COMPLÈTE
--- Regroupe les infos essentielles d’un employé :
--- identité, poste, profil, département, contrat.
+-- 1. On supprime l'ancienne version (CASCADE permet de supprimer les dépendances si nécessaire)
+DROP VIEW IF EXISTS v_employe_poste CASCADE;
 
+-- 2. On recrée la vue proprement
 CREATE OR REPLACE VIEW v_employe_poste AS
 SELECT 
     e.id_employe,
@@ -18,11 +18,11 @@ SELECT
     po.fonction,
     prof.nom AS profil,
     nc.nom AS niveau_carriere,
-    tc.nom AS type_contrat,
+    -- On récupère le nom du contrat directement depuis le résultat du LATERAL
+    dernier_contrat.nom_type_contrat AS type_contrat, 
     e.debut AS date_embauche,
-    c.date_debut AS contrat_debut,
-    c.date_fin AS contrat_fin,
-    u.identifiant AS utilisateur
+    dernier_contrat.date_debut AS contrat_debut,
+    dernier_contrat.date_fin AS contrat_fin
 FROM employe e
 LEFT JOIN personne p ON e.id_personne = p.id_personne
 LEFT JOIN genre g ON p.id_genre = g.id_genre
@@ -31,11 +31,15 @@ LEFT JOIN poste po ON e.id_poste = po.id_poste
 LEFT JOIN departement dep ON po.id_departement = dep.id_departement
 LEFT JOIN profil prof ON po.id_profil = prof.id_profil
 LEFT JOIN niveau_carriere nc ON prof.id_niveau_carriere = nc.id_niveau_carriere
-LEFT JOIN type_contrat tc ON prof.id_type_contrat = tc.id_type_contrat
-LEFT JOIN utilisateur u ON p.id_personne = u.id_personne
-LEFT JOIN contrat_employe c ON c.id_employe = e.id_employe
-ORDER BY e.id_employe;
-
+-- Le LATERAL JOIN récupère le contrat ET le nom du type de contrat d'un coup
+LEFT JOIN LATERAL (
+    SELECT c.date_debut, c.date_fin, tc.nom as nom_type_contrat
+    FROM contrat_employe c
+    JOIN type_contrat tc ON c.id_type_contrat = tc.id_type_contrat
+    WHERE c.id_employe = e.id_employe
+    ORDER BY c.date_debut DESC 
+    LIMIT 1
+) dernier_contrat ON true;
 
 -- 2️⃣ VUE FICHE DE PAIE DÉTAILLÉE
 -- Permet de générer rapidement un état de paie complet pour chaque employé.

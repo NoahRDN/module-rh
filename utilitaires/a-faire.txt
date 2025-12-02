@@ -1,4 +1,0 @@
-1. Gestion du Personnel
-- Fiche employé complète
-- Contrats, historique, documents
-- Classification (Ouvriers, Employés, TAM, Cadres, Dirigeants)

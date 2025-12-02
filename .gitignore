@@ -43,10 +43,6 @@ env/
 *.sqlite3
 *.log
 runserver.pid
-backend/hrms_project/staticfiles/
-backend/hrms_project/uploads/
-backend/hrms_project/exports/
-backend/hrms_project/documents/
 
 # Frontend build artefacts
 node_modules/

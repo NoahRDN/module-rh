@@ -6,44 +6,70 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\ContratRequest;
 use App\Models\Contrat;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class ContratController extends Controller
 {
     public function index(Request $request)
     {
-        $employe = $request->query('employe_id');
+        try {
+            $employe = $request->query('employe_id');
 
-        $query = Contrat::with('employe')->orderBy('date_debut', 'desc');
+            $query = Contrat::with('employe')->orderBy('date_debut', 'desc');
 
-        if ($employe) {
-            $query->where('employe_id', $employe);
+            if ($employe) {
+                $query->where('employe_id', $employe);
+            }
+
+            return response()->json($query->paginate(10));
+        } catch (\Throwable $e) {
+            Log::error('Erreur liste contrats', ['error' => $e->getMessage()]);
+            return response()->json(['message' => 'Erreur serveur'], 500);
         }
-
-        return response()->json($query->paginate(10));
     }
 
     public function store(ContratRequest $request)
     {
-        $contrat = Contrat::create($request->validated());
-        return response()->json($contrat, 201);
+        try {
+            $contrat = Contrat::create($request->validated());
+            return response()->json($contrat, 201);
+        } catch (\Throwable $e) {
+            Log::error('Erreur creation contrat', ['error' => $e->getMessage()]);
+            return response()->json(['message' => 'Erreur serveur'], 500);
+        }
     }
 
     public function show($id)
     {
-        return Contrat::with('employe')->findOrFail($id);
+        try {
+            return Contrat::with('employe')->findOrFail($id);
+        } catch (\Throwable $e) {
+            Log::error('Erreur show contrat', ['id' => $id, 'error' => $e->getMessage()]);
+            return response()->json(['message' => 'Erreur serveur'], 500);
+        }
     }
 
     public function update(ContratRequest $request, $id)
     {
-        $contrat = Contrat::findOrFail($id);
-        $contrat->update($request->validated());
+        try {
+            $contrat = Contrat::findOrFail($id);
+            $contrat->update($request->validated());
 
-        return response()->json($contrat);
+            return response()->json($contrat);
+        } catch (\Throwable $e) {
+            Log::error('Erreur update contrat', ['id' => $id, 'error' => $e->getMessage()]);
+            return response()->json(['message' => 'Erreur serveur'], 500);
+        }
     }
 
     public function destroy($id)
     {
-        Contrat::findOrFail($id)->delete();
-        return response()->json(['message' => 'Contrat supprimé']);
+        try {
+            Contrat::findOrFail($id)->delete();
+            return response()->json(['message' => 'Contrat supprimé']);
+        } catch (\Throwable $e) {
+            Log::error('Erreur suppression contrat', ['id' => $id, 'error' => $e->getMessage()]);
+            return response()->json(['message' => 'Erreur serveur'], 500);
+        }
     }
 }

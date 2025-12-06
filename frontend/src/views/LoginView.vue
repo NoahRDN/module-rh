@@ -1,18 +1,23 @@
 <template>
-  <div style="max-width:420px;margin:64px auto;">
-    <h2>Connexion RH</h2>
-    <form @submit.prevent="onLogin">
-      <div>
-        <label>Identifiant</label>
-        <input v-model="identifiant" required />
-      </div>
-      <div>
-        <label>Mot de passe</label>
-        <input v-model="mdp" type="password" required />
-      </div>
-      <button type="submit">Se connecter</button>
-      <p v-if="error" style="color:red">{{ error }}</p>
-    </form>
+  <div class="login">
+    <div class="panel">
+      <p class="muted">Module RH</p>
+      <h1>Connexion</h1>
+      <p class="muted" style="margin-bottom: 12px;">Accès sécurisé aux APIs RH</p>
+
+      <form class="grid" style="gap: 12px;" @submit.prevent="onLogin">
+        <div>
+          <label class="muted">Identifiant</label>
+          <input class="input" v-model="identifiant" required />
+        </div>
+        <div>
+          <label class="muted">Mot de passe</label>
+          <input class="input" v-model="mdp" type="password" required />
+        </div>
+        <button class="btn" type="submit">Se connecter</button>
+        <p class="muted" v-if="error">{{ error }}</p>
+      </form>
+    </div>
   </div>
 </template>
 
@@ -37,3 +42,25 @@ const onLogin = async () => {
   }
 }
 </script>
+
+<style scoped>
+.login {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.panel {
+  width: min(420px, 100%);
+  background: linear-gradient(145deg, #0c1325, #0f172a);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: var(--card-shadow);
+}
+
+h1 {
+  margin: 6px 0;
+}
+</style>

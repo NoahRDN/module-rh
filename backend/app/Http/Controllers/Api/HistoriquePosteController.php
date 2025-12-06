@@ -6,38 +6,59 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\HistoriquePosteRequest;
 use App\Models\HistoriquePoste;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class HistoriquePosteController extends Controller
 {
     public function index(Request $request)
     {
-        $emp = $request->query('employe_id');
+        try {
+            $emp = $request->query('employe_id');
 
-        $query = HistoriquePoste::with(['employe', 'poste', 'departement'])
-            ->orderBy('date_changement', 'desc');
+            $query = HistoriquePoste::with(['employe', 'poste', 'departement'])
+                ->orderBy('date_changement', 'desc');
 
-        if ($emp) {
-            $query->where('employe_id', $emp);
+            if ($emp) {
+                $query->where('employe_id', $emp);
+            }
+
+            return response()->json($query->paginate(10));
+        } catch (\Throwable $e) {
+            Log::error('Erreur liste historique postes', ['error' => $e->getMessage()]);
+            return response()->json(['message' => 'Erreur serveur'], 500);
         }
-
-        return response()->json($query->paginate(10));
     }
 
     public function store(HistoriquePosteRequest $request)
     {
-        $record = HistoriquePoste::create($request->validated());
-        return response()->json($record, 201);
+        try {
+            $record = HistoriquePoste::create($request->validated());
+            return response()->json($record, 201);
+        } catch (\Throwable $e) {
+            Log::error('Erreur creation historique poste', ['error' => $e->getMessage()]);
+            return response()->json(['message' => 'Erreur serveur'], 500);
+        }
     }
 
     public function show($id)
     {
-        return HistoriquePoste::with(['employe', 'poste', 'departement'])
-            ->findOrFail($id);
+        try {
+            return HistoriquePoste::with(['employe', 'poste', 'departement'])
+                ->findOrFail($id);
+        } catch (\Throwable $e) {
+            Log::error('Erreur show historique poste', ['id' => $id, 'error' => $e->getMessage()]);
+            return response()->json(['message' => 'Erreur serveur'], 500);
+        }
     }
 
     public function destroy($id)
     {
-        HistoriquePoste::findOrFail($id)->delete();
-        return response()->json(['message' => 'Entrée supprimée']);
+        try {
+            HistoriquePoste::findOrFail($id)->delete();
+            return response()->json(['message' => 'Entrée supprimée']);
+        } catch (\Throwable $e) {
+            Log::error('Erreur suppression historique poste', ['id' => $id, 'error' => $e->getMessage()]);
+            return response()->json(['message' => 'Erreur serveur'], 500);
+        }
     }
 }

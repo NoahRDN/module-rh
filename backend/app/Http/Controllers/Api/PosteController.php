@@ -6,45 +6,71 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\PosteRequest;
 use App\Models\Poste;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class PosteController extends Controller
 {
     public function index(Request $request)
     {
-        $dep = $request->query('departement_id');
+        try {
+            $dep = $request->query('departement_id');
 
-        $query = Poste::with('departement')->orderBy('nom');
+            $query = Poste::with('departement')->orderBy('nom');
 
-        if ($dep) {
-            $query->where('departement_id', $dep);
+            if ($dep) {
+                $query->where('departement_id', $dep);
+            }
+
+            return response()->json($query->paginate(10));
+        } catch (\Throwable $e) {
+            Log::error('Erreur liste postes', ['error' => $e->getMessage()]);
+            return response()->json(['message' => 'Erreur serveur'], 500);
         }
-
-        return response()->json($query->paginate(10));
     }
 
     public function store(PosteRequest $request)
     {
-        $poste = Poste::create($request->validated());
-        return response()->json($poste, 201);
+        try {
+            $poste = Poste::create($request->validated());
+            return response()->json($poste, 201);
+        } catch (\Throwable $e) {
+            Log::error('Erreur creation poste', ['error' => $e->getMessage()]);
+            return response()->json(['message' => 'Erreur serveur'], 500);
+        }
     }
 
     public function show($id)
     {
-        return Poste::with(['departement', 'employes'])->findOrFail($id);
+        try {
+            return Poste::with(['departement', 'employes'])->findOrFail($id);
+        } catch (\Throwable $e) {
+            Log::error('Erreur show poste', ['id' => $id, 'error' => $e->getMessage()]);
+            return response()->json(['message' => 'Erreur serveur'], 500);
+        }
     }
 
     public function update(PosteRequest $request, $id)
     {
-        $poste = Poste::findOrFail($id);
-        $poste->update($request->validated());
+        try {
+            $poste = Poste::findOrFail($id);
+            $poste->update($request->validated());
 
-        return response()->json($poste);
+            return response()->json($poste);
+        } catch (\Throwable $e) {
+            Log::error('Erreur update poste', ['id' => $id, 'error' => $e->getMessage()]);
+            return response()->json(['message' => 'Erreur serveur'], 500);
+        }
     }
 
     public function destroy($id)
     {
-        Poste::findOrFail($id)->delete();
+        try {
+            Poste::findOrFail($id)->delete();
 
-        return response()->json(['message' => 'Poste supprimé']);
+            return response()->json(['message' => 'Poste supprimé']);
+        } catch (\Throwable $e) {
+            Log::error('Erreur suppression poste', ['id' => $id, 'error' => $e->getMessage()]);
+            return response()->json(['message' => 'Erreur serveur'], 500);
+        }
     }
 }

@@ -21,6 +21,7 @@ class User extends Authenticatable
         'identifiant',
         'mdp',
         'id_role',
+        'role',
     ];
 
     /**
@@ -52,4 +53,19 @@ class User extends Authenticatable
      * @var string
      */
     protected $primaryKey = 'id_user';
+
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
+    }
+
+    public function isRH(): bool
+    {
+        return $this->role === 'rh';
+    }
+
+    public function isManager(): bool
+    {
+        return $this->role === 'manager';
+    }
 }

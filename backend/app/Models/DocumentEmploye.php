@@ -6,16 +6,28 @@ use Illuminate\Database\Eloquent\Model;
 
 class DocumentEmploye extends Model
 {
-    protected $table = 'document_employe';
-    protected $primaryKey = 'id_document';
-    public $timestamps = false; // Géré par Date_Ajout par défaut
+    protected $table = 'documents_employes';
 
     protected $fillable = [
-        'id_employe', 'type_document', 'chemin_fichier', 'date_ajout'
+        'employe_id',
+        'type_document',
+        'fichier',
+        'date_expiration'
     ];
+
+    protected $casts = [
+        'date_expiration' => 'date'
+    ];
+
+    protected $appends = ['url'];
 
     public function employe()
     {
-        return $this->belongsTo(Employe::class, 'id_employe');
+        return $this->belongsTo(Employe::class);
+    }
+
+    public function getUrlAttribute(): string
+    {
+        return asset('storage/' . $this->fichier);
     }
 }

@@ -14,7 +14,12 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // Les donnees applicatives sont chargees via backend/database/*.sql
-        // et ne sont donc pas reinseres par les seeders Laravel.
+        $this->call([
+            DepartementSeeder::class,
+            PosteSeeder::class,
+            EmployeSeeder::class,
+            DocumentSeeder::class,
+            ContratSeeder::class,
+        ]);
     }
 }

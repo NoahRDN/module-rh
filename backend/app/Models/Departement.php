@@ -6,8 +6,20 @@ use Illuminate\Database\Eloquent\Model;
 
 class Departement extends Model
 {
-    protected $table = 'departement';
-    protected $primaryKey = 'id_departement';
-    public $timestamps = false;
-    protected $fillable = ['nom'];
+    protected $table = 'departements';
+
+    protected $fillable = [
+        'nom',
+        'description',
+    ];
+
+    public function postes()
+    {
+        return $this->hasMany(Poste::class);
+    }
+
+    public function employes()
+    {
+        return $this->hasMany(Employe::class);
+    }
 }

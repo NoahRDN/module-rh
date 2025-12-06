@@ -6,41 +6,72 @@ use Illuminate\Database\Eloquent\Model;
 
 class Employe extends Model
 {
-    protected $table = 'employe';
-    protected $primaryKey = 'id_employe';
-    public $timestamps = false;
+    protected $table = 'employes';
 
     protected $fillable = [
-        'debut', 'id_poste', 'id_personne'
+        'matricule',
+        'nom',
+        'prenom',
+        'email',
+        'telephone',
+        'adresse',
+        'date_naissance',
+        'poste_id',
+        'departement_id',
+        'photo',
+        'date_embauche'
     ];
 
-    public function personne()
-    {
-        return $this->belongsTo(Personne::class, 'id_personne');
-    }
+    protected $casts = [
+        'date_naissance' => 'date',
+        'date_embauche'  => 'date',
+    ];
 
     public function poste()
     {
-        return $this->belongsTo(Poste::class, 'id_poste');
+        return $this->belongsTo(Poste::class);
+    }
+
+    public function departement()
+    {
+        return $this->belongsTo(Departement::class);
     }
 
     public function contrats()
     {
-        return $this->hasMany(ContratEmploye::class, 'id_employe');
+        return $this->hasMany(Contrat::class);
     }
 
-    public function conges()
+    public function documents()
     {
-        return $this->hasMany(Conge::class, 'id_employe');
+        return $this->hasMany(DocumentEmploye::class);
     }
 
-    public function fichesPaie()
+    public function historiquePostes()
     {
-        return $this->hasMany(FichePaie::class, 'id_employe');
+        return $this->hasMany(HistoriquePoste::class);
     }
-    
-    public function soldeConge()
+
+    public function ajouterChangementPoste($nouveauPosteId, $nouveauDepartementId, $motif = null): void
     {
-        return $this->hasOne(SoldeConge::class, 'id_employe');
+        $this->historiquePostes()->create([
+            'poste_id'        => $nouveauPosteId,
+            'departement_id'  => $nouveauDepartementId,
+            'date_changement' => now(),
+            'motif'           => $motif,
+        ]);
+    }
+
+    public function scopeSearch($query, $term)
+    {
+        if (!$term) {
+            return $query;
+        }
+
+        return $query->where(function ($q) use ($term) {
+            $q->where('nom', 'LIKE', "%{$term}%")
+                ->orWhere('prenom', 'LIKE', "%{$term}%")
+                ->orWhere('matricule', 'LIKE', "%{$term}%");
+        });
     }
 }

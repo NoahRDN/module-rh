@@ -39,13 +39,27 @@
         <span>Nouveau document</span>
       </div>
       <form class="grid" style="margin-top: 10px; gap: 10px;" @submit.prevent="uploadDoc" enctype="multipart/form-data">
-        <select class="select" v-model="form.employe_id" required>
-          <option value="">Employé</option>
-          <option v-for="emp in employes" :key="emp.id" :value="emp.id">{{ emp.matricule }} - {{ emp.nom }}</option>
-        </select>
-        <input class="input" v-model="form.type_document" placeholder="Type document" required />
-        <input class="input" v-model="form.date_expiration" placeholder="Date expiration (optionnel)" />
-        <input class="input" type="file" @change="onFile" required />
+        <div class="grid gap-1">
+          <label class="text-sm text-slate-400">Employé</label>
+          <select class="select" v-model="form.employe_id" required>
+            <option value="">Employé</option>
+            <option v-for="emp in employes" :key="emp.id" :value="emp.id">{{ emp.matricule }} - {{ emp.nom }}</option>
+          </select>
+        </div>
+        <div class="grid gap-1">
+          <label class="text-sm text-slate-400">Type de document</label>
+          <select class="select" v-model="form.type_document" required>
+            <option v-for="t in typeDocuments" :key="t" :value="t">{{ t }}</option>
+          </select>
+        </div>
+        <div class="grid gap-1">
+          <label class="text-sm text-slate-400">Date d'expiration (optionnel)</label>
+          <input class="input" type="date" v-model="form.date_expiration" />
+        </div>
+        <div class="grid gap-1">
+          <label class="text-sm text-slate-400">Fichier</label>
+          <input class="input" type="file" @change="onFile" required />
+        </div>
         <button class="btn" type="submit">Uploader</button>
         <p class="muted" v-if="message">{{ message }}</p>
       </form>
@@ -62,6 +76,7 @@ const employes = ref([])
 const filterEmploye = ref('')
 const message = ref('')
 const fileRef = ref(null)
+const typeDocuments = ref(['CIN', 'Diplome', 'CV', 'Contrat', 'Attestation', 'Autre'])
 const form = ref({
   employe_id: '',
   type_document: 'CIN',
@@ -77,6 +92,18 @@ const fetchDocs = async () => {
 const fetchEmployes = async () => {
   const { data } = await api.get('/v1/employes')
   employes.value = data.data || []
+}
+
+const fetchTypes = async () => {
+  try {
+    const { data } = await api.get('/v1/documents/types')
+    if (Array.isArray(data.data) && data.data.length) {
+      typeDocuments.value = data.data
+      form.value.type_document = data.data[0]
+    }
+  } catch (e) {
+    // fallback to defaults
+  }
 }
 
 const onFile = (e) => {
@@ -104,7 +131,6 @@ const uploadDoc = async () => {
 }
 
 onMounted(async () => {
-  await fetchEmployes()
-  await fetchDocs()
+  await Promise.all([fetchEmployes(), fetchDocs(), fetchTypes()])
 })
 </script>

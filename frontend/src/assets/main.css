@@ -14,6 +14,22 @@
   --card-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
 }
 
+/* Thème clair (activé via data-theme="light" sur html/body) */
+body[data-theme='light'],
+html[data-theme='light'] {
+  --bg: #f7f8fb;
+  --bg-soft: #ffffff;
+  --panel: #ffffff;
+  --border: #e2e8f0;
+  --muted: #64748b;
+  --text: #0f172a;
+  --accent: #22c55e;
+  --accent-strong: #16a34a;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --card-shadow: 0 10px 40px rgba(15, 23, 42, 0.1);
+}
+
 *,
 *::before,
 *::after {
@@ -45,7 +61,7 @@ a {
 }
 
 .card {
-  background: linear-gradient(145deg, #0b1222, #0d1629);
+  background: linear-gradient(145deg, var(--panel), var(--bg-soft));
   border: 1px solid var(--border);
   border-radius: 16px;
   padding: 18px;
@@ -79,7 +95,7 @@ a {
 .input,
 .select {
   width: 100%;
-  background: #0b1020;
+  background: var(--bg-soft);
   border: 1px solid var(--border);
   color: var(--text);
   border-radius: 10px;

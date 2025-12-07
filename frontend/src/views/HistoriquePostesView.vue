@@ -4,10 +4,13 @@
       <h1>Historique des postes</h1>
       <span>Mobilités internes</span>
     </div>
-    <select class="select" v-model="filterEmploye" @change="fetchHistorique">
-      <option value="">Tous les employés</option>
-      <option v-for="emp in employes" :key="emp.id" :value="emp.id">{{ emp.matricule }} - {{ emp.nom }}</option>
-    </select>
+    <div class="flex items-center gap-2">
+      <select class="select" v-model="filterEmploye" @change="fetchHistorique">
+        <option value="">Tous les employés</option>
+        <option v-for="emp in employes" :key="emp.id" :value="emp.id">{{ emp.matricule }} - {{ emp.nom }}</option>
+      </select>
+      <RouterLink class="btn whitespace-nowrap" to="/historiques/nouveau">+ Nouvelle mobilité</RouterLink>
+    </div>
   </div>
 
   <div class="card">
@@ -24,7 +27,7 @@
       <tbody>
         <tr v-for="h in historiques" :key="h.id">
           <td>{{ h.date_changement }}</td>
-          <td>{{ h.employe?.matricule || '—' }}</td>
+          <td>{{ h.employe ? `${h.employe.matricule} - ${h.employe.nom} ${h.employe.prenom}` : '—' }}</td>
           <td>{{ h.poste?.nom || '—' }}</td>
           <td>{{ h.departement?.nom || '—' }}</td>
           <td class="muted">{{ h.motif || '—' }}</td>
@@ -40,6 +43,7 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import api from '../services/api'
+import { RouterLink } from 'vue-router'
 
 const historiques = ref([])
 const employes = ref([])

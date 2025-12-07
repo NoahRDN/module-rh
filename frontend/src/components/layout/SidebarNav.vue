@@ -37,6 +37,15 @@ const items = [
   { to: '/departements', label: 'Départements', hint: 'Structure', icon: '🏢' },
   { to: '/postes', label: 'Postes', hint: 'Fonctions', icon: '🪜' },
   { to: '/contrats', label: 'Contrats', hint: 'CDD / CDI / Stage', icon: '📄' },
+  { to: '/absences-types', label: 'Types d\'absence', hint: 'Congés / absences', icon: '🏷️' },
+  { to: '/soldes-conges', label: 'Soldes congés', hint: 'Payés / maladie / exceptionnels', icon: '🧮' },
+  { to: '/demandes-conges', label: 'Demandes de congés', hint: 'Workflow', icon: '🗓️' },
+  { to: '/calendrier', label: 'Calendrier', hint: 'Vue globale', icon: '📆' },
+  { to: '/alertes', label: 'Alertes', hint: 'Congés / absences', icon: '🔔' },
+  { to: '/pointages', label: 'Pointage & HS', hint: 'Entrées / sorties', icon: '⏱️' },
+  { to: '/releve-presence', label: 'Relevé présence', hint: 'Heures & absences', icon: '📄' },
+  { to: '/paie-parametres', label: 'Paramètres paie', hint: 'CNAPS/OSTIE/IRSA', icon: '⚙️' },
+  { to: '/paie-generation', label: 'Génération paie', hint: 'Brut/Net', icon: '💰' },
   { to: '/documents', label: 'Documents', hint: 'RH & pièces', icon: '📁' },
   { to: '/historiques', label: 'Historique postes', hint: 'Mobilités', icon: '⏱️' }
 ]

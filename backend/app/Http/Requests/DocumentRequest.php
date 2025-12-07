@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class DocumentRequest extends FormRequest
 {
@@ -13,9 +14,11 @@ class DocumentRequest extends FormRequest
 
     public function rules(): array
     {
+        $types = config('documents.types', ['CIN', 'Diplome', 'CV', 'Contrat', 'Attestation', 'Autre']);
+
         return [
             'employe_id'      => 'required|exists:employes,id',
-            'type_document'   => 'required|string|max:50',
+            'type_document'   => ['required', 'string', 'max:50', Rule::in($types)],
             'fichier'         => 'required|string',
             'date_expiration' => 'nullable|date',
         ];

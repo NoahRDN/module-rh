@@ -15,7 +15,7 @@ class ContratController extends Controller
         try {
             $employe = $request->query('employe_id');
 
-            $query = Contrat::with('employe')->orderBy('date_debut', 'desc');
+            $query = Contrat::with(['employe.departement', 'employe.poste'])->orderBy('date_debut', 'desc');
 
             if ($employe) {
                 $query->where('employe_id', $employe);
@@ -42,7 +42,7 @@ class ContratController extends Controller
     public function show($id)
     {
         try {
-            return Contrat::with('employe')->findOrFail($id);
+            return Contrat::with(['employe.departement', 'employe.poste'])->findOrFail($id);
         } catch (\Throwable $e) {
             Log::error('Erreur show contrat', ['id' => $id, 'error' => $e->getMessage()]);
             return response()->json(['message' => 'Erreur serveur'], 500);

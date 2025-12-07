@@ -13,7 +13,7 @@ class EmployeController extends Controller
     public function index(Request $request)
     {
         try {
-            $search = $request->query('search');
+            $search = $request->query(key: 'search');
 
             $employes = Employe::with(['poste', 'departement'])
                 ->search($search)

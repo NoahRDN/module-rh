@@ -9,6 +9,13 @@ use Illuminate\Support\Facades\Log;
 
 class DocumentUploadController extends Controller
 {
+    public function types()
+    {
+        return response()->json([
+            'data' => config('documents.types', []),
+        ]);
+    }
+
     public function store(DocumentUploadRequest $request)
     {
         try {

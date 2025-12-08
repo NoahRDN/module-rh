@@ -11,6 +11,7 @@ class ContratSeeder extends Seeder
     {
         for ($i = 1; $i <= 5; $i++) {
             Contrat::create([
+                'numero' => 'CTR-' . now()->format('Ymd') . '-' . str_pad($i, 4, '0', STR_PAD_LEFT),
                 'employe_id' => $i,
                 'type_contrat' => 'CDI',
                 'date_debut' => now()->subYears(1),

@@ -11,7 +11,9 @@ class Poste extends Model
     protected $fillable = [
         'nom',
         'description',
-        'departement_id'
+        'departement_id',
+        'categorie',
+        'categorie_level'
     ];
 
     public function departement()

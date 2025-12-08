@@ -10,6 +10,8 @@ use App\Models\PaiePrime;
 use App\Models\Pointage;
 use App\Models\Contrat;
 use App\Models\Employe;
+use DateInterval;
+use DatePeriod;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -28,10 +30,14 @@ class PaieController extends Controller
             $param   = PaieParametre::firstOrFail();
             $mois    = $request->mois;
 
-            [$heuresTrav, $heuresSup, $details, $absences, $retardsTotal] = $this->calculerHeuresMois($employe->id, $mois);
-
             $salaireBase = $this->recupererSalaireBase($employe->id);
-            $montantHs   = $heuresSup * ($salaireBase / 173.33) * $param->hs_taux;
+            $tauxHoraire = $salaireBase > 0 ? $salaireBase / 173.33 : 0;
+
+            [$heuresTrav, $details, $absences, $retardsTotal] = $this->calculerHeuresMois($employe->id, $mois);
+            [$heuresSup, $montantHs] = $this->calculerHsHebdo($details, $tauxHoraire);
+
+            $deductionRetards = ($retardsTotal / 60) * $tauxHoraire;
+            $deductionAbsences = $absences * ($salaireBase / 30);
 
             $brut = $salaireBase
                 + $param->prime_transport
@@ -41,7 +47,7 @@ class PaieController extends Controller
             $cnaps = $brut * ($param->cnaps / 100);
             $ostie = $brut * ($param->ostie / 100);
             $irsa  = max(0, ($brut - $param->irsa_base) * ($param->irsa_taux / 100));
-            $retenues = $cnaps + $ostie + $irsa;
+            $retenues = $cnaps + $ostie + $irsa + $deductionRetards + $deductionAbsences;
             $net = $brut - $retenues;
 
             $paie = Paie::create([
@@ -110,15 +116,17 @@ class PaieController extends Controller
             ->groupBy(fn($p) => $p->pointe_a->toDateString());
 
         $totalHeures = 0;
-        $totalHs = 0;
         $totalRetards = 0;
         $absences = 0;
         $details = [];
 
-        foreach ($pointages as $jour => $liste) {
+        $period = new DatePeriod($start, new DateInterval('P1D'), $end->copy()->addDay());
+
+        foreach ($period as $day) {
+            $jour = $day->format('Y-m-d');
+            $liste = $pointages[$jour] ?? collect();
             $resume = $this->calculerJournee($liste, $jour);
             $totalHeures += $resume['heures_travaillees'];
-            $totalHs += $resume['heures_supplementaires'];
             $totalRetards += $resume['retard_minutes'];
             if ($resume['absent']) {
                 $absences++;
@@ -133,7 +141,7 @@ class PaieController extends Controller
             ];
         }
 
-        return [$totalHeures, $totalHs, $details, $absences, $totalRetards];
+        return [$totalHeures, $details, $absences, $totalRetards];
     }
 
     protected function calculerJournee($pointages, $jour)
@@ -202,5 +210,52 @@ class PaieController extends Controller
             }
         }
         return $total;
+    }
+
+    /**
+     * Calcul des HS hebdomadaires (8h à 1.3, 12h suivantes à 1.5, dimanche à 1.4).
+     */
+    protected function calculerHsHebdo(array $details, float $tauxHoraire): array
+    {
+        $weeks = [];
+        foreach ($details as $d) {
+            $date = Carbon::parse($d['jour']);
+            $weekKey = $date->isoWeekYear() . '-' . $date->isoWeek();
+            if (!isset($weeks[$weekKey])) {
+                $weeks[$weekKey] = ['weekday_hours' => 0, 'sunday_hours' => 0];
+            }
+            $hours = $d['heures_travaillees'] ?? 0;
+            if ($date->isSunday()) {
+                $weeks[$weekKey]['sunday_hours'] += $hours;
+            } else {
+                $weeks[$weekKey]['weekday_hours'] += $hours;
+            }
+        }
+
+        $totalHsHours = 0;
+        $totalHsAmount = 0;
+
+        foreach ($weeks as $week) {
+            $weekdayHours = $week['weekday_hours'];
+            $sundayHours = $week['sunday_hours'];
+
+            $overtime = max(0, $weekdayHours - 40);
+            $first8 = min(8, $overtime);
+            $next12 = min(12, max(0, $overtime - $first8));
+            $beyond = max(0, $overtime - $first8 - $next12);
+
+            $hsWeekHours = $overtime + $sundayHours;
+
+            $amount = 0;
+            $amount += $first8 * $tauxHoraire * 1.3;
+            $amount += $next12 * $tauxHoraire * 1.5;
+            $amount += $beyond * $tauxHoraire * 1.5;
+            $amount += $sundayHours * $tauxHoraire * 1.4;
+
+            $totalHsHours += $hsWeekHours;
+            $totalHsAmount += $amount;
+        }
+
+        return [round($totalHsHours, 2), round($totalHsAmount, 2)];
     }
 }

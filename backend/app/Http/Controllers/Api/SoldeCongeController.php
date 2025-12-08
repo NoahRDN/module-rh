@@ -17,7 +17,15 @@ class SoldeCongeController extends Controller
     {
         try {
             $emp = $request->query('employe_id');
-            $query = SoldeConge::with(['employe', 'type'])->orderBy('id', 'desc');
+            $query = SoldeConge::with(['employe', 'type'])
+                ->orderBy('id', 'desc')
+                ->whereHas('employe.contrats', function ($q) {
+                    $now = now()->toDateString();
+                    $q->whereDate('date_debut', '<=', $now)
+                      ->where(function ($w) use ($now) {
+                          $w->whereNull('date_fin')->orWhereDate('date_fin', '>=', $now);
+                      });
+                });
             if ($emp) {
                 $query->where('employe_id', $emp);
             }
@@ -86,14 +94,15 @@ class SoldeCongeController extends Controller
                 if (!$embauche) {
                     continue;
                 }
-                $months = $embauche->diffInMonths(Carbon::now());
-                $months = min($months, 36); // limite 3 ans
-                $entitlement = min($months * 2.5, 90); // plafond 90 jours
+                $months = min($embauche->diffInMonths(Carbon::now()), 36); // limite 3 ans
 
                 foreach ($typePayes as $type) {
+                    $baseMin = $type->jours_annuels ?: 90; // si non renseigné, plafond direct
+                    $entitlement = min(max($months * 2.5, $baseMin), 90); // minimum baseMin, maxi 90
+                    
                     $solde = SoldeConge::firstOrCreate(
                         ['employe_id' => $emp->id, 'type_id' => $type->id],
-                        ['solde_actuel' => 0, 'solde_annuel' => 0]
+                        ['solde_actuel' => $entitlement, 'solde_annuel' => $entitlement]
                     );
 
                     $diff = $entitlement - $solde->solde_annuel;

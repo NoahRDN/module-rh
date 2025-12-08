@@ -17,6 +17,7 @@ class PosteRequest extends FormRequest
             'nom'            => 'required|string|max:100',
             'description'    => 'nullable|string',
             'departement_id' => 'required|exists:departements,id',
+            'categorie'      => 'nullable|string|in:Ouvriers,Employés,TAM,Cadres,Dirigeants',
         ];
     }
 }

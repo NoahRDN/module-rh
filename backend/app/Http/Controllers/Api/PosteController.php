@@ -31,7 +31,10 @@ class PosteController extends Controller
     public function store(PosteRequest $request)
     {
         try {
-            $poste = Poste::create($request->validated());
+            $data = $request->validated();
+            $data['categorie_level'] = $this->categorieLevel($data['categorie'] ?? null);
+
+            $poste = Poste::create($data);
             return response()->json($poste, 201);
         } catch (\Throwable $e) {
             Log::error('Erreur creation poste', ['error' => $e->getMessage()]);
@@ -53,7 +56,9 @@ class PosteController extends Controller
     {
         try {
             $poste = Poste::findOrFail($id);
-            $poste->update($request->validated());
+            $data = $request->validated();
+            $data['categorie_level'] = $this->categorieLevel($data['categorie'] ?? null);
+            $poste->update($data);
 
             return response()->json($poste);
         } catch (\Throwable $e) {
@@ -72,5 +77,19 @@ class PosteController extends Controller
             Log::error('Erreur suppression poste', ['id' => $id, 'error' => $e->getMessage()]);
             return response()->json(['message' => 'Erreur serveur'], 500);
         }
+    }
+
+    protected function categorieLevel(?string $categorie): ?int
+    {
+        if (!$categorie) {
+            return null;
+        }
+        $list = config('categories.list', []);
+        foreach ($list as $item) {
+            if (strcasecmp($item['code'], $categorie) === 0) {
+                return (int) ($item['level'] ?? null);
+            }
+        }
+        return null;
     }
 }

@@ -5,13 +5,16 @@
       <p class="text-sm text-slate-500">Vue Mois / Semaine / Jour</p>
     </div>
     <div class="flex flex-wrap items-center gap-2">
-      <select class="select" v-model="filter.type" @change="fetchEvents">
+      <select class="select" v-model="filter.type" @change="debouncedFetchEvents">
         <option value="">Tous les types</option>
         <option value="conge">Congés</option>
         <option value="absence">Absences</option>
         <option value="ferie">Jours fériés</option>
         <option value="rh">Événements RH</option>
       </select>
+      <input class="input" placeholder="Matricule" v-model="filter.matricule" @input="debouncedFetchEvents" />
+      <input class="input" placeholder="Nom" v-model="filter.nom" @input="debouncedFetchEvents" />
+      <button class="btn btn-secondary btn-xs" @click="resetFilters">Réinitialiser</button>
     </div>
   </div>
 
@@ -107,9 +110,10 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import api from '../services/api'
+import { debounce } from '../utils/debounce'
 
 const events = ref([])
-const filter = ref({ type: '' })
+const filter = ref({ type: '', matricule: '', nom: '' })
 const viewMode = ref('month')
 const currentDate = ref(new Date())
 const weekDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
@@ -117,9 +121,13 @@ const weekDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 const fetchEvents = async () => {
   const params = {}
   if (filter.value.type) params.type = filter.value.type
+  if (filter.value.matricule) params.matricule = filter.value.matricule
+  if (filter.value.nom) params.nom = filter.value.nom
   const { data } = await api.get('/v1/calendrier-evenements', { params })
   events.value = data.data || []
 }
+
+const debouncedFetchEvents = debounce(fetchEvents, 300)
 
 const formatDate = (date) => date.toISOString().slice(0, 10)
 
@@ -197,6 +205,11 @@ const prevRange = () => {
   else if (viewMode.value === 'week') d.setDate(d.getDate() - 7)
   else d.setDate(d.getDate() - 1)
   currentDate.value = d
+}
+
+const resetFilters = () => {
+  filter.value = { type: '', matricule: '', nom: '' }
+  fetchEvents()
 }
 
 const nextRange = () => {

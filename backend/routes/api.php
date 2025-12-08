@@ -21,8 +21,11 @@ use App\Http\Controllers\Api\PointageController;
 use App\Http\Controllers\Api\PaieController;
 use App\Http\Controllers\Api\PaieParametreController;
 use App\Http\Controllers\Api\PaiePdfController;
+use App\Http\Controllers\Api\EmployePdfController;
 use App\Http\Controllers\Api\CalendrierEvenementController;
 use App\Http\Controllers\Api\AlerteController;
+use App\Http\Controllers\Api\ContratHistoriqueController;
+use App\Http\Controllers\Api\ContratPdfController;
 
 Route::post('/login', [AuthController::class, 'login']);
 
@@ -45,7 +48,10 @@ Route::prefix('v1')->group(function () {
 
     Route::middleware(['auth:sanctum', 'role:admin,rh'])->group(function () {
         Route::apiResource('employes', ApiEmployeController::class);
-        Route::apiResource('contrats', ContratController::class);
+    Route::get('employes/{id}/pdf', [EmployePdfController::class, 'telecharger']);
+    Route::apiResource('contrats', ContratController::class);
+    Route::apiResource('contrats-historiques', ContratHistoriqueController::class)->only(['index']);
+    Route::get('contrats/{id}/pdf', [ContratPdfController::class, 'telecharger']);
         Route::apiResource('documents', DocumentEmployeController::class);
         Route::get('documents/types', [DocumentUploadController::class, 'types']);
         Route::post('documents/upload', [DocumentUploadController::class, 'store']);

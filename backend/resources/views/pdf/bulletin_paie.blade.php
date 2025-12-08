@@ -87,6 +87,14 @@
         <td>Montant heures sup</td>
         <td>{{ number_format($paie->montant_hs, 0, ',', ' ') }} Ar</td>
     </tr>
+    <tr>
+        <td>Total retards (minutes)</td>
+        <td>{{ $paie->details->sum('retard_minutes') }}</td>
+    </tr>
+    <tr>
+        <td>Absences (jours)</td>
+        <td>{{ $paie->details->where('absent', true)->count() }}</td>
+    </tr>
 </table>
 
 @if ($primes->count() > 0)
@@ -106,6 +114,15 @@
     <tr><td>CNAPS</td><td>{{ number_format($paie->retenue_cnaps, 0, ',', ' ') }} Ar</td></tr>
     <tr><td>OSTIE</td><td>{{ number_format($paie->retenue_ostie, 0, ',', ' ') }} Ar</td></tr>
     <tr><td>IRSA</td><td>{{ number_format($paie->retenue_irsa, 0, ',', ' ') }} Ar</td></tr>
+    @php
+        $tauxHoraire = $paie->salaire_base > 0 ? $paie->salaire_base / 173.33 : 0;
+        $retardMinutes = $paie->details->sum('retard_minutes');
+        $absences = $paie->details->where('absent', true)->count();
+        $dedRetards = ($retardMinutes / 60) * $tauxHoraire;
+        $dedAbs = $absences * ($paie->salaire_base / 30);
+    @endphp
+    <tr><td>Déduction retards</td><td>{{ number_format($dedRetards, 0, ',', ' ') }} Ar</td></tr>
+    <tr><td>Déduction absences</td><td>{{ number_format($dedAbs, 0, ',', ' ') }} Ar</td></tr>
 </table>
 
 <div class="section-title">Synthèse</div>

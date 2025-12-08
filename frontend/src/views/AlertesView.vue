@@ -21,6 +21,13 @@
         >
           <p class="font-semibold">{{ a.message }}</p>
           <p class="text-xs text-slate-400" v-if="a.demande_id">Demande #{{ a.demande_id }}</p>
+          <RouterLink
+            v-if="a.demande_id"
+            class="text-xs text-emerald-600 underline"
+            :to="{ name: 'demandes-conges', query: { focus: a.demande_id } }"
+          >
+            Ouvrir la demande
+          </RouterLink>
         </div>
         <p v-if="!alertesFiltrees(['conge_en_attente', 'conge_proche']).length" class="muted text-sm">Aucune alerte</p>
       </div>
@@ -46,6 +53,7 @@
 
 <script setup>
 import { onMounted, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import api from '../services/api'
 
 const alertes = ref([])

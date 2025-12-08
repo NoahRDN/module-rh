@@ -10,11 +10,6 @@
 
     <div class="card">
       <form class="space-y-4" @submit.prevent="createEmploye">
-        <div class="grid gap-1">
-          <label class="text-sm text-slate-400">Matricule</label>
-          <input class="input" v-model="form.matricule" placeholder="Matricule" required />
-        </div>
-
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div class="grid gap-1">
             <label class="text-sm text-slate-400">Nom</label>
@@ -55,16 +50,9 @@
 
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div class="grid gap-1">
-            <label class="text-sm text-slate-400">Département</label>
-            <select class="select" v-model="form.departement_id">
-              <option value="">(Optionnel)</option>
-              <option v-for="dep in departements" :key="dep.id" :value="dep.id">{{ dep.nom }}</option>
-            </select>
-          </div>
-          <div class="grid gap-1">
             <label class="text-sm text-slate-400">Poste</label>
-            <select class="select" v-model="form.poste_id">
-              <option value="">(Optionnel)</option>
+            <select class="select" v-model="form.poste_id" required>
+              <option value="">Sélectionner un poste</option>
               <option v-for="p in postes" :key="p.id" :value="p.id">{{ p.nom }}</option>
             </select>
           </div>
@@ -98,13 +86,11 @@ import { useRouter, RouterLink } from 'vue-router'
 import api from '../services/api'
 
 const router = useRouter()
-const departements = ref([])
 const postes = ref([])
 const message = ref('')
 const photoPreview = ref('https://via.placeholder.com/80?text=EMP')
 
 const form = ref({
-  matricule: '',
   nom: '',
   prenom: '',
   email: '',
@@ -112,18 +98,13 @@ const form = ref({
   adresse: '',
   date_naissance: '',
   date_embauche: '',
-  departement_id: '',
   poste_id: '',
   photo: ''
 })
 
 const fetchRefs = async () => {
-  const [deps, pos] = await Promise.all([
-    api.get('/v1/departements'),
-    api.get('/v1/postes')
-  ])
-  departements.value = deps.data.data || []
-  postes.value = pos.data.data || []
+  const { data } = await api.get('/v1/postes')
+  postes.value = data.data || []
 }
 
 const onPhoto = (e) => {
@@ -140,7 +121,6 @@ const onPhoto = (e) => {
 const createEmploye = async () => {
   try {
     const payload = { ...form.value }
-    payload.departement_id = payload.departement_id || null
     payload.poste_id = payload.poste_id || null
     payload.photo = payload.photo || null
     payload.date_naissance = payload.date_naissance || null

@@ -14,7 +14,7 @@
         :key="item.to"
         :to="item.to"
         class="menu-item"
-        :class="{ active: route.path.startsWith(item.to) }"
+        :class="{ active: route.path === item.to || route.path.startsWith(item.to + '/') }"
       >
         <span class="icon">{{ item.icon }}</span>
         <div>
@@ -37,6 +37,7 @@ const items = [
   { to: '/departements', label: 'Départements', hint: 'Structure', icon: '🏢' },
   { to: '/postes', label: 'Postes', hint: 'Fonctions', icon: '🪜' },
   { to: '/contrats', label: 'Contrats', hint: 'CDD / CDI / Stage', icon: '📄' },
+  { to: '/contrats-historiques', label: 'Hist. contrats', hint: 'Versions & renouvellements', icon: '🗂️' },
   { to: '/absences-types', label: 'Types d\'absence', hint: 'Congés / absences', icon: '🏷️' },
   { to: '/soldes-conges', label: 'Soldes congés', hint: 'Payés / maladie / exceptionnels', icon: '🧮' },
   { to: '/demandes-conges', label: 'Demandes de congés', hint: 'Workflow', icon: '🗓️' },

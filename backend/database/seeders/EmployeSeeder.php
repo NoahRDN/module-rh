@@ -14,7 +14,7 @@ class EmployeSeeder extends Seeder
 
         for ($i = 1; $i <= 10; $i++) {
             Employe::create([
-                'matricule'      => 'EMP-' . str_pad($i, 4, '0', STR_PAD_LEFT),
+                'matricule'      => 'EMP-' . now()->format('Ymd') . '-' . str_pad($i, 4, '0', STR_PAD_LEFT),
                 'nom'            => $faker->lastName(),
                 'prenom'         => $faker->firstName(),
                 'email'          => $faker->unique()->safeEmail(),

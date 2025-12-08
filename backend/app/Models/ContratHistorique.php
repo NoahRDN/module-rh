@@ -4,11 +4,10 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class Contrat extends Model
+class ContratHistorique extends Model
 {
-    protected $table = 'contrats';
-
     protected $fillable = [
+        'contrat_id',
         'numero',
         'employe_id',
         'type_contrat',
@@ -18,17 +17,20 @@ class Contrat extends Model
         'periode_essai_fin',
         'renouvelable',
         'salaire_base',
-        'statut',
     ];
 
     protected $casts = [
-        'date_debut'           => 'date',
-        'date_fin'             => 'date',
-        'periode_essai_debut'  => 'date',
-        'periode_essai_fin'    => 'date',
-        'renouvelable'         => 'boolean',
-        'salaire_base'         => 'decimal:2'
+        'renouvelable' => 'boolean',
+        'date_debut' => 'date',
+        'date_fin' => 'date',
+        'periode_essai_debut' => 'date',
+        'periode_essai_fin' => 'date',
     ];
+
+    public function contrat()
+    {
+        return $this->belongsTo(Contrat::class);
+    }
 
     public function employe()
     {

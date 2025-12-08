@@ -6,6 +6,8 @@ import DepartementsView from '../views/DepartementsView.vue'
 import PostesView from '../views/PostesView.vue'
 import ContratsView from '../views/ContratsView.vue'
 import ContratCreateView from '../views/ContratCreateView.vue'
+import ContratDetailView from '../views/ContratDetailView.vue'
+import ContratsHistoriqueView from '../views/ContratsHistoriqueView.vue'
 import DocumentsView from '../views/DocumentsView.vue'
 import HistoriquePostesView from '../views/HistoriquePostesView.vue'
 import HistoriqueCreateView from '../views/HistoriqueCreateView.vue'
@@ -38,6 +40,8 @@ const routes = [
       { path: 'postes', name: 'postes', component: PostesView, meta: { subtitle: 'Fonctions' } },
       { path: 'contrats', name: 'contrats', component: ContratsView, meta: { subtitle: 'Contrats' } },
       { path: 'contrats/nouveau', name: 'contrats-create', component: ContratCreateView, meta: { subtitle: 'Nouveau contrat' } },
+      { path: 'contrats/:id', name: 'contrat-detail', component: ContratDetailView, meta: { subtitle: 'Fiche contrat' } },
+      { path: 'contrats-historiques', name: 'contrats-historiques', component: ContratsHistoriqueView, meta: { subtitle: 'Historique contrats' } },
       { path: 'absences-types', name: 'absences-types', component: AbsenceTypesView, meta: { subtitle: 'Absences' } },
       { path: 'soldes-conges', name: 'soldes-conges', component: SoldeCongesView, meta: { subtitle: 'Soldes congés' } },
       { path: 'demandes-conges', name: 'demandes-conges', component: DemandesCongesView, meta: { subtitle: 'Congés' } },

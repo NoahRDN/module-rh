@@ -1,6 +1,9 @@
 <template>
   <div class="profile-shell">
-    <button class="back-btn" @click="router.back()">← Retour</button>
+    <div class="flex items-center gap-2 mb-2">
+      <button class="back-btn" @click="router.back()">← Retour</button>
+      <button class="btn btn-secondary text-sm" @click="telechargerPdf">PDF fiche</button>
+    </div>
     <div class="card header-card">
       <div class="profile-top">
         <div class="avatar">
@@ -43,6 +46,135 @@
           <p class="label">Date d'embauche</p>
           <p class="value">{{ employe.date_embauche || '—' }}</p>
         </div>
+        <div class="info-item">
+          <p class="label">Catégorie</p>
+          <p class="value">{{ employe.poste?.categorie || '—' }}</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid gap-3">
+      <div class="card">
+        <div class="flex items-center justify-between mb-2">
+          <h3>Contrat actuel</h3>
+          <RouterLink class="text-sm underline" to="/contrats">Voir tous</RouterLink>
+        </div>
+        <div v-if="contratActuel" class="info-grid">
+          <div class="info-item"><p class="label">Numéro</p><p class="value">{{ contratActuel.numero || '—' }}</p></div>
+          <div class="info-item"><p class="label">Type</p><p class="value">{{ contratActuel.type_contrat }}</p></div>
+          <div class="info-item"><p class="label">Contrat</p><p class="value">{{ formatDate(contratActuel.date_debut) }} → {{ formatDate(contratActuel.date_fin) || '—' }}</p></div>
+          <div class="info-item"><p class="label">Période d'essai</p><p class="value">{{ formatDate(contratActuel.periode_essai_debut) || '—' }} → {{ formatDate(contratActuel.periode_essai_fin) || '—' }}</p></div>
+          <div class="info-item"><p class="label">Salaire</p><p class="value">{{ contratActuel.salaire_base }} Ar</p></div>
+        </div>
+        <p v-else class="muted text-sm">Aucun contrat associé</p>
+      </div>
+
+      <div class="card">
+        <div class="flex items-center justify-between mb-2">
+          <h3>Historique des postes</h3>
+          <RouterLink class="text-sm underline" to="/historiques">Voir</RouterLink>
+        </div>
+        <table class="table text-sm">
+          <thead><tr><th>Poste</th><th>Département</th><th>Date</th><th>Motif</th></tr></thead>
+          <tbody>
+            <tr v-for="h in histPostes" :key="h.id">
+              <td>{{ h.poste?.nom || '—' }}</td>
+              <td>{{ h.departement?.nom || '—' }}</td>
+              <td>{{ formatDate(h.date_changement) }}</td>
+              <td>{{ h.motif || '—' }}</td>
+            </tr>
+            <tr v-if="!histPostes.length"><td colspan="4" class="muted">Aucun historique</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <div class="flex items-center justify-between mb-2">
+          <h3>Historique des contrats</h3>
+          <RouterLink class="text-sm underline" to="/contrats-historiques">Voir</RouterLink>
+        </div>
+        <table class="table text-sm">
+          <thead><tr><th>Numéro</th><th>Type</th><th>Contrat</th><th>Période d'essai</th></tr></thead>
+          <tbody>
+            <tr v-for="h in histContrats" :key="h.id">
+              <td>{{ h.numero || '—' }}</td>
+              <td>{{ h.type_contrat }}</td>
+              <td>{{ formatDate(h.date_debut) }} → {{ formatDate(h.date_fin) || '—' }}</td>
+              <td>{{ formatDate(h.periode_essai_debut) || '—' }} → {{ formatDate(h.periode_essai_fin) || '—' }}</td>
+            </tr>
+            <tr v-if="!histContrats.length"><td colspan="4" class="muted">Aucun historique</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <div class="flex items-center justify-between mb-2">
+          <h3>Pointages</h3>
+          <div class="flex items-center gap-2">
+            <select class="select" v-model="pointageMode">
+              <option value="week">Semaine</option>
+              <option value="month">Mois</option>
+              <option value="year">Année</option>
+            </select>
+            <input v-if="pointageMode==='week' || pointageMode==='month'" class="input w-32" type="month" v-model="pointageMonth" />
+            <input v-else class="input w-24" type="number" min="2000" max="2100" v-model="pointageYear" />
+            <button class="btn btn-secondary btn-xs" @click="loadPointages">Actualiser</button>
+          </div>
+        </div>
+        <div v-if="pointageMode==='week'" class="grid gap-2 md:grid-cols-2">
+          <div v-for="w in pointagesSynth" :key="w.label" class="info-item">
+            <p class="font-semibold">Semaine {{ w.label }}</p>
+            <p class="text-sm">Heures : {{ w.heures_travaillees }} | HS : {{ w.heures_supplementaires }}</p>
+            <p class="text-sm">Retards : {{ w.retard_minutes }} min | Absences : {{ w.absences }}</p>
+            <p class="text-sm">Dimanches : {{ w.dimanches }}</p>
+          </div>
+          <p v-if="!pointagesSynth.length" class="muted text-sm">Aucune donnée</p>
+        </div>
+        <div v-if="pointageMode==='month'" class="grid gap-2 md:grid-cols-2">
+          <div v-for="d in pointagesDetails" :key="d.jour" class="info-item">
+            <p class="font-semibold">{{ d.jour }}</p>
+            <p class="text-sm">Heures : {{ d.heures_travaillees }} | HS : {{ d.heures_supplementaires }}</p>
+            <p class="text-sm">Retard : {{ d.retard_minutes }} min | Absences : {{ d.absent ? 1 : 0 }}</p>
+          </div>
+        </div>
+        <div v-if="pointageMode==='year'" class="grid gap-2 md:grid-cols-3">
+          <div v-for="m in pointagesSynth" :key="m.label" class="info-item">
+            <p class="font-semibold">{{ m.label }}</p>
+            <p class="text-sm">Heures : {{ m.heures_travaillees }} | HS : {{ m.heures_supplementaires }}</p>
+            <p class="text-sm">Retards : {{ m.retard_minutes }} min | Absences : {{ m.absences }}</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Soldes de congé</h3>
+        <table class="table text-sm">
+          <thead><tr><th>Type</th><th>Solde actuel</th><th>Solde annuel</th></tr></thead>
+          <tbody>
+            <tr v-for="s in soldes" :key="s.id">
+              <td>{{ s.type?.nom || '—' }}</td>
+              <td>{{ s.solde_actuel }}</td>
+              <td>{{ s.solde_annuel }}</td>
+            </tr>
+            <tr v-if="!soldes.length"><td colspan="3" class="muted">Aucun solde</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h3>Historique des demandes de congés</h3>
+        <table class="table text-sm">
+          <thead><tr><th>Type</th><th>Début</th><th>Fin</th><th>Statut</th></tr></thead>
+          <tbody>
+            <tr v-for="d in demandes" :key="d.id">
+              <td>{{ d.type?.nom || d.type?.label || '—' }}</td>
+              <td>{{ formatDate(d.date_debut) }}</td>
+              <td>{{ formatDate(d.date_fin) }}</td>
+              <td><span class="chip">{{ d.statut }}</span></td>
+            </tr>
+            <tr v-if="!demandes.length"><td colspan="4" class="muted">Aucune demande</td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
@@ -50,12 +182,22 @@
 
 <script setup>
 import { onMounted, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute, useRouter, RouterLink } from 'vue-router'
 import api from '../services/api'
 
 const route = useRoute()
 const router = useRouter()
 const employe = ref({})
+const contratActuel = ref(null)
+const histPostes = ref([])
+const histContrats = ref([])
+const soldes = ref([])
+const demandes = ref([])
+const pointageMode = ref('week')
+const pointageMonth = ref(new Date().toISOString().slice(0, 7))
+const pointageYear = ref(new Date().getFullYear())
+const pointagesSynth = ref([])
+const pointagesDetails = ref([])
 const placeholder = 'https://via.placeholder.com/120?text=EMP'
 
 const fetchEmploye = async () => {
@@ -63,9 +205,138 @@ const fetchEmploye = async () => {
   employe.value = data
 }
 
+const fetchContratActuel = async () => {
+  const { data } = await api.get('/v1/contrats', { params: { employe_id: route.params.id } })
+  const items = data.data || []
+  contratActuel.value = items[0] || null
+}
+
+const fetchHistPostes = async () => {
+  const { data } = await api.get('/v1/historiques-postes', { params: { employe_id: route.params.id } })
+  histPostes.value = data.data || []
+}
+
+const fetchHistContrats = async () => {
+  const { data } = await api.get('/v1/contrats-historiques', { params: { employe_id: route.params.id } })
+  histContrats.value = data.data || []
+}
+
+const fetchSoldes = async () => {
+  try {
+    const { data } = await api.get('/v1/soldes-conges', { params: { employe_id: route.params.id } })
+    soldes.value = data.data || []
+  } catch (e) {
+    soldes.value = []
+  }
+}
+
+const fetchDemandes = async () => {
+  try {
+    const { data } = await api.get('/v1/demandes-conges', { params: { employe_id: route.params.id } })
+    demandes.value = data.data || []
+  } catch (e) {
+    demandes.value = []
+  }
+}
+
+const loadPointages = async () => {
+  pointagesSynth.value = []
+  pointagesDetails.value = []
+  if (pointageMode.value === 'week' || pointageMode.value === 'month') {
+    const { data } = await api.get('/v1/pointages/releve-paie', {
+      params: { employe_id: route.params.id, mois: pointageMonth.value }
+    })
+    if (pointageMode.value === 'week') {
+      pointagesSynth.value = groupByWeek(data.details || [])
+    } else {
+      pointagesDetails.value = (data.details || []).map((d) => ({
+        ...d,
+        jour: d.jour,
+      }))
+    }
+  } else {
+    // année : agrégation mensuelle
+    const results = []
+    for (let m = 1; m <= 12; m++) {
+      const moisStr = `${pointageYear.value}-${String(m).padStart(2, '0')}`
+      try {
+        const { data } = await api.get('/v1/pointages/releve-paie', { params: { employe_id: route.params.id, mois: moisStr } })
+        const tot = data.totaux || {}
+        results.push({
+          label: moisStr,
+          heures_travaillees: tot.heures_travaillees || 0,
+          heures_supplementaires: tot.heures_supplementaires || 0,
+          retard_minutes: tot.retard_minutes || 0,
+          absences: tot.absences || 0,
+        })
+      } catch (e) {
+        // ignore
+      }
+    }
+    pointagesSynth.value = results
+  }
+}
+
+const groupByWeek = (list) => {
+  const weeks = {}
+  list.forEach((d) => {
+    const date = new Date(d.jour)
+    const label = weekLabel(date)
+    if (!weeks[label]) {
+      weeks[label] = { label, heures_travaillees: 0, heures_supplementaires: 0, retard_minutes: 0, absences: 0, dimanches: 0 }
+    }
+    weeks[label].heures_travaillees += d.heures_travaillees || 0
+    weeks[label].heures_supplementaires += d.heures_supplementaires || 0
+    weeks[label].retard_minutes += d.retard_minutes || 0
+    weeks[label].absences += d.absent ? 1 : 0
+    if (new Date(d.jour).getDay() === 0) weeks[label].dimanches += 1
+  })
+  return Object.values(weeks)
+}
+
+const weekLabel = (date) => {
+  const d = new Date(date)
+  const day = d.getDay()
+  const diffToMonday = (day === 0 ? -6 : 1 - day)
+  const monday = new Date(d)
+  monday.setDate(d.getDate() + diffToMonday)
+  const end = new Date(monday)
+  end.setDate(monday.getDate() + 6)
+  const fmt = (dt) => dt.toISOString().slice(0, 10)
+  return `${fmt(monday)} → ${fmt(end)}`
+}
+
 const photoUrl = (emp) => emp.photo || placeholder
 
-onMounted(fetchEmploye)
+const formatDate = (d) => (d ? String(d).split('T')[0] : '')
+
+const telechargerPdf = async () => {
+  if (!employe.value?.id) return
+  try {
+    const { data, headers } = await api.get(`/v1/employes/${employe.value.id}/pdf`, { responseType: 'blob' })
+    const blob = new Blob([data], { type: headers['content-type'] || 'application/pdf' })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `employe_${employe.value.matricule || employe.value.id}.pdf`
+    link.click()
+    window.URL.revokeObjectURL(url)
+  } catch (e) {
+    // ignore
+  }
+}
+
+onMounted(async () => {
+  await Promise.all([
+    fetchEmploye(),
+    fetchContratActuel(),
+    fetchHistPostes(),
+    fetchHistContrats(),
+    fetchSoldes(),
+    fetchDemandes(),
+  ])
+  await loadPointages()
+})
 </script>
 
 <style scoped>

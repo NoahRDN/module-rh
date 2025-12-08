@@ -27,6 +27,8 @@ class Employe extends Model
         'date_embauche'  => 'date',
     ];
 
+    protected $appends = ['actif'];
+
     public function poste()
     {
         return $this->belongsTo(Poste::class);
@@ -73,5 +75,16 @@ class Employe extends Model
                 ->orWhere('prenom', 'LIKE', "%{$term}%")
                 ->orWhere('matricule', 'LIKE', "%{$term}%");
         });
+    }
+
+    public function getActifAttribute(): bool
+    {
+        $now = now()->toDateString();
+        return $this->contrats()
+            ->whereDate('date_debut', '<=', $now)
+            ->where(function ($q) use ($now) {
+                $q->whereNull('date_fin')->orWhereDate('date_fin', '>=', $now);
+            })
+            ->exists();
     }
 }

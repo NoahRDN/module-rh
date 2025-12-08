@@ -14,8 +14,9 @@
           <label class="text-sm text-slate-400">Employé</label>
           <select class="select" v-model="form.employe_id" required>
             <option value="">Employé</option>
-            <option v-for="emp in employes" :key="emp.id" :value="emp.id">{{ emp.matricule }} - {{ emp.nom }} {{ emp.prenom }}</option>
+            <option v-for="emp in employesDisponibles" :key="emp.id" :value="emp.id">{{ emp.matricule }} - {{ emp.nom }} {{ emp.prenom }}</option>
           </select>
+          <p class="text-xs text-slate-500" v-if="!employesDisponibles.length">Aucun employé disponible (tous ont un contrat actif)</p>
         </div>
 
         <div class="grid gap-1">
@@ -31,19 +32,47 @@
             <input class="input" type="date" v-model="form.date_debut" required />
           </div>
           <div class="grid gap-1">
-            <label class="text-sm text-slate-400">Date de fin (optionnel)</label>
-            <input class="input" type="date" v-model="form.date_fin" />
+            <label class="text-sm text-slate-400">Durée du contrat</label>
+            <div class="flex flex-wrap gap-2 md:flex-nowrap">
+              <label class="text-xs text-slate-500 flex flex-col gap-1 w-20">
+                Jours
+                <input class="input" type="number" min="0" v-model.number="form.duree_jours" />
+              </label>
+              <label class="text-xs text-slate-500 flex flex-col gap-1 w-20">
+                Mois
+                <input class="input" type="number" min="0" v-model.number="form.duree_mois" />
+              </label>
+              <label class="text-xs text-slate-500 flex flex-col gap-1 w-24">
+                Années
+                <input class="input" type="number" min="0" v-model.number="form.duree_ans" />
+              </label>
+            </div>
+            <p class="text-xs text-slate-500">Laissez 0 pour ignorer l'unité</p>
           </div>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div class="grid gap-1">
-            <label class="text-sm text-slate-400">Début période d'essai (optionnel)</label>
-            <input class="input" type="date" v-model="form.periode_essai_debut" />
+            <label class="text-sm text-slate-400">Durée de période d'essai</label>
+            <div class="flex flex-wrap gap-2 md:flex-nowrap">
+              <label class="text-xs text-slate-500 flex flex-col gap-1 w-20">
+                Jours
+                <input class="input" type="number" min="0" v-model.number="form.essai_jours" />
+              </label>
+              <label class="text-xs text-slate-500 flex flex-col gap-1 w-20">
+                Mois
+                <input class="input" type="number" min="0" v-model.number="form.essai_mois" />
+              </label>
+              <label class="text-xs text-slate-500 flex flex-col gap-1 w-24">
+                Années
+                <input class="input" type="number" min="0" v-model.number="form.essai_ans" />
+              </label>
+            </div>
+            <p class="text-xs text-slate-500">La période peut démarrer plus tard si précisé ci-dessous.</p>
           </div>
           <div class="grid gap-1">
-            <label class="text-sm text-slate-400">Fin période d'essai (optionnel)</label>
-            <input class="input" type="date" v-model="form.periode_essai_fin" />
+            <label class="text-sm text-slate-400">Début période d'essai (optionnel)</label>
+            <input class="input" type="date" v-model="form.essai_debut" />
           </div>
         </div>
 
@@ -64,7 +93,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, computed } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
 import api from '../services/api'
 
@@ -72,14 +101,19 @@ const router = useRouter()
 const employes = ref([])
 const message = ref('')
 const typeOptions = ['CDI', 'CDD', 'Stage', 'Interim', 'Consultant', 'Apprenti']
+const employesDisponibles = computed(() => employes.value.filter((e) => !e.actif))
 
 const form = ref({
   employe_id: '',
   type_contrat: 'CDI',
   date_debut: '',
-  date_fin: '',
-  periode_essai_debut: '',
-  periode_essai_fin: '',
+  duree_jours: 0,
+  duree_mois: 0,
+  duree_ans: 0,
+  essai_jours: 0,
+  essai_mois: 0,
+  essai_ans: 0,
+  essai_debut: '',
   salaire_base: '',
   renouvelable: false
 })
@@ -92,9 +126,7 @@ const fetchEmployes = async () => {
 const createContrat = async () => {
   try {
     const payload = { ...form.value }
-    payload.date_fin = payload.date_fin || null
-    payload.periode_essai_debut = payload.periode_essai_debut || null
-    payload.periode_essai_fin = payload.periode_essai_fin || null
+    // dates de fin calculées côté backend à partir des durées, on n'envoie pas de date_fin
     await api.post('/v1/contrats', payload)
     message.value = 'Contrat créé'
     setTimeout(() => router.push('/contrats'), 500)

@@ -26,6 +26,7 @@ use App\Http\Controllers\Api\CalendrierEvenementController;
 use App\Http\Controllers\Api\AlerteController;
 use App\Http\Controllers\Api\ContratHistoriqueController;
 use App\Http\Controllers\Api\ContratPdfController;
+use App\Http\Controllers\Api\FrequenceCongeController;
 use App\Http\Controllers\Api\TypeCongeController;
 
 Route::post('/login', [AuthController::class, 'login']);
@@ -47,17 +48,18 @@ Route::prefix('v1')->group(function () {
     Route::apiResource('postes', PosteController::class);
     // Types de congés accessibles en lecture sans auth stricte
     Route::get('types-conges', [TypeCongeController::class, 'index']);
+    Route::get('frequences-conges', [FrequenceCongeController::class, 'index']);
     Route::apiResource('historiques-postes', HistoriquePosteController::class)->only(['index', 'store', 'show', 'destroy']);
 
     Route::middleware(['auth:sanctum', 'role:admin,rh'])->group(function () {
-        Route::apiResource('employes', ApiEmployeController::class);
-        Route::get('employes/{id}/pdf', [EmployePdfController::class, 'telecharger']);
+    Route::apiResource('employes', ApiEmployeController::class);
+    Route::get('employes/{id}/pdf', [EmployePdfController::class, 'telecharger']);
     Route::apiResource('contrats', ContratController::class);
     Route::apiResource('contrats-historiques', ContratHistoriqueController::class)->only(['index']);
     Route::get('contrats/{id}/pdf', [ContratPdfController::class, 'telecharger']);
-        Route::apiResource('documents', DocumentEmployeController::class);
-        Route::get('documents/types', [DocumentUploadController::class, 'types']);
-        Route::post('documents/upload', [DocumentUploadController::class, 'store']);
+    Route::apiResource('documents', DocumentEmployeController::class);
+    Route::get('documents/types', [DocumentUploadController::class, 'types']);
+    Route::post('documents/upload', [DocumentUploadController::class, 'store']);
     Route::apiResource('absences-types', AbsenceTypeController::class);
     Route::apiResource('soldes-conges', SoldeCongeController::class);
     Route::post('soldes-conges/accrue', [SoldeCongeController::class, 'accrue']);

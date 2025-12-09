@@ -14,8 +14,7 @@ return new class extends Migration {
             $table->decimal('jours_forfait', 8, 2)->nullable();
             $table->boolean('utilise_solde')->default(true);
             $table->boolean('paye')->default(true);
-            $table->integer('limite_par_an')->nullable();
-            $table->integer('limite_par_mois')->nullable();
+            $table->integer('limite')->nullable();
             $table->boolean('justificatif_obligatoire')->default(false);
             $table->enum('sexe_autorise', ['homme', 'femme'])->nullable();
             $table->text('description')->nullable();

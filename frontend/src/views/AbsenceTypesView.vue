@@ -28,6 +28,8 @@
             <th class="py-2 text-left text-slate-400 text-xs cursor-pointer" @click="setSort('payant')">Payant {{ sortLabel('payant') }}</th>
             <th class="py-2 text-left text-slate-400 text-xs cursor-pointer" @click="setSort('jours')">Jours {{ sortLabel('jours') }}</th>
             <th class="py-2 text-left text-slate-400 text-xs">Fréquence</th>
+            <th class="py-2 text-left text-slate-400 text-xs">Limite</th>
+            <th class="py-2 text-left text-slate-400 text-xs">Cumulable</th>
             <th class="py-2 text-left text-slate-400 text-xs">Description</th>
           </tr>
         </thead>
@@ -40,10 +42,24 @@
             </td>
             <td class="py-2">{{ t.jours_forfait ?? '—' }}</td>
             <td class="py-2">{{ frequence(t) }}</td>
+            <td class="py-2">
+              <div class="text-xs text-slate-300">
+                <div v-if="t.limite">
+                  Max {{ t.limite }} <span v-if="t.limite_frequence">/ {{ t.limite_frequence.libelle || t.limite_frequence.code }}</span>
+                </div>
+                <div v-else>—</div>
+              </div>
+            </td>
+            <td class="py-2">
+              <div class="text-xs text-slate-300">
+                <div>{{ t.cumulable ? 'Oui' : 'Non' }}</div>
+                <div v-if="t.cumulable_duree">Durée: {{ t.cumulable_duree }} ({{ cumulableFreq(t) }})</div>
+              </div>
+            </td>
             <td class="py-2 text-slate-400 text-xs">{{ t.description || '—' }}</td>
           </tr>
           <tr v-if="!typesFiltres.length">
-            <td colspan="5" class="py-3 text-center text-slate-500">Aucun type</td>
+            <td colspan="7" class="py-3 text-center text-slate-500">Aucun type</td>
           </tr>
         </tbody>
       </table>
@@ -69,6 +85,13 @@
           <input class="input" v-model="form.code" placeholder="PAYE, MALADIE..." required />
         </div>
         <div class="grid gap-1">
+          <label class="text-sm text-slate-400">Fréquence (table)</label>
+          <select class="select" v-model="form.frequence_id">
+            <option value="">(optionnel)</option>
+            <option v-for="f in frequences" :key="f.id" :value="f.id">{{ f.code }} - {{ f.libelle }}</option>
+          </select>
+        </div>
+        <div class="grid gap-1">
           <label class="text-sm text-slate-400">Description</label>
           <textarea class="input" rows="3" v-model="form.description" placeholder="Règles, justificatifs, etc."></textarea>
         </div>
@@ -80,9 +103,35 @@
           <input type="checkbox" v-model="form.utilise_solde" />
           Utilise un solde
         </label>
+        <label class="text-sm text-slate-400 flex items-center gap-2">
+          <input type="checkbox" v-model="form.cumulable" />
+          Cumulable
+        </label>
         <div class="grid gap-1">
           <label class="text-sm text-slate-400">Jours forfait (optionnel)</label>
           <input class="input" v-model="form.jours_forfait" placeholder="Ex: 3" type="number" min="0" />
+        </div>
+        <div class="grid gap-1">
+          <label class="text-sm text-slate-400">Limite (nombre)</label>
+          <input class="input" v-model="form.limite" placeholder="Ex: 1" type="number" min="0" />
+        </div>
+        <div class="grid gap-1">
+          <label class="text-sm text-slate-400">Fréquence de limite</label>
+          <select class="select" v-model="form.limite_frequence_id">
+            <option value="">(optionnel)</option>
+            <option v-for="f in frequences" :key="f.id" :value="f.id">{{ f.code }} - {{ f.libelle }}</option>
+          </select>
+        </div>
+        <div class="grid gap-1" v-if="form.cumulable">
+          <label class="text-sm text-slate-400">Durée de cumul</label>
+          <input class="input" v-model="form.cumulable_duree" placeholder="Ex: 36" type="number" min="0" />
+        </div>
+        <div class="grid gap-1" v-if="form.cumulable">
+          <label class="text-sm text-slate-400">Fréquence de cumul</label>
+          <select class="select" v-model="form.cumulable_frequence_id">
+            <option value="">(optionnel)</option>
+            <option v-for="f in frequences" :key="f.id" :value="f.id">{{ f.code }} - {{ f.libelle }}</option>
+          </select>
         </div>
         <button class="btn w-full" type="submit">Enregistrer</button>
         <p class="text-sm text-slate-500" v-if="message">{{ message }}</p>
@@ -96,6 +145,7 @@ import { ref, onMounted, computed } from 'vue'
 import api from '../services/api'
 
 const types = ref([])
+const frequences = ref([])
 const search = ref('')
 const message = ref('')
 const filters = ref({ nom: '', payant: '', jours: '' })
@@ -108,11 +158,17 @@ const form = ref({
   description: '',
   paye: true,
   utilise_solde: true,
-  jours_forfait: ''
+  jours_forfait: '',
+  limite: '',
+  limite_frequence_id: '',
+  frequence_id: '',
+  cumulable: true,
+  cumulable_duree: '',
+  cumulable_frequence_id: ''
 })
 
 const fetchTypes = async () => {
-  const { data } = await api.get('/v1/types-conges', { params: { search: search.value, page: pagination.value.page } })
+  const { data } = await api.get('/v1/types-conges', { params: { search: search.value, page: pagination.value.page }, paramsSerializer: { indexes: null } })
   types.value = data.data || []
   if (data.meta) {
     pagination.value = { page: data.meta.current_page, last_page: data.meta.last_page, total: data.meta.total }
@@ -121,10 +177,20 @@ const fetchTypes = async () => {
   }
 }
 
+const fetchFrequences = async () => {
+  const { data } = await api.get('/v1/frequences-conges')
+  frequences.value = data || []
+}
+
 const createType = async () => {
   try {
     const payload = { ...form.value }
     payload.jours_forfait = payload.jours_forfait || null
+    payload.limite = payload.limite || null
+    payload.limite_frequence_id = payload.limite_frequence_id || null
+    payload.frequence_id = payload.frequence_id || null
+    payload.cumulable_duree = payload.cumulable ? (payload.cumulable_duree || null) : null
+    payload.cumulable_frequence_id = payload.cumulable ? (payload.cumulable_frequence_id || null) : null
     await api.post('/v1/types-conges', payload)
     message.value = 'Type ajouté'
     await fetchTypes()
@@ -133,7 +199,9 @@ const createType = async () => {
   }
 }
 
-onMounted(fetchTypes)
+onMounted(async () => {
+  await Promise.all([fetchTypes(), fetchFrequences()])
+})
 
 const typesFiltres = computed(() => {
   const f = filters.value
@@ -174,6 +242,7 @@ const sortLabel = (key) => (sortKey.value === key ? (sortDir.value === 'asc' ? '
 const resetFilters = () => { filters.value = { nom: '', payant: '', jours: '' } }
 
 const frequence = (t) => {
+  if (t.frequence?.libelle) return `${t.frequence.libelle} (${t.frequence.code})`
   const nom = (t.libelle || '').toLowerCase()
   if (nom.includes('mariage')) return '3 j — 1 fois/événement'
   if (nom.includes('décès') || nom.includes('deces')) return '3 j — par décès'
@@ -184,6 +253,15 @@ const frequence = (t) => {
   if (nom.includes('sans solde')) return 'Selon validation'
   if (t.jours_forfait) return `${t.jours_forfait} j`
   return 'Selon politique (mois/événement)'
+}
+const cumulableFreq = (t) => {
+  if (t.cumulable_frequence_id && t.cumulable_frequence) return `${t.cumulable_frequence.libelle || ''}`.trim() || '—'
+  if (t.cumulable_frequence_id && t.frequences) {
+    const found = (t.frequences || []).find((f) => f.id === t.cumulable_frequence_id)
+    if (found) return found.libelle
+  }
+  if (t.frequence?.libelle) return t.frequence.libelle
+  return '—'
 }
 const nextPage = () => {
   if (pagination.value.page < pagination.value.last_page) {

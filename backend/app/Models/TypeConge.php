@@ -14,8 +14,12 @@ class TypeConge extends Model
         'jours_forfait',
         'utilise_solde',
         'paye',
-        'limite_par_an',
-        'limite_par_mois',
+        'limite',
+        'limite_frequence_id',
+        'frequence_id',
+        'cumulable',
+        'cumulable_duree',
+        'cumulable_frequence_id',
         'justificatif_obligatoire',
         'sexe_autorise',
         'description',
@@ -34,5 +38,20 @@ class TypeConge extends Model
     public function soldes()
     {
         return $this->hasMany(SoldeConge::class);
+    }
+
+    public function frequence()
+    {
+        return $this->belongsTo(FrequenceConge::class, 'frequence_id');
+    }
+
+    public function cumulableFrequence()
+    {
+        return $this->belongsTo(FrequenceConge::class, 'cumulable_frequence_id');
+    }
+
+    public function limiteFrequence()
+    {
+        return $this->belongsTo(FrequenceConge::class, 'limite_frequence_id');
     }
 }

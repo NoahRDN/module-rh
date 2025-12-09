@@ -1,4 +1,30 @@
-1. Gestion du Personnel
-- Fiche employé complète
-- Contrats, historique, documents
-- Classification (Ouvriers, Employés, TAM, Cadres, Dirigeants)
+fonctionnement conge: 
+deux cas a faire:
+cas 1: le plus reel mais a developper plus tard 
+- presence de different type de conge: 
+    - conge paye, congés sans solde, congés spéciaux / exceptionnels (événements : mariage, décès, naissance, déménagement, etc), conge maladie, congé maternité / paternité / adoption, congé sabbatique, congés formation
+    - il y a le concept de solde dont le fonctionnement est comme suit: 
+        - conge paye: solde et est repportable par an. s'accumule par mois et est valable 3 ans 
+        - conge sans solde: non solde et non paye  et durée flexible
+        - congés spéciaux / exceptionnels (événements : mariage, décès, naissance, déménagement, etc): entre 1 a 5 jours
+        - conge maladie: certificat (comme piece justificatif) oblicatoire, duree selon le certificat medical, paye, sans solde
+        - congé maternité: sexe feminin, duree fixe par lois qui est 14 semaine ici a madagascar . dans les lois, environ 12 a 16 semaines, paye, sans solde
+        - paternité: sexe masculin, duree fixe par lois qui est 14 semaine ici a madagascar . dans les lois, environ 12 a 16 semaines, paye, sans solde
+        - adoption: duree fixe par lois qui est 14 semaine ici a madagascar . dans les lois, environ 12 a 16 semaines, paye, sans solde
+        - congé sabbatique: non paye, non solde, 
+        - congés formation: selon la formation si c'est paye ou non paye 
+
+* soldé: nombre de jour fixe et qui s'accumule chaque mois et transportable par ans et valable en 3 ans 
+
+cas 2: a implementer comme demande 
+- conge paye, congés sans solde, congés spéciaux / exceptionnels (événements : mariage, décès, naissance, déménagement, etc), conge maladie, congé maternité / paternité / adoption, congé sabbatique, congés formation
+- les reste toutes est paye et non solde 
+==========================================
+a reajuster: 
+- dans absences-type, reajuster le nombre de jours et la frequence utiliser (genre preciser le nombre de jour a disposition pour ce conge durant )
+- implementer une periode pour determiner le conge disponible entre deux date
+- utilser celle a implementer prochainement et puis adapter a cela a ceux relement a implementer 
+- reajuster le formulaire pour le create pour le type de conge
+- reajuster un peu les couleur en dark mode
+- reajuster soldes-conges, genre sur les conge assigne aux employes en fonction de son anciennete, poste
+- 

@@ -1,2 +1,5 @@
 php artisan migrate:fresh
 
+UPDATE types_conges
+SET jours_forfait = 2.5
+WHERE id = 1;

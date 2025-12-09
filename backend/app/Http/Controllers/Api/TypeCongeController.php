@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\TypeCongeRequest;
 use App\Models\TypeConge;
+use App\Models\ViewTypeCongeFull;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -14,14 +15,38 @@ class TypeCongeController extends Controller
     {
         try {
             $search = $request->query('search');
-            $query = TypeConge::query()->orderBy('libelle');
+            $query = ViewTypeCongeFull::query()->orderBy('libelle');
+
             if ($search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('libelle', 'like', "%{$search}%")
                         ->orWhere('code', 'like', "%{$search}%");
                 });
             }
-            return response()->json($query->paginate(10));
+
+            $page = $query->paginate(10);
+
+            // Adapter le format pour rester compatible avec le front (frequence / cumulable_frequence imbriqués)
+            $page->getCollection()->transform(function ($row) {
+                $row->frequence = $row->frequence_id ? [
+                    'id' => $row->frequence_id,
+                    'code' => $row->frequence_code,
+                    'libelle' => $row->frequence_libelle,
+                ] : null;
+                $row->limite_frequence = $row->limite_frequence_id ? [
+                    'id' => $row->limite_frequence_id,
+                    'code' => $row->limite_frequence_code,
+                    'libelle' => $row->limite_frequence_libelle,
+                ] : null;
+                $row->cumulable_frequence = $row->cumulable_frequence_id ? [
+                    'id' => $row->cumulable_frequence_id,
+                    'code' => $row->cumulable_frequence_code,
+                    'libelle' => $row->cumulable_frequence_libelle,
+                ] : null;
+                return $row;
+            });
+
+            return response()->json($page);
         } catch (\Throwable $e) {
             Log::error('Erreur liste types conges', ['error' => $e->getMessage()]);
             return response()->json(['message' => 'Erreur serveur'], 500);

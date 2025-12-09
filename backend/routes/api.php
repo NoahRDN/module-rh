@@ -26,6 +26,7 @@ use App\Http\Controllers\Api\CalendrierEvenementController;
 use App\Http\Controllers\Api\AlerteController;
 use App\Http\Controllers\Api\ContratHistoriqueController;
 use App\Http\Controllers\Api\ContratPdfController;
+use App\Http\Controllers\Api\TypeCongeController;
 
 Route::post('/login', [AuthController::class, 'login']);
 
@@ -44,11 +45,13 @@ Route::group(['prefix' => 'employes'], function()
 Route::prefix('v1')->group(function () {
     Route::apiResource('departements', DepartementController::class);
     Route::apiResource('postes', PosteController::class);
+    // Types de congés accessibles en lecture sans auth stricte
+    Route::get('types-conges', [TypeCongeController::class, 'index']);
     Route::apiResource('historiques-postes', HistoriquePosteController::class)->only(['index', 'store', 'show', 'destroy']);
 
     Route::middleware(['auth:sanctum', 'role:admin,rh'])->group(function () {
         Route::apiResource('employes', ApiEmployeController::class);
-    Route::get('employes/{id}/pdf', [EmployePdfController::class, 'telecharger']);
+        Route::get('employes/{id}/pdf', [EmployePdfController::class, 'telecharger']);
     Route::apiResource('contrats', ContratController::class);
     Route::apiResource('contrats-historiques', ContratHistoriqueController::class)->only(['index']);
     Route::get('contrats/{id}/pdf', [ContratPdfController::class, 'telecharger']);

@@ -15,7 +15,7 @@ class SoldeCongeRequest extends FormRequest
     {
         return [
             'employe_id' => 'required|exists:employes,id',
-            'type_id' => 'required|exists:absences_types,id',
+            'type_conge_id' => 'nullable|exists:types_conges,id',
             'solde_actuel' => 'required|numeric|min:0',
             'solde_annuel' => 'required|numeric|min:0',
         ];

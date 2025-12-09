@@ -6,18 +6,23 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\SoldeCongeRequest;
 use App\Models\SoldeConge;
 use App\Models\Employe;
-use App\Models\AbsenceType;
+use App\Models\TypeConge;
+use App\Services\CongeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 
 class SoldeCongeController extends Controller
 {
+    public function __construct(private CongeService $congeService)
+    {
+    }
+
     public function index(Request $request)
     {
         try {
             $emp = $request->query('employe_id');
-            $query = SoldeConge::with(['employe', 'type'])
+            $query = SoldeConge::with(['employe', 'typeConge'])
                 ->orderBy('id', 'desc')
                 ->whereHas('employe.contrats', function ($q) {
                     $now = now()->toDateString();
@@ -50,7 +55,7 @@ class SoldeCongeController extends Controller
     public function show($id)
     {
         try {
-            return SoldeConge::with(['employe', 'type'])->findOrFail($id);
+            return SoldeConge::with(['employe', 'typeConge'])->findOrFail($id);
         } catch (\Throwable $e) {
             Log::error('Erreur show solde conge', ['id' => $id, 'error' => $e->getMessage()]);
             return response()->json(['message' => 'Erreur serveur'], 500);
@@ -81,43 +86,53 @@ class SoldeCongeController extends Controller
     }
 
     /**
-     * Créditer automatiquement les congés payés : 2,5 jours/mois cumulables sur 3 ans (max 90 jours).
+     * Créditer automatiquement les congés payés via le service métier.
      */
     public function accrue()
     {
         try {
-            $typePayes = AbsenceType::where('est_payant', true)->get();
-            $employes = Employe::all();
-
-            foreach ($employes as $emp) {
-                $embauche = $emp->date_embauche ? Carbon::parse($emp->date_embauche) : null;
-                if (!$embauche) {
-                    continue;
-                }
-                $months = min($embauche->diffInMonths(Carbon::now()), 36); // limite 3 ans
-
-                foreach ($typePayes as $type) {
-                    $baseMin = $type->jours_annuels ?: 90; // si non renseigné, plafond direct
-                    $entitlement = min(max($months * 2.5, $baseMin), 90); // minimum baseMin, maxi 90
-                    
-                    $solde = SoldeConge::firstOrCreate(
-                        ['employe_id' => $emp->id, 'type_id' => $type->id],
-                        ['solde_actuel' => $entitlement, 'solde_annuel' => $entitlement]
-                    );
-
-                    $diff = $entitlement - $solde->solde_annuel;
-                    if ($diff > 0) {
-                        $solde->solde_annuel = $entitlement;
-                        $solde->solde_actuel += $diff;
-                        $solde->save();
-                    }
-                }
+            $typeConge = TypeConge::where('code', CongeService::CODE_CONGE_PAYE)->first();
+            if (!$typeConge) {
+                return response()->json(['message' => 'Type congé PAYE introuvable'], 422);
             }
+            Employe::chunk(100, function ($chunk) {
+                foreach ($chunk as $emp) {
+                    $this->congeService->accrueMensuelPourEmploye($emp);
+                    }
+            });
 
-            return response()->json(['message' => 'Soldes mis à jour (2,5 j/mois, max 3 ans)']);
+            return response()->json(['message' => 'Soldes mis à jour via CongeService']);
         } catch (\Throwable $e) {
             Log::error('Erreur accrual soldes conges', ['error' => $e->getMessage()]);
             return response()->json(['message' => 'Erreur serveur'], 500);
         }
+    }
+
+    public function soldePeriode(Request $request)
+    {
+        $request->validate([
+            'employe_id' => 'required|exists:employes,id',
+            'type_conge_id' => 'nullable|exists:types_conges,id',
+            'from' => 'nullable|date',
+            'to' => 'nullable|date',
+        ]);
+
+        $typeId = $request->type_conge_id ?: TypeConge::where('code', CongeService::CODE_CONGE_PAYE)->value('id');
+        if (!$typeId) {
+            return response()->json(['message' => 'Type de congé introuvable'], 422);
+        }
+
+        $from = $request->filled('from') ? Carbon::parse($request->from) : null;
+        $to = $request->filled('to') ? Carbon::parse($request->to) : null;
+
+        $solde = $this->congeService->soldeEntre($request->employe_id, $typeId, $from, $to);
+
+        return response()->json([
+            'employe_id' => $request->employe_id,
+            'type_conge_id' => $typeId,
+            'from' => $from?->toDateString(),
+            'to' => $to?->toDateString(),
+            'solde' => $solde,
+        ]);
     }
 }

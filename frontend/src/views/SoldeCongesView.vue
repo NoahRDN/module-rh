@@ -35,7 +35,7 @@
         <tbody>
           <tr v-for="s in soldesFiltres" :key="s.id">
             <td>{{ s.employe ? `${s.employe.matricule} - ${s.employe.nom} ${s.employe.prenom}` : '—' }}</td>
-            <td>{{ s.type?.nom || '—' }}</td>
+            <td>{{ s.type_conge?.libelle || '—' }}</td>
             <td>{{ s.solde_actuel }}</td>
             <td>{{ s.solde_annuel }}</td>
           </tr>
@@ -50,6 +50,63 @@
           <button class="btn btn-secondary text-xs" :disabled="pagination.page <= 1" @click="prevPage">Précédent</button>
           <button class="btn btn-secondary text-xs" :disabled="pagination.page >= pagination.last_page" @click="nextPage">Suivant</button>
         </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 class="text-lg font-semibold mb-2">Solde sur une période</h3>
+      <div class="grid gap-2 md:grid-cols-5">
+        <select class="select" v-model="periode.employe_id">
+          <option value="">Employé</option>
+          <option v-for="emp in employes" :key="emp.id" :value="emp.id">{{ emp.matricule }} - {{ emp.nom }} {{ emp.prenom }}</option>
+        </select>
+        <input class="input" type="date" v-model="periode.from" placeholder="Du" />
+        <input class="input" type="date" v-model="periode.to" placeholder="Au" />
+        <input class="input" v-model="periode.type_conge_id" placeholder="Type de congé (optionnel)" />
+        <button class="btn" @click="calculerPeriode" :disabled="!periode.employe_id">Calculer</button>
+      </div>
+      <p class="text-sm text-emerald-500 mt-2" v-if="soldePeriode.solde !== null">
+        Solde du {{ soldePeriode.from || 'début' }} au {{ soldePeriode.to || 'aujourd’hui' }} :
+        <strong>{{ soldePeriode.solde }} j</strong>
+      </p>
+      <p class="text-sm text-red-500 mt-2" v-if="messagePeriode">{{ messagePeriode }}</p>
+    </div>
+
+    <div class="card">
+      <h3 class="text-lg font-semibold mb-2">Congés pris entre deux dates</h3>
+      <div class="grid gap-2 md:grid-cols-4">
+        <input class="input" type="date" v-model="congesRange.from" />
+        <input class="input" type="date" v-model="congesRange.to" />
+        <select class="select" v-model="congesRange.employe_id">
+          <option value="">Tous les employés</option>
+          <option v-for="emp in employes" :key="emp.id" :value="emp.id">{{ emp.matricule }} - {{ emp.nom }}</option>
+        </select>
+        <button class="btn" @click="fetchCongesRange">Filtrer</button>
+      </div>
+      <div class="table-scroll mt-3">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Employé</th>
+              <th>Type</th>
+              <th>Début</th>
+              <th>Fin</th>
+              <th>Statut</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="d in demandesRange" :key="d.id">
+              <td>{{ d.employe ? `${d.employe.matricule} - ${d.employe.nom}` : '—' }}</td>
+              <td>{{ d.type_conge?.libelle || d.type?.nom || '—' }}</td>
+              <td>{{ d.date_debut }}</td>
+              <td>{{ d.date_fin }}</td>
+              <td><span class="tag">{{ d.statut }}</span></td>
+            </tr>
+            <tr v-if="!demandesRange.length">
+              <td colspan="5" class="muted">Aucun congé sur la période</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
@@ -73,10 +130,22 @@ const sortDir = ref('asc')
 
 const form = ref({
   employe_id: '',
-  type_id: '',
+  type_conge_id: '',
   solde_actuel: '',
   solde_annuel: ''
 })
+
+const periode = ref({
+  employe_id: '',
+  type_conge_id: '',
+  from: '',
+  to: ''
+})
+const soldePeriode = ref({ solde: null, from: null, to: null })
+const messagePeriode = ref('')
+
+const congesRange = ref({ from: '', to: '', employe_id: '' })
+const demandesRange = ref([])
 
 const fetchSoldes = async () => {
   loading.value = true
@@ -104,7 +173,7 @@ const debouncedFetchSoldes = debounce(fetchSoldes, 300)
 const fetchRefs = async () => {
   const [emps, tps] = await Promise.all([
     api.get('/v1/employes', { params: { active_only: true } }),
-    api.get('/v1/absences-types')
+    api.get('/v1/types-conges')
   ])
   employes.value = emps.data.data || []
   types.value = tps.data.data || []
@@ -147,7 +216,7 @@ const soldesFiltres = computed(() => {
   let list = soldes.value.filter((s) =>
     toStr(s.employe?.matricule).includes(toStr(f.matricule)) &&
     (`${toStr(s.employe?.nom)} ${toStr(s.employe?.prenom)}`).includes(toStr(f.nom)) &&
-    toStr(s.type?.nom).includes(toStr(f.type)) &&
+    toStr(s.type_conge?.libelle).includes(toStr(f.type)) &&
     toStr(s.employe?.departement?.nom).includes(toStr(f.departement))
   )
   const key = sortKey.value
@@ -165,7 +234,7 @@ const soldesFiltres = computed(() => {
 const getVal = (s, key) => {
   const toStr = (v) => String(v || '').toLowerCase()
   switch (key) {
-    case 'type': return toStr(s.type?.nom)
+    case 'type': return toStr(s.type_conge?.libelle)
     case 'solde_actuel': return Number(s.solde_actuel) || 0
     case 'solde_annuel': return Number(s.solde_annuel) || 0
     case 'employe':
@@ -180,4 +249,30 @@ const setSort = (key) => {
 }
 const sortLabel = (key) => (sortKey.value === key ? (sortDir.value === 'asc' ? '▲' : '▼') : '')
 const resetFilters = () => { filters.value = { matricule: '', nom: '', type: '', departement: '' } }
+
+const calculerPeriode = async () => {
+  messagePeriode.value = ''
+  soldePeriode.value = { solde: null, from: null, to: null }
+  if (!periode.value.employe_id) {
+    messagePeriode.value = 'Sélectionne un employé'
+    return
+  }
+  try {
+    const params = { ...periode.value }
+    const { data } = await api.get('/v1/soldes-conges/periode', { params })
+    soldePeriode.value = data
+  } catch (e) {
+    messagePeriode.value = e.response?.data?.message || 'Erreur lors du calcul'
+  }
+}
+
+const fetchCongesRange = async () => {
+  try {
+    const params = { ...congesRange.value }
+    const { data } = await api.get('/v1/demandes-conges', { params })
+    demandesRange.value = data.data || data || []
+  } catch (e) {
+    demandesRange.value = []
+  }
+}
 </script>

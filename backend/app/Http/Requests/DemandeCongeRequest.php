@@ -15,7 +15,7 @@ class DemandeCongeRequest extends FormRequest
     {
         return [
             'employe_id' => 'required|exists:employes,id',
-            'type_id' => 'required|exists:absences_types,id',
+            'type_conge_id' => 'required|exists:types_conges,id',
             'date_debut' => 'required|date',
             'date_fin' => 'required|date|after_or_equal:date_debut',
             'motif' => 'nullable|string',

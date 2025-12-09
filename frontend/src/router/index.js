@@ -42,7 +42,7 @@ const routes = [
       { path: 'contrats/nouveau', name: 'contrats-create', component: ContratCreateView, meta: { subtitle: 'Nouveau contrat' } },
       { path: 'contrats/:id', name: 'contrat-detail', component: ContratDetailView, meta: { subtitle: 'Fiche contrat' } },
       { path: 'contrats-historiques', name: 'contrats-historiques', component: ContratsHistoriqueView, meta: { subtitle: 'Historique contrats' } },
-      { path: 'absences-types', name: 'absences-types', component: AbsenceTypesView, meta: { subtitle: 'Absences' } },
+      { path: 'absences-types', name: 'absences-types', component: AbsenceTypesView, meta: { subtitle: 'Types de congé' } },
       { path: 'soldes-conges', name: 'soldes-conges', component: SoldeCongesView, meta: { subtitle: 'Soldes congés' } },
       { path: 'demandes-conges', name: 'demandes-conges', component: DemandesCongesView, meta: { subtitle: 'Congés' } },
       { path: 'calendrier', name: 'calendrier', component: CalendrierEvenementsView, meta: { subtitle: 'Calendrier' } },

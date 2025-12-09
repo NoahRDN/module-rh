@@ -26,22 +26,24 @@
           <tr class="border-b border-slate-800/60">
             <th class="py-2 text-left text-slate-400 text-xs cursor-pointer" @click="setSort('nom')">Nom {{ sortLabel('nom') }}</th>
             <th class="py-2 text-left text-slate-400 text-xs cursor-pointer" @click="setSort('payant')">Payant {{ sortLabel('payant') }}</th>
-            <th class="py-2 text-left text-slate-400 text-xs cursor-pointer" @click="setSort('jours')">Jours/an {{ sortLabel('jours') }}</th>
+            <th class="py-2 text-left text-slate-400 text-xs cursor-pointer" @click="setSort('jours')">Jours {{ sortLabel('jours') }}</th>
+            <th class="py-2 text-left text-slate-400 text-xs">Fréquence</th>
             <th class="py-2 text-left text-slate-400 text-xs">Description</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-800/60">
           <tr v-for="t in typesFiltres" :key="t.id" class="hover:bg-slate-800/30 transition">
-            <td class="py-2 font-semibold text-slate-100">{{ t.nom }}</td>
+            <td class="py-2 font-semibold text-slate-100">{{ t.libelle }}</td>
             <td class="py-2">
-              <span v-if="t.est_payant" class="chip">Payant</span>
+              <span v-if="t.paye" class="chip">Payant</span>
               <span v-else class="chip" style="background: rgba(255,255,255,0.04); color: #cbd5e1;">Non payant</span>
             </td>
-            <td class="py-2">{{ t.jours_annuels ?? '—' }}</td>
+            <td class="py-2">{{ t.jours_forfait ?? '—' }}</td>
+            <td class="py-2">{{ frequence(t) }}</td>
             <td class="py-2 text-slate-400 text-xs">{{ t.description || '—' }}</td>
           </tr>
           <tr v-if="!typesFiltres.length">
-            <td colspan="4" class="py-3 text-center text-slate-500">Aucun type</td>
+            <td colspan="5" class="py-3 text-center text-slate-500">Aucun type</td>
           </tr>
         </tbody>
       </table>
@@ -59,20 +61,28 @@
       <p class="text-sm text-slate-500 mb-3">Ajoute un type de congé / absence</p>
       <form class="space-y-3" @submit.prevent="createType">
         <div class="grid gap-1">
-          <label class="text-sm text-slate-400">Nom</label>
-          <input class="input" v-model="form.nom" placeholder="Congé payé, Maladie, Exceptionnel..." required />
+          <label class="text-sm text-slate-400">Libellé</label>
+          <input class="input" v-model="form.libelle" placeholder="Congé payé, Maladie, Exceptionnel..." required />
+        </div>
+        <div class="grid gap-1">
+          <label class="text-sm text-slate-400">Code</label>
+          <input class="input" v-model="form.code" placeholder="PAYE, MALADIE..." required />
         </div>
         <div class="grid gap-1">
           <label class="text-sm text-slate-400">Description</label>
           <textarea class="input" rows="3" v-model="form.description" placeholder="Règles, justificatifs, etc."></textarea>
         </div>
         <label class="text-sm text-slate-400 flex items-center gap-2">
-          <input type="checkbox" v-model="form.est_payant" />
+          <input type="checkbox" v-model="form.paye" />
           Payant
         </label>
+        <label class="text-sm text-slate-400 flex items-center gap-2">
+          <input type="checkbox" v-model="form.utilise_solde" />
+          Utilise un solde
+        </label>
         <div class="grid gap-1">
-          <label class="text-sm text-slate-400">Jours annuels (optionnel)</label>
-          <input class="input" v-model="form.jours_annuels" placeholder="Ex: 30" type="number" min="0" />
+          <label class="text-sm text-slate-400">Jours forfait (optionnel)</label>
+          <input class="input" v-model="form.jours_forfait" placeholder="Ex: 3" type="number" min="0" />
         </div>
         <button class="btn w-full" type="submit">Enregistrer</button>
         <p class="text-sm text-slate-500" v-if="message">{{ message }}</p>
@@ -89,18 +99,20 @@ const types = ref([])
 const search = ref('')
 const message = ref('')
 const filters = ref({ nom: '', payant: '', jours: '' })
-const sortKey = ref('nom')
+const sortKey = ref('libelle')
 const sortDir = ref('asc')
 const pagination = ref({ page: 1, last_page: 1, total: 0 })
 const form = ref({
-  nom: '',
+  libelle: '',
+  code: '',
   description: '',
-  est_payant: true,
-  jours_annuels: ''
+  paye: true,
+  utilise_solde: true,
+  jours_forfait: ''
 })
 
 const fetchTypes = async () => {
-  const { data } = await api.get('/v1/absences-types', { params: { search: search.value, page: pagination.value.page } })
+  const { data } = await api.get('/v1/types-conges', { params: { search: search.value, page: pagination.value.page } })
   types.value = data.data || []
   if (data.meta) {
     pagination.value = { page: data.meta.current_page, last_page: data.meta.last_page, total: data.meta.total }
@@ -112,8 +124,8 @@ const fetchTypes = async () => {
 const createType = async () => {
   try {
     const payload = { ...form.value }
-    payload.jours_annuels = payload.jours_annuels || null
-    await api.post('/v1/absences-types', payload)
+    payload.jours_forfait = payload.jours_forfait || null
+    await api.post('/v1/types-conges', payload)
     message.value = 'Type ajouté'
     await fetchTypes()
   } catch (e) {
@@ -127,9 +139,9 @@ const typesFiltres = computed(() => {
   const f = filters.value
   const toStr = (v) => String(v || '').toLowerCase()
   let list = types.value.filter((t) =>
-    toStr(t.nom).includes(toStr(f.nom)) &&
-    (toStr(t.est_payant ? 'oui' : 'non').includes(toStr(f.payant))) &&
-    toStr(t.jours_annuels).includes(toStr(f.jours))
+    toStr(t.libelle).includes(toStr(f.nom)) &&
+    (toStr(t.paye ? 'oui' : 'non').includes(toStr(f.payant))) &&
+    (toStr(t.jours_forfait).includes(toStr(f.jours)) || toStr(frequence(t)).includes(toStr(f.jours)))
   )
   const key = sortKey.value
   const dir = sortDir.value
@@ -146,11 +158,11 @@ const typesFiltres = computed(() => {
 const getVal = (t, key) => {
   const toStr = (v) => String(v || '').toLowerCase()
   switch (key) {
-    case 'payant': return toStr(t.est_payant ? 'oui' : 'non')
-    case 'jours': return Number(t.jours_annuels) || 0
+    case 'payant': return toStr(t.paye ? 'oui' : 'non')
+    case 'jours': return Number(t.jours_forfait) || 0
     case 'nom':
     default:
-      return toStr(t.nom)
+      return toStr(t.libelle)
   }
 }
 
@@ -160,6 +172,19 @@ const setSort = (key) => {
 }
 const sortLabel = (key) => (sortKey.value === key ? (sortDir.value === 'asc' ? '▲' : '▼') : '')
 const resetFilters = () => { filters.value = { nom: '', payant: '', jours: '' } }
+
+const frequence = (t) => {
+  const nom = (t.libelle || '').toLowerCase()
+  if (nom.includes('mariage')) return '3 j — 1 fois/événement'
+  if (nom.includes('décès') || nom.includes('deces')) return '3 j — par décès'
+  if (nom.includes('naissance')) return '2-5 j — par naissance'
+  if (nom.includes('matern')) return '12-16 sem — grossesse'
+  if (nom.includes('patern')) return '2-5 j — par naissance'
+  if (nom.includes('sabbatique')) return 'Longue durée, manager'
+  if (nom.includes('sans solde')) return 'Selon validation'
+  if (t.jours_forfait) return `${t.jours_forfait} j`
+  return 'Selon politique (mois/événement)'
+}
 const nextPage = () => {
   if (pagination.value.page < pagination.value.last_page) {
     pagination.value.page++

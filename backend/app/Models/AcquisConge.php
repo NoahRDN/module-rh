@@ -4,21 +4,19 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class SoldeConge extends Model
+class AcquisConge extends Model
 {
-    protected $table = 'soldes_conges';
-
     protected $fillable = [
         'employe_id',
         'type_conge_id',
-        'solde_actuel',
-        'solde_annuel',
+        'jours_acquis',
+        'jours_utilises',
+        'acquis_le',
         'expire_le',
     ];
 
     protected $casts = [
-        'solde_actuel' => 'decimal:2',
-        'solde_annuel' => 'decimal:2',
+        'acquis_le' => 'date',
         'expire_le' => 'date',
     ];
 
@@ -27,8 +25,18 @@ class SoldeConge extends Model
         return $this->belongsTo(Employe::class);
     }
 
-    public function typeConge()
+    public function type()
     {
         return $this->belongsTo(TypeConge::class, 'type_conge_id');
+    }
+
+    public function consommations()
+    {
+        return $this->hasMany(ConsommationConge::class, 'acquis_conge_id');
+    }
+
+    public function reste(): float
+    {
+        return (float) $this->jours_acquis - (float) $this->jours_utilises;
     }
 }

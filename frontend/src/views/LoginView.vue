@@ -33,7 +33,12 @@ const error = ref('')
 
 const onLogin = async () => {
   try {
+    console.log('Tentative de login pour ', identifiant.value)
+    console.log('Mot de passe : ', mdp.value)
     const { data } = await api.post('/login', { identifiant: identifiant.value, mdp: mdp.value })
+    console.log('Bonjourrrr') 
+    console.log('Réponse login : ', data)
+
     localStorage.setItem('token', data.access_token)
     localStorage.setItem('role', data.user.role ?? '')
     router.push('/dashboard')

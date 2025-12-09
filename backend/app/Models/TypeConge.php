@@ -6,16 +6,33 @@ use Illuminate\Database\Eloquent\Model;
 
 class TypeConge extends Model
 {
-    protected $table = 'type_conge';
-    protected $primaryKey = 'id_type_conge';
-    public $timestamps = false;
-    
+    protected $table = 'types_conges';
+
     protected $fillable = [
-        'nom', 'description', 'est_paye', 'duree_max_jours'
+        'libelle',
+        'code',
+        'jours_forfait',
+        'utilise_solde',
+        'paye',
+        'limite_par_an',
+        'limite_par_mois',
+        'justificatif_obligatoire',
+        'sexe_autorise',
+        'description',
     ];
 
-    // Conversion automatique du booléen pour PostgreSQL (t/f ou 1/0)
-    protected $casts = [
-        'est_paye' => 'boolean',
-    ];
+    public function regles()
+    {
+        return $this->hasMany(RegleConge::class);
+    }
+
+    public function acquis()
+    {
+        return $this->hasMany(AcquisConge::class);
+    }
+
+    public function soldes()
+    {
+        return $this->hasMany(SoldeConge::class);
+    }
 }

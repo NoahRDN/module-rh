@@ -23,6 +23,9 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
             AbsenceTypeSeeder::class,
             PaieParametreSeeder::class,
+            TypeCongeSeeder::class,
+            RegleCongeSeeder::class,
+            CongeAccrualSeeder::class,
         ]);
     }
 }

@@ -10,7 +10,7 @@ class DemandeConge extends Model
 
     protected $fillable = [
         'employe_id',
-        'type_id',
+        'type_conge_id',
         'date_debut',
         'date_fin',
         'statut',
@@ -28,9 +28,9 @@ class DemandeConge extends Model
         return $this->belongsTo(Employe::class);
     }
 
-    public function type()
+    public function typeConge()
     {
-        return $this->belongsTo(AbsenceType::class, 'type_id');
+        return $this->belongsTo(TypeConge::class, 'type_conge_id');
     }
 
     public function approbateur()

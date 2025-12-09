@@ -4,9 +4,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\DemandeCongeRequest;
-use App\Models\AbsenceType;
 use App\Models\DemandeConge;
-use App\Models\SoldeConge;
+use App\Models\TypeConge;
+use App\Services\CongeService;
 use App\Models\CalendrierEvenement;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -14,13 +14,25 @@ use Illuminate\Support\Facades\Log;
 
 class DemandeCongeController extends Controller
 {
+    public function __construct(private CongeService $congeService)
+    {
+    }
+
     public function index(Request $request)
     {
         try {
             $emp = $request->query('employe_id');
-            $query = DemandeConge::with(['employe', 'type', 'approbateur'])->orderBy('created_at', 'desc');
+            $from = $request->query('from');
+            $to = $request->query('to');
+            $query = DemandeConge::with(['employe', 'typeConge', 'approbateur'])->orderBy('created_at', 'desc');
             if ($emp) {
                 $query->where('employe_id', $emp);
+            }
+            if ($from) {
+                $query->whereDate('date_debut', '>=', $from);
+            }
+            if ($to) {
+                $query->whereDate('date_fin', '<=', $to);
             }
             return response()->json($query->paginate(10));
         } catch (\Throwable $e) {
@@ -32,7 +44,16 @@ class DemandeCongeController extends Controller
     public function store(DemandeCongeRequest $request)
     {
         try {
-            $demande = DemandeConge::create($request->validated());
+            $data = $request->validated();
+            if (empty($data['type_conge_id'])) {
+                $data['type_conge_id'] = TypeConge::where('code', CongeService::CODE_CONGE_PAYE)->value('id');
+            }
+            if (empty($data['jours_demandes']) && !empty($data['date_debut']) && !empty($data['date_fin'])) {
+                $debut = Carbon::parse($data['date_debut']);
+                $fin = Carbon::parse($data['date_fin']);
+                $data['jours_demandes'] = $debut->diffInDays($fin) + 1;
+            }
+            $demande = DemandeConge::create($data);
             return response()->json($demande, 201);
         } catch (\Throwable $e) {
             Log::error('Erreur creation demande conge', ['error' => $e->getMessage()]);
@@ -43,7 +64,7 @@ class DemandeCongeController extends Controller
     public function show($id)
     {
         try {
-            return DemandeConge::with(['employe', 'type', 'approbateur'])->findOrFail($id);
+            return DemandeConge::with(['employe', 'typeConge', 'approbateur'])->findOrFail($id);
         } catch (\Throwable $e) {
             Log::error('Erreur show demande conge', ['id' => $id, 'error' => $e->getMessage()]);
             return response()->json(['message' => 'Erreur serveur'], 500);
@@ -91,32 +112,14 @@ class DemandeCongeController extends Controller
     public function approveByRH(Request $request, $id)
     {
         try {
-            $demande = DemandeConge::with(['type'])->findOrFail($id);
-            $type = $demande->type;
-
-            $debut = Carbon::parse($demande->date_debut);
-            $fin = Carbon::parse($demande->date_fin);
-            $jours = $debut->diffInDays($fin) + 1;
-
-            if ($type && $type->est_payant) {
-                $defaultSolde = $type->jours_annuels ?? 0;
-
-                $solde = SoldeConge::firstOrCreate(
-                    ['employe_id' => $demande->employe_id, 'type_id' => $demande->type_id],
-                    ['solde_actuel' => $defaultSolde, 'solde_annuel' => $defaultSolde]
-                );
-
-                if ($solde->solde_actuel < $jours) {
-                    return response()->json(['message' => 'Solde insuffisant'], 422);
-                }
-
-                $solde->decrement('solde_actuel', $jours);
-            }
+            $demande = DemandeConge::with(['type', 'typeConge'])->findOrFail($id);
 
             $demande->update([
                 'statut' => 'rh_valide',
                 'approuve_par' => $request->user()->id ?? null,
             ]);
+
+            $this->congeService->consommerDemande($demande);
 
             // création événement calendrier
             CalendrierEvenement::create([
@@ -124,7 +127,7 @@ class DemandeCongeController extends Controller
                 'employe_id'  => $demande->employe_id,
                 'date_debut'  => $demande->date_debut,
                 'date_fin'    => $demande->date_fin,
-                'description' => $type ? $type->nom : 'Congé',
+                'description' => $demande->typeConge?->libelle ?? 'Congé',
             ]);
 
             return response()->json(['message' => 'Validé par RH', 'demande' => $demande]);

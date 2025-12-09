@@ -38,7 +38,7 @@ const items = [
   { to: '/postes', label: 'Postes', hint: 'Fonctions', icon: '🪜' },
   { to: '/contrats', label: 'Contrats', hint: 'CDD / CDI / Stage', icon: '📄' },
   { to: '/contrats-historiques', label: 'Hist. contrats', hint: 'Versions & renouvellements', icon: '🗂️' },
-  { to: '/absences-types', label: 'Types d\'absence', hint: 'Congés / absences', icon: '🏷️' },
+  { to: '/absences-types', label: 'Types de congé', hint: 'Congés / absences', icon: '🏷️' },
   { to: '/soldes-conges', label: 'Soldes congés', hint: 'Payés / maladie / exceptionnels', icon: '🧮' },
   { to: '/demandes-conges', label: 'Demandes de congés', hint: 'Workflow', icon: '🗓️' },
   { to: '/calendrier', label: 'Calendrier', hint: 'Vue globale', icon: '📆' },

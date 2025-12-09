@@ -46,7 +46,7 @@
               <p class="font-semibold text-slate-100">{{ d.employe?.matricule || '—' }}</p>
               <p class="text-xs text-slate-500">{{ d.employe ? `${d.employe.nom} ${d.employe.prenom}` : '—' }}</p>
             </td>
-            <td class="py-2">{{ d.type?.nom || '—' }}</td>
+            <td class="py-2">{{ d.type_conge?.libelle || d.type?.nom || '—' }}</td>
             <td class="py-2 text-xs text-slate-300">{{ d.date_debut }} → {{ d.date_fin }}</td>
             <td class="py-2">
               <span class="px-2 py-1 rounded-full text-xs" :class="badgeClass(d.statut)">
@@ -86,9 +86,9 @@
         </div>
         <div class="grid gap-1">
           <label class="text-sm text-slate-400">Type de congé</label>
-          <select class="select" v-model="form.type_id" required>
+          <select class="select" v-model="form.type_conge_id" required>
             <option value="">Type</option>
-            <option v-for="t in types" :key="t.id" :value="t.id">{{ t.nom }}</option>
+            <option v-for="t in types" :key="t.id" :value="t.id">{{ t.libelle }}</option>
           </select>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -128,7 +128,7 @@ const sortKey = ref('employe')
 const sortDir = ref('asc')
 const form = ref({
   employe_id: '',
-  type_id: '',
+  type_conge_id: '',
   date_debut: '',
   date_fin: '',
   motif: ''
@@ -162,7 +162,7 @@ const debouncedFetchDemandes = debounce(fetchDemandes, 300)
 
 const fetchRefs = async () => {
   const [t, e] = await Promise.all([
-    api.get('/v1/absences-types'),
+    api.get('/v1/types-conges'),
     api.get('/v1/employes', { params: { active_only: true } })
   ])
   types.value = t.data.data || []
@@ -200,7 +200,7 @@ const demandesFiltrees = computed(() => {
   let list = demandes.value.filter((d) =>
     toStr(d.employe?.matricule).includes(toStr(f.matricule)) &&
     (`${toStr(d.employe?.nom)} ${toStr(d.employe?.prenom)}`).includes(toStr(f.nom)) &&
-    toStr(d.type?.nom).includes(toStr(f.type)) &&
+    (toStr(d.type_conge?.libelle).includes(toStr(f.type)) || toStr(d.type?.nom).includes(toStr(f.type))) &&
     toStr(d.statut).includes(toStr(f.statut)) &&
     toStr(d.date_debut).includes(toStr(f.date_debut)) &&
     toStr(d.date_fin).includes(toStr(f.date_fin))
@@ -220,7 +220,7 @@ const demandesFiltrees = computed(() => {
 const getVal = (d, key) => {
   const toStr = (v) => String(v || '').toLowerCase()
   switch (key) {
-    case 'type': return toStr(d.type?.nom)
+    case 'type': return toStr(d.type_conge?.libelle || d.type?.nom)
     case 'debut': return toStr(d.date_debut)
     case 'statut': return toStr(d.statut)
     case 'employe':

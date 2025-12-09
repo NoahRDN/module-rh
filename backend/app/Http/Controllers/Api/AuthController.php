@@ -12,6 +12,7 @@ class AuthController extends Controller
     // Connexion
     public function login(Request $request)
     {
+        Log::info('Tentative de login');
         try {
             $request->validate([
                 'identifiant' => 'required|string',
@@ -20,6 +21,7 @@ class AuthController extends Controller
 
             $login = $request->identifiant;
             // Auth sur la table users (email comme login)
+            Log::debug('Tentative de login pour ', ['identifiant' => $login]);
             $user = User::where('email', $login)->first();
             if (!$user || $user->password !== $request->mdp) {
                 return response()->json(['message' => 'Identifiants invalides'], 401);

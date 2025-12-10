@@ -14,7 +14,6 @@ use App\Http\Controllers\Api\ContratController;
 use App\Http\Controllers\Api\DocumentEmployeController;
 use App\Http\Controllers\Api\HistoriquePosteController;
 use App\Http\Controllers\Api\DocumentUploadController;
-use App\Http\Controllers\Api\AbsenceTypeController;
 use App\Http\Controllers\Api\SoldeCongeController;
 use App\Http\Controllers\Api\DemandeCongeController;
 use App\Http\Controllers\Api\PointageController;
@@ -60,9 +59,7 @@ Route::prefix('v1')->group(function () {
     Route::apiResource('documents', DocumentEmployeController::class);
     Route::get('documents/types', [DocumentUploadController::class, 'types']);
     Route::post('documents/upload', [DocumentUploadController::class, 'store']);
-    Route::apiResource('absences-types', AbsenceTypeController::class);
-    Route::apiResource('soldes-conges', SoldeCongeController::class);
-    Route::post('soldes-conges/accrue', [SoldeCongeController::class, 'accrue']);
+    Route::apiResource('soldes-conges', SoldeCongeController::class)->only(['index','show']);
     Route::apiResource('demandes-conges', DemandeCongeController::class);
     Route::apiResource('calendrier-evenements', CalendrierEvenementController::class)->only(['index', 'store']);
     Route::get('alertes', [AlerteController::class, 'index']);

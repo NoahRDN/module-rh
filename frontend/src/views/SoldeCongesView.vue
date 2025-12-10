@@ -14,11 +14,31 @@
 
   <div class="grid">
     <div class="card">
-      <div class="grid gap-2 md:grid-cols-4 lg:grid-cols-6 mb-3">
-        <input class="input" placeholder="Matricule" v-model="filters.matricule" />
-        <input class="input" placeholder="Nom" v-model="filters.nom" />
-        <input class="input" placeholder="Type" v-model="filters.type" />
-        <input class="input" placeholder="Département" v-model="filters.departement" />
+      <div class="grid gap-2 md:grid-cols-6 mb-3">
+        <div class="grid gap-1">
+          <label class="text-xs text-slate-400">Matricule</label>
+          <input class="input" placeholder="Matricule" v-model="filters.matricule" />
+        </div>
+        <div class="grid gap-1">
+          <label class="text-xs text-slate-400">Nom</label>
+          <input class="input" placeholder="Nom" v-model="filters.nom" />
+        </div>
+        <div class="grid gap-1">
+          <label class="text-xs text-slate-400">Type</label>
+          <input class="input" placeholder="Type" v-model="filters.type" />
+        </div>
+        <div class="grid gap-1">
+          <label class="text-xs text-slate-400">Département</label>
+          <input class="input" placeholder="Département" v-model="filters.departement" />
+        </div>
+        <div class="grid gap-1">
+          <label class="text-xs text-slate-400">Du</label>
+          <input class="input" type="date" v-model="filters.from" />
+        </div>
+        <div class="grid gap-1">
+          <label class="text-xs text-slate-400">Au</label>
+          <input class="input" type="date" v-model="filters.to" />
+        </div>
       </div>
       <div class="flex justify-end mb-2">
         <button class="btn btn-secondary btn-xs" @click="resetFilters">Réinitialiser</button>
@@ -28,19 +48,23 @@
           <tr>
             <th class="cursor-pointer" @click="setSort('employe')">Employé {{ sortLabel('employe') }}</th>
             <th class="cursor-pointer" @click="setSort('type')">Type {{ sortLabel('type') }}</th>
+            <th>Premier acquis</th>
+            <th>Expiration max</th>
             <th class="cursor-pointer" @click="setSort('solde_actuel')">Solde actuel {{ sortLabel('solde_actuel') }}</th>
             <th class="cursor-pointer" @click="setSort('solde_annuel')">Solde annuel {{ sortLabel('solde_annuel') }}</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="s in soldesFiltres" :key="s.id">
-            <td>{{ s.employe ? `${s.employe.matricule} - ${s.employe.nom} ${s.employe.prenom}` : '—' }}</td>
-            <td>{{ s.type_conge?.libelle || '—' }}</td>
+            <td>{{ s.employe ? `${s.employe.matricule} - ${s.employe.nom} ${s.employe.prenom}` : `${s.employe_matricule || ''} ${s.employe_nom || ''} ${s.employe_prenom || ''}` }}</td>
+            <td>{{ s.type_conge?.libelle || s.type_conge_libelle || '—' }}</td>
+            <td>{{ s.premier_acquis || '—' }}</td>
+            <td>{{ s.derniere_expiration || '—' }}</td>
             <td>{{ s.solde_actuel }}</td>
             <td>{{ s.solde_annuel }}</td>
           </tr>
           <tr v-if="!soldesFiltres.length">
-            <td colspan="4" class="muted">Aucun solde</td>
+            <td colspan="6" class="muted">Aucun solde</td>
           </tr>
         </tbody>
       </table>
@@ -50,63 +74,6 @@
           <button class="btn btn-secondary text-xs" :disabled="pagination.page <= 1" @click="prevPage">Précédent</button>
           <button class="btn btn-secondary text-xs" :disabled="pagination.page >= pagination.last_page" @click="nextPage">Suivant</button>
         </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3 class="text-lg font-semibold mb-2">Solde sur une période</h3>
-      <div class="grid gap-2 md:grid-cols-5">
-        <select class="select" v-model="periode.employe_id">
-          <option value="">Employé</option>
-          <option v-for="emp in employes" :key="emp.id" :value="emp.id">{{ emp.matricule }} - {{ emp.nom }} {{ emp.prenom }}</option>
-        </select>
-        <input class="input" type="date" v-model="periode.from" placeholder="Du" />
-        <input class="input" type="date" v-model="periode.to" placeholder="Au" />
-        <input class="input" v-model="periode.type_conge_id" placeholder="Type de congé (optionnel)" />
-        <button class="btn" @click="calculerPeriode" :disabled="!periode.employe_id">Calculer</button>
-      </div>
-      <p class="text-sm text-emerald-500 mt-2" v-if="soldePeriode.solde !== null">
-        Solde du {{ soldePeriode.from || 'début' }} au {{ soldePeriode.to || 'aujourd’hui' }} :
-        <strong>{{ soldePeriode.solde }} j</strong>
-      </p>
-      <p class="text-sm text-red-500 mt-2" v-if="messagePeriode">{{ messagePeriode }}</p>
-    </div>
-
-    <div class="card">
-      <h3 class="text-lg font-semibold mb-2">Congés pris entre deux dates</h3>
-      <div class="grid gap-2 md:grid-cols-4">
-        <input class="input" type="date" v-model="congesRange.from" />
-        <input class="input" type="date" v-model="congesRange.to" />
-        <select class="select" v-model="congesRange.employe_id">
-          <option value="">Tous les employés</option>
-          <option v-for="emp in employes" :key="emp.id" :value="emp.id">{{ emp.matricule }} - {{ emp.nom }}</option>
-        </select>
-        <button class="btn" @click="fetchCongesRange">Filtrer</button>
-      </div>
-      <div class="table-scroll mt-3">
-        <table class="table">
-          <thead>
-            <tr>
-              <th>Employé</th>
-              <th>Type</th>
-              <th>Début</th>
-              <th>Fin</th>
-              <th>Statut</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="d in demandesRange" :key="d.id">
-              <td>{{ d.employe ? `${d.employe.matricule} - ${d.employe.nom}` : '—' }}</td>
-              <td>{{ d.type_conge?.libelle || d.type?.nom || '—' }}</td>
-              <td>{{ d.date_debut }}</td>
-              <td>{{ d.date_fin }}</td>
-              <td><span class="tag">{{ d.statut }}</span></td>
-            </tr>
-            <tr v-if="!demandesRange.length">
-              <td colspan="5" class="muted">Aucun congé sur la période</td>
-            </tr>
-          </tbody>
-        </table>
       </div>
     </div>
   </div>
@@ -124,7 +91,7 @@ const filterEmploye = ref('')
 const message = ref('')
 const loading = ref(false)
 const pagination = ref({ page: 1, last_page: 1, total: 0 })
-const filters = ref({ matricule: '', nom: '', type: '', departement: '' })
+const filters = ref({ matricule: '', nom: '', type: '', departement: '', from: '', to: '' })
 const sortKey = ref('employe')
 const sortDir = ref('asc')
 
@@ -149,7 +116,12 @@ const demandesRange = ref([])
 
 const fetchSoldes = async () => {
   loading.value = true
-  const params = filterEmploye.value ? { employe_id: filterEmploye.value, page: pagination.value.page } : { page: pagination.value.page }
+  const params = {
+    page: pagination.value.page,
+    employe_id: filterEmploye.value || undefined,
+    from: filters.value.from || undefined,
+    to: filters.value.to || undefined
+  }
   const { data } = await api.get('/v1/soldes-conges', { params })
   soldes.value = data.data || []
   if (data.meta) {
@@ -180,16 +152,7 @@ const fetchRefs = async () => {
 }
 
 const saveSolde = async () => {
-  try {
-    const payload = { ...form.value }
-    payload.solde_actuel = Number(payload.solde_actuel)
-    payload.solde_annuel = Number(payload.solde_annuel)
-    await api.post('/v1/soldes-conges', payload)
-    message.value = 'Solde enregistré'
-    await fetchSoldes()
-  } catch (e) {
-    message.value = 'Erreur enregistrement'
-  }
+  message.value = 'Lecture seule : le solde est calculé automatiquement.'
 }
 
 onMounted(async () => {
@@ -248,7 +211,7 @@ const setSort = (key) => {
   else { sortKey.value = key; sortDir.value = 'asc' }
 }
 const sortLabel = (key) => (sortKey.value === key ? (sortDir.value === 'asc' ? '▲' : '▼') : '')
-const resetFilters = () => { filters.value = { matricule: '', nom: '', type: '', departement: '' } }
+const resetFilters = () => { filters.value = { matricule: '', nom: '', type: '', departement: '', from: '', to: '' } }
 
 const calculerPeriode = async () => {
   messagePeriode.value = ''

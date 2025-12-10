@@ -26,6 +26,7 @@ class DatabaseSeeder extends Seeder
             TypeCongeSeeder::class,
             RegleCongeSeeder::class,
             CongeAccrualSeeder::class,
+            TestCongeExpirationSeeder::class,
         ]);
     }
 }

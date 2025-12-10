@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('demandes_conges', function (Blueprint $table) {
             $table->id();
             $table->foreignId('employe_id')->constrained('employes')->cascadeOnDelete();
-            $table->foreignId('type_id')->constrained('absences_types')->cascadeOnDelete();
+            // $table->foreignId('type_id')->constrained('absences_types')->cascadeOnDelete();
             $table->date('date_debut');
             $table->date('date_fin');
             $table->enum('statut', ['en_attente', 'manager_valide', 'rh_valide', 'rejete'])->default('en_attente');

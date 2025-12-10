@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\SoldeCongeRequest;
 use App\Models\SoldeConge;
 use App\Models\Employe;
 use App\Models\TypeConge;
@@ -22,6 +21,8 @@ class SoldeCongeController extends Controller
     {
         try {
             $emp = $request->query('employe_id');
+            $from = $request->query('from');
+            $to = $request->query('to');
             $query = SoldeConge::with(['employe', 'typeConge'])
                 ->orderBy('id', 'desc')
                 ->whereHas('employe.contrats', function ($q) {
@@ -34,20 +35,27 @@ class SoldeCongeController extends Controller
             if ($emp) {
                 $query->where('employe_id', $emp);
             }
-            return response()->json($query->paginate(10));
+            $page = $query->paginate(10);
+
+            // Si filtre de période, recalculer le solde sur la plage
+            if ($from || $to) {
+                $fromDate = $from ? Carbon::parse($from) : null;
+                $toDate = $to ? Carbon::parse($to) : null;
+                $page->getCollection()->transform(function ($row) use ($fromDate, $toDate) {
+                    $row->solde_actuel = $this->congeService->soldeEntre(
+                        $row->employe_id,
+                        $row->type_conge_id,
+                        $fromDate,
+                        $toDate
+                    );
+                    $row->solde_annuel = $row->solde_actuel;
+                    return $row;
+                });
+            }
+
+            return response()->json($page);
         } catch (\Throwable $e) {
             Log::error('Erreur liste soldes conges', ['error' => $e->getMessage()]);
-            return response()->json(['message' => 'Erreur serveur'], 500);
-        }
-    }
-
-    public function store(SoldeCongeRequest $request)
-    {
-        try {
-            $solde = SoldeConge::create($request->validated());
-            return response()->json($solde, 201);
-        } catch (\Throwable $e) {
-            Log::error('Erreur creation solde conge', ['error' => $e->getMessage()]);
             return response()->json(['message' => 'Erreur serveur'], 500);
         }
     }
@@ -58,29 +66,6 @@ class SoldeCongeController extends Controller
             return SoldeConge::with(['employe', 'typeConge'])->findOrFail($id);
         } catch (\Throwable $e) {
             Log::error('Erreur show solde conge', ['id' => $id, 'error' => $e->getMessage()]);
-            return response()->json(['message' => 'Erreur serveur'], 500);
-        }
-    }
-
-    public function update(SoldeCongeRequest $request, $id)
-    {
-        try {
-            $solde = SoldeConge::findOrFail($id);
-            $solde->update($request->validated());
-            return response()->json($solde);
-        } catch (\Throwable $e) {
-            Log::error('Erreur update solde conge', ['id' => $id, 'error' => $e->getMessage()]);
-            return response()->json(['message' => 'Erreur serveur'], 500);
-        }
-    }
-
-    public function destroy($id)
-    {
-        try {
-            SoldeConge::findOrFail($id)->delete();
-            return response()->json(['message' => 'Solde supprimé']);
-        } catch (\Throwable $e) {
-            Log::error('Erreur suppression solde conge', ['id' => $id, 'error' => $e->getMessage()]);
             return response()->json(['message' => 'Erreur serveur'], 500);
         }
     }

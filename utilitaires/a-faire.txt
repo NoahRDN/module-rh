@@ -27,4 +27,20 @@ a reajuster:
 - reajuster le formulaire pour le create pour le type de conge
 - reajuster un peu les couleur en dark mode
 - reajuster soldes-conges, genre sur les conge assigne aux employes en fonction de son anciennete, poste
-- 
+
+
+
+==================
+comprehension assignation conge: 
+- un employe qui a un contrat peut avoir un conge: 
+- chaque mois son conge paye s'accumule dont la date de depart est celle du contrat
+- pour les autres, ils font par demande pour pouvoir l'acquerir 
+++++++++++++++++++
+fonctionnement:
+il y a liste  d'employe avec leur conge, et regrouper par type de conge
+liste regroupe par date Premier acquis et Expiration max et solde actuel et solde restant 
+
+
+---------
+questionnement 
+- qu'en est il si il change de contrat, est ce que le contage continue ou il perd tous? 

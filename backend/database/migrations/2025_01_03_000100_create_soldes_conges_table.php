@@ -8,12 +8,14 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // Table conservée pour compatibilité : pas de FK vers absences_types (supprimée)
         Schema::create('soldes_conges', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('employe_id')->constrained('employes')->cascadeOnDelete();
-            $table->foreignId('type_id')->constrained('absences_types')->cascadeOnDelete();
+            $table->unsignedBigInteger('employe_id')->nullable();
+            $table->unsignedBigInteger('type_conge_id')->nullable();
             $table->decimal('solde_actuel', 8, 2)->default(0);
             $table->decimal('solde_annuel', 8, 2)->default(0);
+            $table->date('expire_le')->nullable();
             $table->timestamps();
         });
     }

@@ -25,7 +25,7 @@ return new class extends Migration {
 
         Schema::table('demandes_conges', function (Blueprint $table) {
             $table->index('employe_id', 'idx_demandes_employe');
-            $table->index('type_id', 'idx_demandes_type');
+            // $table->index('type_id', 'idx_demandes_type');
             $table->index('statut', 'idx_demandes_statut');
             $table->index(['date_debut', 'date_fin'], 'idx_demandes_dates');
             $table->index('approuve_par', 'idx_demandes_approbateur');
@@ -33,7 +33,7 @@ return new class extends Migration {
 
         Schema::table('soldes_conges', function (Blueprint $table) {
             $table->index('employe_id', 'idx_soldes_employe');
-            $table->index('type_id', 'idx_soldes_type');
+            // $table->index('type_id', 'idx_soldes_type');
         });
 
         Schema::table('documents_employes', function (Blueprint $table) {

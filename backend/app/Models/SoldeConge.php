@@ -6,21 +6,9 @@ use Illuminate\Database\Eloquent\Model;
 
 class SoldeConge extends Model
 {
-    protected $table = 'soldes_conges';
-
-    protected $fillable = [
-        'employe_id',
-        'type_conge_id',
-        'solde_actuel',
-        'solde_annuel',
-        'expire_le',
-    ];
-
-    protected $casts = [
-        'solde_actuel' => 'decimal:2',
-        'solde_annuel' => 'decimal:2',
-        'expire_le' => 'date',
-    ];
+    protected $table = 'view_solde_conges';
+    public $timestamps = false;
+    protected $fillable = [];
 
     public function employe()
     {

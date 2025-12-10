@@ -101,6 +101,7 @@ const router = useRouter()
 const employes = ref([])
 const message = ref('')
 const typeOptions = ['CDI', 'CDD', 'Stage', 'Interim', 'Consultant', 'Apprenti']
+console.log(employes);
 const employesDisponibles = computed(() => employes.value.filter((e) => !e.actif))
 
 const form = ref({
@@ -119,8 +120,8 @@ const form = ref({
 })
 
 const fetchEmployes = async () => {
-  const { data } = await api.get('/v1/employes')
-  employes.value = data.data || []
+  const { data } = await api.get('/v1/employes', { params: { all: 1 } })
+  employes.value = data.data || data
 }
 
 const createContrat = async () => {
@@ -136,4 +137,9 @@ const createContrat = async () => {
 }
 
 onMounted(fetchEmployes)
+onMounted(async () => {
+  await fetchEmployes()
+  console.log(employes.value)
+})
+
 </script>

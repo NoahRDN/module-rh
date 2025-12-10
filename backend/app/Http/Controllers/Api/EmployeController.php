@@ -15,10 +15,11 @@ class EmployeController extends Controller
     public function index(Request $request)
     {
         try {
-            $search = $request->query(key: 'search');
+            $search = $request->query('search');
             $activeOnly = $request->boolean('active_only', false);
+            $all = $request->boolean('all', false);
 
-            $employes = Employe::with(['poste', 'departement'])
+            $query = Employe::with(['poste', 'departement'])
                 ->search($search)
                 ->when($activeOnly, function ($q) {
                     $now = now()->toDateString();
@@ -29,8 +30,9 @@ class EmployeController extends Controller
                           });
                     });
                 })
-                ->orderBy('nom')
-                ->paginate(10);
+                ->orderBy('nom');
+
+            $employes = $all ? $query->get() : $query->paginate(10);
 
             return response()->json($employes);
         } catch (\Throwable $e) {

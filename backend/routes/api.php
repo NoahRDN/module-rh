@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\PointageController;
 use App\Http\Controllers\Api\PaieController;
 use App\Http\Controllers\Api\PaieParametreController;
 use App\Http\Controllers\Api\PaiePdfController;
+use App\Http\Controllers\Api\IrsaTrancheController;
 use App\Http\Controllers\Api\EmployePdfController;
 use App\Http\Controllers\Api\CalendrierEvenementController;
 use App\Http\Controllers\Api\AlerteController;
@@ -76,6 +77,7 @@ Route::prefix('v1')->group(function () {
     Route::post('paies/generer', [PaieController::class, 'genererPaie']);
     Route::get('paie-parametres', [PaieParametreController::class, 'index']);
     Route::put('paie-parametres/{id}', [PaieParametreController::class, 'update']);
+    Route::apiResource('irsa-tranches', IrsaTrancheController::class)->only(['index','store','update','destroy']);
     Route::get('paies/{id}/pdf', [PaiePdfController::class, 'telecharger']);
 });
 });

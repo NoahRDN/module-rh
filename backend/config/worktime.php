@@ -13,17 +13,24 @@ return [
 
     // Durée d'une journée normale (pour le calcul des HS)
     'hours_per_day' => 8,
+    // Minutes de pause incluses dans la journée (pour calcul heures normales)
+    'pause_minutes' => 60,
+
+    // Plage horaire de nuit et majoration (en %)
+    'night_start' => '22:00',
+    'night_end'   => '05:00',
+    'night_rate'  => 20, // +20%
 
     // Seuil hebdomadaire pour les HS
     'weekly_threshold' => 40,
 
-    // Majoration par type
+    // Majoration par type (valeurs en %)
     'multipliers' => [
-        'weekday_first8' => 1.3,
-        'weekday_next12' => 1.5,
-        'weekday_beyond' => 1.5,
-        'saturday'       => 1.4,
-        'sunday'         => 1.4,
-        'holiday'        => 2.0,
+        'weekday_first8' => 30,
+        'weekday_next12' => 50,
+        'weekday_beyond' => 50,
+        'saturday'       => 40,
+        'sunday'         => 40,
+        'holiday'        => 100,
     ],
 ];

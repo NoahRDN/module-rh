@@ -32,8 +32,8 @@
         <tr>
           <th class="py-2 text-left text-slate-400 text-xs">Jour</th>
           <th class="py-2 text-left text-slate-400 text-xs">Heures</th>
-          <th class="py-2 text-left text-slate-400 text-xs">HS dimanche</th>
-          <th class="py-2 text-left text-slate-400 text-xs">HS congé</th>
+          <th class="py-2 text-left text-slate-400 text-xs">HS week-end</th>
+          <th class="py-2 text-left text-slate-400 text-xs">HS férié</th>
           <th class="py-2 text-left text-slate-400 text-xs">Retard (min)</th>
           <th class="py-2 text-left text-slate-400 text-xs">Pauses (min)</th>
           <th class="py-2 text-left text-slate-400 text-xs">Absence</th>
@@ -88,8 +88,8 @@
           <th class="py-2 text-left text-slate-400 text-xs">Mois</th>
           <th class="py-2 text-left text-slate-400 text-xs">Heures</th>
           <th class="py-2 text-left text-slate-400 text-xs">HS</th>
-          <th class="py-2 text-left text-slate-400 text-xs">HS dimanche</th>
-          <th class="py-2 text-left text-slate-400 text-xs">HS congé</th>
+          <th class="py-2 text-left text-slate-400 text-xs">HS week-end</th>
+          <th class="py-2 text-left text-slate-400 text-xs">HS férié</th>
           <th class="py-2 text-left text-slate-400 text-xs">Retards (min)</th>
           <th class="py-2 text-left text-slate-400 text-xs">Absences</th>
           <th class="py-2 text-left text-slate-400 text-xs">Détails</th>
@@ -100,8 +100,8 @@
           <td class="py-2">{{ m.label }}</td>
           <td class="py-2">{{ m.totaux.heures_travaillees }}</td>
           <td class="py-2">{{ m.totaux.heures_supplementaires }}</td>
-          <td class="py-2">{{ m.totaux.hs_dimanche }}</td>
-          <td class="py-2">{{ m.totaux.hs_conge }}</td>
+          <td class="py-2">{{ m.totaux.hs_weekend }}</td>
+          <td class="py-2">{{ m.totaux.hs_ferie }}</td>
           <td class="py-2">{{ m.totaux.retard_minutes }}</td>
           <td class="py-2">{{ m.totaux.absences }}</td>
           <td class="py-2">
@@ -125,8 +125,8 @@
             <th class="py-2 text-left text-slate-400 text-xs">Semaine</th>
             <th class="py-2 text-left text-slate-400 text-xs">Heures</th>
             <th class="py-2 text-left text-slate-400 text-xs">HS</th>
-            <th class="py-2 text-left text-slate-400 text-xs">HS dimanche</th>
-            <th class="py-2 text-left text-slate-400 text-xs">HS congé</th>
+            <th class="py-2 text-left text-slate-400 text-xs">HS week-end</th>
+            <th class="py-2 text-left text-slate-400 text-xs">HS férié</th>
             <th class="py-2 text-left text-slate-400 text-xs">Retards (min)</th>
             <th class="py-2 text-left text-slate-400 text-xs">Absences</th>
           </tr>
@@ -137,8 +137,8 @@
             <td class="py-2">{{ w.label }}</td>
             <td class="py-2">{{ w.heures_travaillees }}</td>
             <td class="py-2">{{ w.heures_supplementaires }}</td>
-            <td class="py-2">{{ w.hs_dimanche }}</td>
-            <td class="py-2">{{ w.hs_conge }}</td>
+          <td class="py-2">{{ w.hs_weekend }}</td>
+            <td class="py-2">{{ w.hs_ferie }}</td>
             <td class="py-2">{{ w.retard_minutes }}</td>
             <td class="py-2">{{ w.absences }}</td>
           </tr>
@@ -159,8 +159,8 @@
           <th class="py-2 text-left text-slate-400 text-xs">Semaine</th>
           <th class="py-2 text-left text-slate-400 text-xs">Heures</th>
           <th class="py-2 text-left text-slate-400 text-xs">HS</th>
-          <th class="py-2 text-left text-slate-400 text-xs">HS dimanche</th>
-          <th class="py-2 text-left text-slate-400 text-xs">HS congé</th>
+          <th class="py-2 text-left text-slate-400 text-xs">HS week-end</th>
+          <th class="py-2 text-left text-slate-400 text-xs">HS férié</th>
           <th class="py-2 text-left text-slate-400 text-xs">Retards (min)</th>
           <th class="py-2 text-left text-slate-400 text-xs">Absences</th>
           <th class="py-2 text-left text-slate-400 text-xs">Abs. justifiées</th>
@@ -172,9 +172,9 @@
           <td class="py-2">{{ idx + 1 }}</td>
           <td class="py-2">{{ w.label }}</td>
           <td class="py-2">{{ w.heures_travaillees }}</td>
-          <td class="py-2">{{ w.heures_supplementaires }}</td>
-          <td class="py-2">{{ w.hs_dimanche }}</td>
-          <td class="py-2">{{ w.hs_conge }}</td>
+          <td class="py-2">{{ w.hs_weekend === null ? w.heures_supplementaires : 0 }}</td>
+          <td class="py-2">{{ w.hs_weekend }}</td>
+          <td class="py-2">{{ w.hs_ferie }}</td>
           <td class="py-2">{{ w.retard_minutes }}</td>
           <td class="py-2">{{ w.absences }}</td>
           <td class="py-2">{{ w.absences_justifiees }}</td>
@@ -188,34 +188,34 @@
       </tbody>
     </table>
 
-    <div v-if="weekDetails.length" class="mt-4">
-      <h4 class="text-md font-semibold mb-2">Détails de {{ selectedWeekLabel }}</h4>
-      <table class="min-w-full text-sm">
-        <thead class="border-b border-slate-800/60">
-          <tr>
-            <th class="py-2 text-left text-slate-400 text-xs">Jour</th>
-            <th class="py-2 text-left text-slate-400 text-xs">Heures</th>
-            <th class="py-2 text-left text-slate-400 text-xs">Heures sup</th>
-            <th class="py-2 text-left text-slate-400 text-xs">Retard (min)</th>
-            <th class="py-2 text-left text-slate-400 text-xs">Dimanche</th>
-            <th class="py-2 text-left text-slate-400 text-xs">Absent</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-800/60">
-          <tr v-for="d in weekDetails" :key="d.jour">
-            <td class="py-2">{{ d.jour }}</td>
-            <td class="py-2">{{ d.heures_travaillees }}</td>
-            <td class="py-2">{{ d.heures_supplementaires }}</td>
-            <td class="py-2">{{ d.retard_minutes }}</td>
+      <div v-if="weekDetails.length" class="mt-4">
+        <h4 class="text-md font-semibold mb-2">Détails de {{ selectedWeekLabel }}</h4>
+        <table class="min-w-full text-sm">
+          <thead class="border-b border-slate-800/60">
+            <tr>
+              <th class="py-2 text-left text-slate-400 text-xs">Jour</th>
+              <th class="py-2 text-left text-slate-400 text-xs">Heures</th>
+          <th class="py-2 text-left text-slate-400 text-xs">HS week-end</th>
+          <th class="py-2 text-left text-slate-400 text-xs">HS férié</th>
+              <th class="py-2 text-left text-slate-400 text-xs">Retard (min)</th>
+              <th class="py-2 text-left text-slate-400 text-xs">Absent</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-800/60">
+            <tr v-for="d in weekDetails" :key="d.jour">
+              <td class="py-2">{{ d.jour }}</td>
+              <td class="py-2">{{ d.heures_travaillees }}</td>
+              <td class="py-2">{{ d.weekend ? d.heures_supplementaires : 0 }}</td>
+              <td class="py-2">{{ d.ferie ? d.heures_supplementaires : 0 }}</td>
+              <td class="py-2">{{ d.retard_minutes }}</td>
             <td class="py-2">
-              <span class="chip" v-if="d.dimanche">Dimanche</span>
-              <span class="muted" v-else>—</span>
-            </td>
-            <td class="py-2">
-              <span class="chip" v-if="d.absence_justifiee" style="background: rgba(59,130,246,0.15); color: #93c5fd;">Absence justifiée</span>
-              <span class="chip" v-else-if="!d.absent">Présent</span>
-              <span class="chip" style="background: rgba(248,113,113,0.15); color: #fca5a5;" v-else>Absent</span>
-            </td>
+            <span class="chip" v-if="d.ferie" style="background: rgba(56,189,248,0.15); color: #67e8f9;">Férié</span>
+            <span class="chip" v-else-if="d.weekend" style="background: rgba(148,163,184,0.15); color: #cbd5e1;">Week-end</span>
+            <span class="chip" v-else-if="d.absence_justifiee" style="background: rgba(59,130,246,0.15); color: #93c5fd;">Absence justifiée</span>
+            <span class="chip" v-else-if="!d.absent && d.present_partiel" style="background: rgba(251,191,36,0.15); color: #facc15;">Présence partielle</span>
+            <span class="chip" v-else-if="!d.absent" style="background: rgba(34,197,94,0.12); color: #86efac;">Présent</span>
+            <span class="chip" style="background: rgba(248,113,113,0.15); color: #fca5a5;" v-else>Absent</span>
+          </td>
           </tr>
           <tr v-if="!weekDetails.length">
             <td colspan="6" class="py-3 text-center text-slate-500">Aucune donnée</td>
@@ -253,8 +253,8 @@ const selectedMonth = ref('')
 const selectedMonthWeeks = ref([])
 
 const fetchEmployes = async () => {
-  const { data } = await api.get('/v1/employes')
-  employes.value = data.data || []
+  const { data } = await api.get('/v1/employes', { params: { all: 1 } })
+  employes.value = data.data || data || []
 }
 
 const fetchReleve = async () => {
@@ -300,15 +300,15 @@ const fetchReleve = async () => {
       })
       const d = data.details || []
       const weeks = mergeWeeks(groupByWeek(d))
-      const hsDimanche = d.filter((x) => new Date(x.jour).getDay() === 0).reduce((s, x) => s + (x.heures_supplementaires || 0), 0)
-      const hsConge = d.filter((x) => x.absence_justifiee).reduce((s, x) => s + (x.heures_supplementaires || 0), 0)
+      const hsWeekend = d.filter((x) => isWeekend(x)).reduce((s, x) => s + (x.heures_supplementaires || 0), 0)
+      const hsFerie = d.filter((x) => isFerie(x)).reduce((s, x) => s + (x.heures_supplementaires || 0), 0)
       monthsData.value.push({
         label: moisStr,
         totaux: {
           heures_travaillees: data.totaux?.heures_travaillees || 0,
           heures_supplementaires: data.totaux?.heures_supplementaires || 0,
-          hs_dimanche: hsDimanche,
-          hs_conge: hsConge,
+          hs_weekend: hsWeekend,
+          hs_ferie: hsFerie,
           retard_minutes: data.totaux?.retard_minutes || 0,
           absences: data.totaux?.absences || 0,
         },
@@ -341,8 +341,8 @@ const fetchReleve = async () => {
     totaux.value = {
       heures_travaillees: details.value.reduce((s, d) => s + (d.heures_travaillees || 0), 0),
       heures_supplementaires: details.value.reduce((s, d) => s + (d.heures_supplementaires || 0), 0),
-      hs_dimanche: details.value.filter((d) => d.dimanche).reduce((s, d) => s + (d.heures_supplementaires || 0), 0),
-      hs_conge: details.value.filter((d) => d.absence_justifiee).reduce((s, d) => s + (d.heures_supplementaires || 0), 0),
+      hs_weekend: details.value.filter((d) => isWeekend(d)).reduce((s, d) => s + (d.heures_supplementaires || 0), 0),
+      hs_ferie: details.value.filter((d) => isFerie(d)).reduce((s, d) => s + (d.heures_supplementaires || 0), 0),
       retard_minutes: details.value.reduce((s, d) => s + (d.retard_minutes || 0), 0),
       absences: absents,
       dimanches
@@ -356,13 +356,15 @@ const groupByWeek = (list) => {
   list.forEach((d) => {
     const date = new Date(d.jour)
     const label = weekLabel(date)
+    const weekendFlag = isWeekend(d, date)
+    const ferieFlag = isFerie(d)
     if (!weeks[label]) {
       weeks[label] = {
         label,
         heures_travaillees: 0,
         heures_supplementaires: 0,
-        hs_dimanche: 0,
-        hs_conge: 0,
+        hs_weekend: 0,
+        hs_ferie: 0,
         retard_minutes: 0,
         absences: 0,
         absences_justifiees: 0,
@@ -372,19 +374,21 @@ const groupByWeek = (list) => {
     }
     weeks[label].heures_travaillees += d.heures_travaillees || 0
     weeks[label].heures_supplementaires += d.heures_supplementaires || 0
-    if (date.getDay() === 0) {
-      weeks[label].hs_dimanche += d.heures_supplementaires || 0
+    if (weekendFlag) {
+      weeks[label].hs_weekend += d.heures_supplementaires || 0
     }
-    if (d.absence_justifiee) {
-      weeks[label].hs_conge += d.heures_supplementaires || 0
+    if (ferieFlag) {
+      weeks[label].hs_ferie += d.heures_supplementaires || 0
     }
     weeks[label].retard_minutes += d.retard_minutes || 0
-    weeks[label].absences += d.absent ? 1 : 0
+    weeks[label].absences += (d.absent && !weekendFlag && !d.ferie) ? 1 : 0
     weeks[label].absences_justifiees += d.absence_justifiee ? 1 : 0
     if (date.getDay() === 0) weeks[label].dimanches += 1
     weeks[label].days.push({
       ...d,
-      dimanche: date.getDay() === 0
+      dimanche: date.getDay() === 0,
+      weekend: weekendFlag,
+      ferie: ferieFlag
     })
   })
   return Object.values(weeks)
@@ -414,7 +418,17 @@ const toggleDayDetails = () => {
 
 const selectWeek = (week) => {
   selectedWeekLabel.value = week.label
-  weekDetails.value = week.days || []
+  weekDetails.value = (week.days || []).map((d) => {
+    const weekendFlag = d.weekend || isWeekend(d)
+    const ferieFlag = d.ferie || isFerie(d)
+    return {
+      ...d,
+      weekend: weekendFlag,
+      ferie: ferieFlag,
+      hs_weekend: weekendFlag ? (d.heures_supplementaires || 0) : 0,
+      hs_ferie: ferieFlag ? (d.heures_supplementaires || 0) : 0
+    }
+  })
 }
 
 // Fusionne des semaines ayant le même label (utile quand on accumule plusieurs mois)
@@ -426,8 +440,8 @@ const mergeWeeks = (weeks) => {
     } else {
       map[w.label].heures_travaillees += w.heures_travaillees || 0
       map[w.label].heures_supplementaires += w.heures_supplementaires || 0
-      map[w.label].hs_dimanche += w.hs_dimanche || 0
-      map[w.label].hs_conge += w.hs_conge || 0
+      map[w.label].hs_weekend += w.hs_weekend || 0
+      map[w.label].hs_ferie += w.hs_ferie || 0
       map[w.label].retard_minutes += w.retard_minutes || 0
       map[w.label].absences += w.absences || 0
       map[w.label].absences_justifiees += w.absences_justifiees || 0
@@ -437,6 +451,13 @@ const mergeWeeks = (weeks) => {
   })
   return Object.values(map)
 }
+
+const isWeekend = (d, dateObj) => {
+  const dt = dateObj || new Date(d.jour)
+  return !!(d.weekend || dt.getDay() === 0 || dt.getDay() === 6)
+}
+
+const isFerie = (d) => !!d.ferie
 
 const toggleMonthDetailsFor = (monthObj) => {
   if (selectedMonth.value === monthObj.label && showMonthDetails.value) {

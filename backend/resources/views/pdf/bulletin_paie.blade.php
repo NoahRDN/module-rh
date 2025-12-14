@@ -103,7 +103,7 @@
 </tr>
 
 <tr>
-    <td>Salaire de base du mois</td>
+    <td>Salaire {{ $periode }}</td>
     <td class="center">1 mois</td>
     <td class="right">—</td>
     <td class="right">{{ number_format($paie->salaire_base, 2, ',', ' ') }}</td>
@@ -122,6 +122,15 @@
 </tr>
 @endforelse
 
+@if(isset($paie->montant_nuit) && $paie->montant_nuit > 0)
+<tr>
+    <td>Majoration pour heures de nuit</td>
+    <td class="center">—</td>
+    <td class="right">{{ ($param->night_rate ?? 0) * 100 }}%</td>
+    <td class="right">{{ number_format($paie->montant_nuit, 2, ',', ' ') }}</td>
+</tr>
+@endif
+
 <tr class="bold">
     <td colspan="3" class="right">SALAIRE BRUT</td>
     <td class="right">{{ number_format($paie->total_brut, 2, ',', ' ') }}</td>
@@ -130,7 +139,7 @@
 
 <br>
 
-<!-- ================= RETENUES ================= -->
+<!-- ================= RETENUES & DÉTAIL IRSA ================= -->
 <table>
 <tr class="section-title">
     <th colspan="3">Retenues salariales</th>
@@ -138,25 +147,34 @@
 </tr>
 
 <tr>
-    <td colspan="3" class="right">CNAPS salarié</td>
-    <td class="right">{{ number_format($paie->retenue_cnaps, 2, ',', ' ') }}</td>
+    <td colspan="3" class="right">CNAPS salarié
+        @if(isset($param))
+            <div class="muted">({{ $param->cnaps_taux_employe ?? 0 }} % - plafond {{ number_format($param->cnaps_plafond ?? 0, 0, ',', ' ') }})</div>
+        @endif
+    </td>
+    <td class="right">
+        {{ number_format($paie->retenue_cnaps, 2, ',', ' ') }}
+
+    </td>
 </tr>
 
 <tr>
-    <td colspan="3" class="right">OSTIE salarié</td>
-    <td class="right">{{ number_format($paie->retenue_ostie, 2, ',', ' ') }}</td>
+    <td colspan="3" class="right">OSTIE salarié
+         @if(isset($param))
+            <div class="muted">({{ $param->ostie_taux_employe ?? 0 }} %)</div>
+        @endif
+    </td>
+    <td class="right">
+        {{ number_format($paie->retenue_ostie, 2, ',', ' ') }}
+
+    </td>
 </tr>
-</table>
 
-<br>
-
-<!-- ================= DÉTAIL IRSA ================= -->
-<table>
 <tr class="section-title">
     <th colspan="4">Détail IRSA</th>
 </tr>
 
-<tr>
+<tr class="section-title">
     <th>Tranche</th>
     <th class="center">Base</th>
     <th class="center">Taux</th>
@@ -166,7 +184,7 @@
 @forelse ($details_irsa as $ligne)
 <tr>
     <td>{{ $ligne['libelle'] }}</td>
-    <td class="center">{{ number_format($ligne['base'], 2, ',', ' ') }}</td>
+    <td class="center">{{ number_format($ligne['base'], 0, ',', ' ') }}</td>
     <td class="center">{{ $ligne['taux'] }}%</td>
     <td class="right">{{ number_format($ligne['montant'], 2, ',', ' ') }}</td>
 </tr>
@@ -188,8 +206,19 @@
 
 <tr class="bold">
     <td colspan="3" class="right">IRSA NET</td>
-    <td class="right">{{ number_format($irsa_brut - $reduction_irsa, 2, ',', ' ') }}</td>
+    <td class="right">{{ number_format($irsa_net, 2, ',', ' ') }}</td>
 </tr>
+
+@php
+    $autres_retenues_affiche = isset($autres_retenues) && abs($autres_retenues) >= 0.005 ? $autres_retenues : 0;
+@endphp
+
+@if($autres_retenues_affiche !== 0)
+<tr>
+    <td colspan="3" class="right">Autres retenues (retards/absences)</td>
+    <td class="right">{{ number_format($autres_retenues_affiche, 2, ',', ' ') }}</td>
+</tr>
+@endif
 </table>
 
 <br>
@@ -198,13 +227,21 @@
 <table>
 <tr class="bold">
     <td colspan="3" class="right">TOTAL DES RETENUES</td>
-    <td class="right">{{ number_format($paie->total_retenues, 2, ',', ' ') }}</td>
+    <td class="right">{{ number_format($total_retenues_affiche, 2, ',', ' ') }}</td>
 </tr>
 
 <tr class="net">
     <td colspan="3" class="right">NET À PAYER</td>
     <td class="right">{{ number_format($paie->net_a_payer, 2, ',', ' ') }}</td>
 </tr>
+</table>
+
+
+<br>
+
+<!-- ================= INFORMATIONS FISCALES ================= -->
+<table class="no-border">
+<tr><td>Revenu imposable :</td><td class="right">{{ number_format($revenu_imposable ?? 0, 2, ',', ' ') }} Ar</td></tr>
 </table>
 
 <br>

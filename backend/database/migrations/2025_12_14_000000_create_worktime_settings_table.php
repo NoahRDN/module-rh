@@ -16,7 +16,10 @@ return new class extends Migration
             $table->unsignedTinyInteger('start_minute')->default(0);
             $table->decimal('hours_per_day', 5, 2)->default(8);
             $table->decimal('weekly_threshold', 5, 2)->default(40);
-            $table->json('multipliers')->nullable(); // {weekday_first8:1.3,...}
+            $table->json('multipliers')->nullable(); // {weekday_first8:30,...} en %
+            $table->string('night_start')->default('22:00');
+            $table->string('night_end')->default('05:00');
+            $table->decimal('night_rate', 5, 2)->default(20); // en %
             $table->timestamps();
         });
     }

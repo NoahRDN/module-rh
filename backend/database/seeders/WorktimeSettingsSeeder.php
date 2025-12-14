@@ -19,6 +19,9 @@ class WorktimeSettingsSeeder extends Seeder
                 'hours_per_day' => config('worktime.hours_per_day'),
                 'weekly_threshold' => config('worktime.weekly_threshold'),
                 'multipliers' => config('worktime.multipliers'),
+                'night_start' => config('worktime.night_start'),
+                'night_end' => config('worktime.night_end'),
+                'night_rate' => config('worktime.night_rate'),
             ]
         );
     }

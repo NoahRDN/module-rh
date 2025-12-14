@@ -16,7 +16,7 @@ class WorktimeSettingController extends Controller
             $setting = $this->defaults();
             $setting->save();
         }
-        return response()->json($setting);
+        return response()->json($this->present($setting));
     }
 
     public function update(Request $request)
@@ -30,13 +30,16 @@ class WorktimeSettingController extends Controller
             'hours_per_day' => 'required|numeric|min:0|max:24',
             'weekly_threshold' => 'required|numeric|min:0|max:100',
             'multipliers' => 'nullable|array',
+            'night_start' => 'required|string',
+            'night_end' => 'required|string',
+            'night_rate' => 'required|numeric|min:0',
         ]);
 
         $setting = WorktimeSetting::first() ?? $this->defaults();
         $setting->fill($data);
         $setting->save();
 
-        return response()->json($setting);
+        return response()->json($this->present($setting));
     }
 
     private function defaults(): WorktimeSetting
@@ -49,6 +52,32 @@ class WorktimeSettingController extends Controller
             'hours_per_day' => config('worktime.hours_per_day'),
             'weekly_threshold' => config('worktime.weekly_threshold'),
             'multipliers' => config('worktime.multipliers'),
+            'night_start' => config('worktime.night_start', '22:00'),
+            'night_end' => config('worktime.night_end', '05:00'),
+            'night_rate' => config('worktime.night_rate', 20),
         ]);
+    }
+
+    private function present(WorktimeSetting $setting): WorktimeSetting
+    {
+        $setting->night_rate = $this->normalizePercent($setting->night_rate);
+        $mult = $setting->multipliers ?: config('worktime.multipliers', []);
+        $setting->multipliers = collect($mult)->map(fn($v) => $this->normalizePercent($v))->toArray();
+        return $setting;
+    }
+
+    private function normalizePercent($value): float
+    {
+        if ($value === null) {
+            return 0;
+        }
+        $v = (float) $value;
+        if ($v < 1) {
+            return $v * 100; // ex: 0.2 -> 20%
+        }
+        if ($v <= 3) {
+            return max(0, ($v - 1) * 100); // ex: 1.3 -> 30%
+        }
+        return $v; // déjà en pourcentage
     }
 }

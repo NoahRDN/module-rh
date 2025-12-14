@@ -14,10 +14,15 @@ class WorktimeSetting extends Model
         'hours_per_day',
         'weekly_threshold',
         'multipliers',
+        'night_start',
+        'night_end',
+        'night_rate',
     ];
 
     protected $casts = [
         'working_days' => 'array',
         'multipliers' => 'array',
+        'night_start' => 'string',
+        'night_end' => 'string',
     ];
 }

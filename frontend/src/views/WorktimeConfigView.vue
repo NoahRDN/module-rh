@@ -52,27 +52,27 @@
       <div class="grid md:grid-cols-3 gap-2">
         <div class="grid gap-1">
           <label class="text-xs text-slate-500">Weekday 1ères 8h</label>
-          <input class="input" type="number" step="0.1" v-model.number="form.multipliers.weekday_first8" />
+          <input class="input" type="number" step="1" v-model.number="form.multipliers.weekday_first8" />
         </div>
         <div class="grid gap-1">
           <label class="text-xs text-slate-500">Weekday 12h suivantes</label>
-          <input class="input" type="number" step="0.1" v-model.number="form.multipliers.weekday_next12" />
+          <input class="input" type="number" step="1" v-model.number="form.multipliers.weekday_next12" />
         </div>
         <div class="grid gap-1">
           <label class="text-xs text-slate-500">Weekday au-delà</label>
-          <input class="input" type="number" step="0.1" v-model.number="form.multipliers.weekday_beyond" />
+          <input class="input" type="number" step="1" v-model.number="form.multipliers.weekday_beyond" />
         </div>
         <div class="grid gap-1">
           <label class="text-xs text-slate-500">Samedi</label>
-          <input class="input" type="number" step="0.1" v-model.number="form.multipliers.saturday" />
+          <input class="input" type="number" step="1" v-model.number="form.multipliers.saturday" />
         </div>
         <div class="grid gap-1">
           <label class="text-xs text-slate-500">Dimanche</label>
-          <input class="input" type="number" step="0.1" v-model.number="form.multipliers.sunday" />
+          <input class="input" type="number" step="1" v-model.number="form.multipliers.sunday" />
         </div>
         <div class="grid gap-1">
           <label class="text-xs text-slate-500">Férié</label>
-          <input class="input" type="number" step="0.1" v-model.number="form.multipliers.holiday" />
+          <input class="input" type="number" step="1" v-model.number="form.multipliers.holiday" />
         </div>
       </div>
     </div>
@@ -98,12 +98,12 @@ const form = ref({
   hours_per_day: 8,
   weekly_threshold: 40,
   multipliers: {
-    weekday_first8: 1.3,
-    weekday_next12: 1.5,
-    weekday_beyond: 1.5,
-    saturday: 1.4,
-    sunday: 1.4,
-    holiday: 2.0,
+    weekday_first8: 30,
+    weekday_next12: 50,
+    weekday_beyond: 50,
+    saturday: 40,
+    sunday: 40,
+    holiday: 100,
   }
 })
 

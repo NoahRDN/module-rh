@@ -9,15 +9,17 @@ use App\Models\Poste;
 use App\Http\Controllers\Api\SoldeCongeController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Http\JsonResponse;
 
 class EmployeController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
         try {
             $search = $request->query('search');
             $activeOnly = $request->boolean('active_only', false);
             $all = $request->boolean('all', false);
+            $perPage = max(1, (int) $request->query('per_page', 10));
 
             $query = Employe::with(['poste', 'departement'])
                 ->search($search)
@@ -32,7 +34,7 @@ class EmployeController extends Controller
                 })
                 ->orderBy('nom');
 
-            $employes = $all ? $query->get() : $query->paginate(10);
+            $employes = $all ? $query->get() : $query->paginate($perPage);
 
             return response()->json($employes);
         } catch (\Throwable $e) {

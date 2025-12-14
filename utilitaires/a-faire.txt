@@ -148,4 +148,13 @@ a tester:
 ajustement a faire:
 - un type de conge sans solde 
 - l'employe ne travail que 5j/7
-- 
+
+==================
+- verification de l'exactidutde du fiche de paie
+- retester tous les fonctionnalite que tous fonctionne et toutes est coherent
+- redesigner 
+- preprarer des donnees de test pour presenter tous les cas
+- retester
+- preparer une fiche de fonctionnement du systeme 
+- preparer une readme de lancement 
+===============

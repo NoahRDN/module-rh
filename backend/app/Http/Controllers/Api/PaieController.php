@@ -10,6 +10,7 @@ use App\Models\PaiePrime;
 use App\Models\Pointage;
 use App\Models\Contrat;
 use App\Models\Employe;
+use App\Models\IrsaTranche;
 use DateInterval;
 use DatePeriod;
 use Carbon\Carbon;
@@ -34,7 +35,7 @@ class PaieController extends Controller
             $tauxHoraire = $salaireBase > 0 ? $salaireBase / 173.33 : 0;
 
             [$heuresTrav, $details, $absences, $retardsTotal] = $this->calculerHeuresMois($employe->id, $mois);
-            [$heuresSup, $montantHs] = $this->calculerHsHebdo($details, $tauxHoraire);
+            [$heuresSup, $montantHs, $heuresNuit, $montantNuit] = $this->calculerHsHebdo($details, $tauxHoraire);
 
             $deductionRetards = ($retardsTotal / 60) * $tauxHoraire;
             $deductionAbsences = $absences * ($salaireBase / 30);
@@ -42,12 +43,20 @@ class PaieController extends Controller
             $brut = $salaireBase
                 + $param->prime_transport
                 + $param->prime_presence
-                + $montantHs;
+                + $montantHs
+                + $montantNuit;
 
-            $cnaps = $brut * ($param->cnaps / 100);
-            $ostie = $brut * ($param->ostie / 100);
-            $irsa  = max(0, ($brut - $param->irsa_base) * ($param->irsa_taux / 100));
-            $retenues = $cnaps + $ostie + $irsa + $deductionRetards + $deductionAbsences;
+            $baseCnaps = min($brut, $param->cnaps_plafond ?? $brut);
+            $cnaps = $baseCnaps * (($param->cnaps_taux_employe ?? $param->cnaps) / 100);
+            $ostie = $brut * (($param->ostie_taux_employe ?? $param->ostie) / 100);
+            $revenuImposable = max(0, $brut - $cnaps - $ostie);
+            $irsa  = $this->calculerIrsaProgressif($revenuImposable);
+            // $retenues = $cnaps + $ostie + $irsa + $deductionRetards + $deductionAbsences;
+            $retenues = $cnaps + $ostie + $irsa;
+
+            Log::info("Calcul paie pour Employe ID: {$employe->id}, Mois: {$mois}");
+            Log::info("retenues: CNAPS: {$cnaps}, OSTIE: {$ostie}, IRSA: {$irsa}, Retards: {$deductionRetards}, Absences: {$deductionAbsences}");
+            Log::info("Total retenues: {$retenues}");
             $net = $brut - $retenues;
 
             $paie = Paie::create([
@@ -57,6 +66,8 @@ class PaieController extends Controller
                 'heures_travaillees'    => $heuresTrav,
                 'heures_supplementaires'=> $heuresSup,
                 'montant_hs'            => $montantHs,
+                'heures_nuit'           => $heuresNuit,
+                'montant_nuit'          => $montantNuit,
                 'prime_transport'       => $param->prime_transport,
                 'prime_presence'        => $param->prime_presence,
                 'retenue_cnaps'         => $cnaps,
@@ -237,13 +248,20 @@ class PaieController extends Controller
         $mult = $config['multipliers'] ?? [];
         $weekdays = $config['working_days'] ?? ['mon','tue','wed','thu','fri'];
         $saturdayMode = $config['saturday_mode'] ?? 'normal';
+        $nightStart = $config['night_start'] ?? '22:00';
+        $nightEnd = $config['night_end'] ?? '05:00';
+        $nightRatePercent = $this->normalizePercent($config['night_rate'] ?? 0);
+        $nightRateFactor = $nightRatePercent / 100;
+
+        [$nightStartH, $nightStartM] = array_map('intval', explode(':', $nightStart));
+        [$nightEndH, $nightEndM] = array_map('intval', explode(':', $nightEnd));
 
         $weeks = [];
         foreach ($details as $d) {
             $date = Carbon::parse($d['jour']);
             $weekKey = $date->isoWeekYear() . '-' . $date->isoWeek();
             if (!isset($weeks[$weekKey])) {
-                $weeks[$weekKey] = ['weekday_hours' => 0, 'saturday_hours' => 0, 'sunday_hours' => 0];
+                $weeks[$weekKey] = ['weekday_hours' => 0, 'saturday_hours' => 0, 'sunday_hours' => 0, 'night_hours' => 0];
             }
             $hours = $d['heures_travaillees'] ?? 0;
             $dayCode = strtolower(substr($date->format('D'), 0, 3));
@@ -254,10 +272,18 @@ class PaieController extends Controller
             } else {
                 $weeks[$weekKey]['weekday_hours'] += $hours;
             }
+
+            // Calcul heures de nuit (approche simple : si début de nuit dans la journée, on ajoute l'intégralité des heures de la journée comme de nuit si pointage de nuit indiqué dans détail)
+            if (!empty($d['heures_supplementaires']) || !empty($d['heures_travaillees'])) {
+                // approximation : si la journée est marquée comme nuit (heures_nuit dans détail si présent) sinon 0
+                $weeks[$weekKey]['night_hours'] += $d['heures_nuit'] ?? 0;
+            }
         }
 
         $totalHsHours = 0;
         $totalHsAmount = 0;
+        $totalNightHours = 0;
+        $totalNightAmount = 0;
 
         foreach ($weeks as $week) {
             $weekdayHours = $week['weekday_hours'];
@@ -281,17 +307,21 @@ class PaieController extends Controller
             $hsWeekHours = $overtime + $sundayHours + $saturdayHsHours;
 
             $amount = 0;
-            $amount += $first8 * $tauxHoraire * ($mult['weekday_first8'] ?? 1.3);
-            $amount += $next12 * $tauxHoraire * ($mult['weekday_next12'] ?? 1.5);
-            $amount += $beyond * $tauxHoraire * ($mult['weekday_beyond'] ?? 1.5);
-            $amount += $sundayHours * $tauxHoraire * ($mult['sunday'] ?? 1.4);
-            $amount += $saturdayHsHours * $tauxHoraire * ($mult['saturday'] ?? 1.4);
+            $amount += $first8 * $tauxHoraire * $this->toMultiplier($this->normalizePercent($mult['weekday_first8'] ?? 30));
+            $amount += $next12 * $tauxHoraire * $this->toMultiplier($this->normalizePercent($mult['weekday_next12'] ?? 50));
+            $amount += $beyond * $tauxHoraire * $this->toMultiplier($this->normalizePercent($mult['weekday_beyond'] ?? 50));
+            $amount += $sundayHours * $tauxHoraire * $this->toMultiplier($this->normalizePercent($mult['sunday'] ?? 40));
+            $amount += $saturdayHsHours * $tauxHoraire * $this->toMultiplier($this->normalizePercent($mult['saturday'] ?? 40));
 
             $totalHsHours += $hsWeekHours;
             $totalHsAmount += $amount;
+
+            // Bonus nuit en plus (sur les heures de nuit de la semaine)
+            $totalNightHours += $week['night_hours'];
+            $totalNightAmount += $week['night_hours'] * $tauxHoraire * $nightRateFactor;
         }
 
-        return [round($totalHsHours, 2), round($totalHsAmount, 2)];
+        return [round($totalHsHours, 2), round($totalHsAmount, 2), round($totalNightHours, 2), round($totalNightAmount, 2)];
     }
 
     /**
@@ -309,8 +339,60 @@ class PaieController extends Controller
                 'hours_per_day' => $setting->hours_per_day ?? config('worktime.hours_per_day'),
                 'weekly_threshold' => $setting->weekly_threshold ?? config('worktime.weekly_threshold'),
                 'multipliers' => $setting->multipliers ?: config('worktime.multipliers'),
+                'night_start' => $setting->night_start ?? config('worktime.night_start'),
+                'night_end' => $setting->night_end ?? config('worktime.night_end'),
+                'night_rate' => $setting->night_rate ?? config('worktime.night_rate'),
             ];
         }
         return config('worktime');
+    }
+
+    private function normalizePercent($value): float
+    {
+        if ($value === null) {
+            return 0;
+        }
+        $v = (float) $value;
+        if ($v < 1) {
+            return $v * 100; // ex: 0.2 -> 20%
+        }
+        if ($v <= 3) {
+            return max(0, ($v - 1) * 100); // ex: 1.3 -> 30%
+        }
+        return $v; // déjà en pourcentage
+    }
+
+    private function toMultiplier(float $percent): float
+    {
+        return 1 + ($percent / 100);
+    }
+
+    /**
+     * Calcul IRSA avec tranches progressives si configurées, sinon fallback paramètre unique.
+     */
+    protected function calculerIrsaProgressif(float $brut): float
+    {
+        $tranches = IrsaTranche::orderBy('min_base')->get();
+        if ($tranches->isEmpty()) {
+            $param = PaieParametre::first();
+            return max(0, ($brut - ($param->irsa_base ?? 0)) * (($param->irsa_taux ?? 0) / 100));
+        }
+
+        $irsa = 0;
+        foreach ($tranches as $t) {
+            $borne_inf = $t->min_base > 0 ? $t->min_base - 1 : 0; // bornes inclusives
+            $max = $t->max_base ?? $brut;
+            if ($brut <= $borne_inf) {
+                continue;
+            }
+            $plafond = min($brut, $max);
+            $assiette = max(0, $plafond - $borne_inf);
+            $assiette_arrondie = ceil($assiette);
+            $irsa += $assiette_arrondie * ($t->taux / 100);
+            if ($brut <= $max) {
+                break;
+            }
+        }
+        return $irsa;
     }
 }

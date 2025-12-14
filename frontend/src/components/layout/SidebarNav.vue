@@ -57,6 +57,7 @@ const items = [
   { to: '/releve-presence', label: 'Relevé présence', hint: 'Heures & absences', icon: '📄' },
   { to: '/paie-parametres', label: 'Paramètres paie', hint: 'CNAPS/OSTIE/IRSA', icon: '⚙️' },
   { to: '/paie-generation', label: 'Génération paie', hint: 'Brut/Net', icon: '💰' },
+  { to: '/worktime-config', label: 'Worktime', hint: 'configuration', icon: '⚙️' },
   { to: '/documents', label: 'Documents', hint: 'RH & pièces', icon: '📁' },
   { to: '/historiques', label: 'Historique postes', hint: 'Mobilités', icon: '⏱️' },
   // Portail Manager

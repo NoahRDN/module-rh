@@ -54,8 +54,8 @@ const form = ref({
 })
 
 const fetchEmployes = async () => {
-  const { data } = await api.get('/v1/employes')
-  employes.value = data.data || []
+  const { data } = await api.get('/v1/employes', { params: { all: 1 } })
+  employes.value = data.data || data || []
 }
 
 const generer = async () => {

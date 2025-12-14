@@ -7,6 +7,8 @@ use App\Http\Requests\PointageRequest;
 use App\Models\Pointage;
 use App\Models\DemandeConge;
 use Carbon\Carbon;
+use App\Models\WorktimeSetting;
+use App\Models\JourFerie;
 use DateInterval;
 use DatePeriod;
 use Illuminate\Http\Request;
@@ -174,44 +176,63 @@ class PointageController extends Controller
     }
 
     /**
-     * Calcule les heures travaillées, heures sup, retard pour un jour donné.
-     * Hypothèse : journée standard 08:00–17:00 avec 1h de pause (8h de travail).
+     * Calcule les heures travaillées, heures sup, retard pour un jour donné (configurable via worktime).
      */
     protected function calculerJournee($pointages, $jour)
     {
-        $estDimanche = Carbon::parse($jour)->isSunday();
+        $settings = $this->loadWorktimeSettings();
+        $workingDays = $settings['working_days'] ?? ['mon','tue','wed','thu','fri'];
+        $saturdayMode = $settings['saturday_mode'] ?? 'normal';
+        $startHour = (int) ($settings['start_hour'] ?? 8);
+        $startMinute = (int) ($settings['start_minute'] ?? 0);
+        $hoursPerDay = (float) ($settings['hours_per_day'] ?? 8);
+        $pauseMinutes = (int) ($settings['pause_minutes'] ?? 60);
+
+        $dateObj = Carbon::parse($jour);
+        $dayCode = strtolower(substr($dateObj->format('D'), 0, 3));
+        $isSunday = $dateObj->isSunday();
+        $isSaturday = $dayCode === 'sat';
+        $isHoliday = $this->isHoliday($dateObj);
+        $isWorkingDay = in_array($dayCode, $workingDays) || ($isSaturday && $saturdayMode === 'normal');
 
         if ($pointages->isEmpty()) {
+            $absent = $isWorkingDay && !$isHoliday;
+            $weekend = ($isSaturday || $isSunday) && !$isWorkingDay;
             return [
                 'heures_travaillees' => 0,
                 'heures_supplementaires' => 0,
                 'retard_minutes' => 0,
                 'premiere_entree' => null,
                 'derniere_sortie' => null,
-                'absent' => true,
+                'absent' => $absent,
                 'absence_justifiee' => false,
                 'conge' => false,
-                'dimanche' => $estDimanche,
+                'dimanche' => $isSunday,
+                'ferie' => $isHoliday,
+                'weekend' => $weekend,
                 'minutes_pauses' => 0,
+                'present_partiel' => false,
             ];
         }
-
-        $date = Carbon::parse($jour);
 
         $premiereEntree = $pointages->firstWhere('type', 'entree');
         $derniereSortie = $pointages->where('type', 'sortie')->last();
 
         if (!$premiereEntree || !$derniereSortie) {
+            $absent = $isWorkingDay && !$isHoliday;
+            $weekend = ($isSaturday || $isSunday) && !$isWorkingDay;
             return [
                 'heures_travaillees' => 0,
                 'heures_supplementaires' => 0,
                 'retard_minutes' => 0,
                 'premiere_entree' => optional($premiereEntree)->pointe_a,
                 'derniere_sortie' => optional($derniereSortie)->pointe_a,
-                'absent' => true,
+                'absent' => $absent,
                 'absence_justifiee' => false,
                 'conge' => false,
-                'dimanche' => $estDimanche,
+                'dimanche' => $isSunday,
+                'ferie' => $isHoliday,
+                'weekend' => $weekend,
                 'minutes_pauses' => 0,
             ];
         }
@@ -222,17 +243,25 @@ class PointageController extends Controller
         $minutesBrut = $debut->diffInMinutes($fin);
         $pauses = $this->calculerDureePauses($pointages);
         $minutesTravail = max(0, $minutesBrut - $pauses);
-        Log::debug("Minutes travail: " . $minutesTravail);
-        $minutesNormales = ($this->journeeFinHeure - $this->journeeDebutHeure) * 60 - $this->pauseMinutes;
+        $minutesNormales = max(0, ($hoursPerDay * 60) - $pauseMinutes);
 
         $heuresTravaillees = round($minutesTravail / 60, 2);
         $heuresSupp = max(0, round(($minutesTravail - $minutesNormales) / 60, 2));
 
-        $heureTheorique = (clone $date)->setTime($this->journeeDebutHeure, 0, 0);
+        // Si férié ou week-end non travaillé, tout le temps est compté en HS (majoré ailleurs)
+        if ($isHoliday || (($isSaturday || $isSunday) && !$isWorkingDay)) {
+            $heuresSupp = $heuresTravaillees;
+            $heuresTravaillees = 0;
+        }
+
+        $heureTheorique = (clone $dateObj)->setTime($startHour, $startMinute, 0);
         $retardMinutes = 0;
-        if ($debut->greaterThan($heureTheorique)) {
+        if (!$isHoliday && !$isSunday && !($isSaturday && !$isWorkingDay) && $debut->greaterThan($heureTheorique)) {
             $retardMinutes = $heureTheorique->diffInMinutes($debut);
         }
+
+        // Présence partielle si heures < heures_per_day
+        $presentPartiel = $heuresTravaillees > 0 && $heuresTravaillees < $hoursPerDay;
 
         return [
             'heures_travaillees'      => $heuresTravaillees,
@@ -244,7 +273,10 @@ class PointageController extends Controller
             'absent'                  => false,
             'absence_justifiee'       => false,
             'conge'                   => false,
-            'dimanche'                => $estDimanche,
+            'dimanche'                => $isSunday,
+            'ferie'                   => $isHoliday,
+            'weekend'                 => ($isSaturday || $isSunday) && !$isWorkingDay,
+            'present_partiel'         => $presentPartiel,
         ];
     }
 
@@ -276,5 +308,37 @@ class PointageController extends Controller
             ->whereDate('date_debut', '<=', $jour)
             ->whereDate('date_fin', '>=', $jour)
             ->exists();
+    }
+
+    protected function isHoliday(Carbon $date): bool
+    {
+        $dayMonth = $date->format('m-d');
+        return JourFerie::where(function ($q) use ($date) {
+                $q->whereDate('date', $date->toDateString())
+                  ->where('recurrent', false);
+            })
+            ->orWhere(function ($q) use ($dayMonth) {
+                $q->whereRaw("to_char(date, 'MM-DD') = ?", [$dayMonth])
+                  ->where('recurrent', true);
+            })
+            ->exists();
+    }
+
+    protected function loadWorktimeSettings(): array
+    {
+        $setting = WorktimeSetting::first();
+        if ($setting) {
+            return [
+                'working_days' => $setting->working_days ?: config('worktime.working_days'),
+                'saturday_mode' => $setting->saturday_mode ?: config('worktime.saturday_mode'),
+                'start_hour' => $setting->start_hour ?? config('worktime.start_hour'),
+                'start_minute' => $setting->start_minute ?? config('worktime.start_minute'),
+                'hours_per_day' => $setting->hours_per_day ?? config('worktime.hours_per_day'),
+                'weekly_threshold' => $setting->weekly_threshold ?? config('worktime.weekly_threshold'),
+                'multipliers' => $setting->multipliers ?: config('worktime.multipliers'),
+                'pause_minutes' => $setting->pause_minutes ?? config('worktime.pause_minutes', 60),
+            ];
+        }
+        return config('worktime');
     }
 }

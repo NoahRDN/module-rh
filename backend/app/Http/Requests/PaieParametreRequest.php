@@ -14,13 +14,16 @@ class PaieParametreRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'cnaps' => 'required|numeric|min:0',
-            'ostie' => 'required|numeric|min:0',
-            'irsa_base' => 'required|numeric|min:0',
-            'irsa_taux' => 'required|numeric|min:0',
-            'hs_taux' => 'required|numeric|min:0',
-            'prime_transport' => 'required|numeric|min:0',
-            'prime_presence' => 'required|numeric|min:0',
+            'cnaps_plafond' => 'required|numeric|min:0',
+            'cnaps_taux_employe' => 'required|numeric|min:0',
+            'cnaps_taux_employeur' => 'required|numeric|min:0',
+            'ostie_taux_employe' => 'required|numeric|min:0',
+            'ostie_taux_employeur' => 'required|numeric|min:0',
+            'irsa_base' => 'sometimes|numeric|min:0',
+            'irsa_taux' => 'sometimes|numeric|min:0',
+            'hs_taux' => 'sometimes|numeric|min:0',
+            'prime_transport' => 'sometimes|numeric|min:0',
+            'prime_presence' => 'sometimes|numeric|min:0',
         ];
     }
 }

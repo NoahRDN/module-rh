@@ -10,40 +10,74 @@
     <form class="grid gap-3" @submit.prevent="save">
       <div class="grid grid-cols-2 gap-3">
         <div>
-          <label class="text-sm text-slate-600">CNAPS (%)</label>
-          <input class="input" v-model="form.cnaps" type="number" step="0.01" required />
+          <label class="text-sm text-slate-600">Plafond CNAPS</label>
+          <input class="input" v-model="form.cnaps_plafond" type="number" step="0.01" required />
         </div>
         <div>
-          <label class="text-sm text-slate-600">OSTIE (%)</label>
-          <input class="input" v-model="form.ostie" type="number" step="0.01" required />
+          <label class="text-sm text-slate-600">CNAPS employé (%)</label>
+          <input class="input" v-model="form.cnaps_taux_employe" type="number" step="0.01" required />
         </div>
       </div>
       <div class="grid grid-cols-2 gap-3">
         <div>
-          <label class="text-sm text-slate-600">IRSA base</label>
-          <input class="input" v-model="form.irsa_base" type="number" step="0.01" required />
+          <label class="text-sm text-slate-600">CNAPS employeur (%)</label>
+          <input class="input" v-model="form.cnaps_taux_employeur" type="number" step="0.01" required />
         </div>
         <div>
-          <label class="text-sm text-slate-600">IRSA taux (%)</label>
-          <input class="input" v-model="form.irsa_taux" type="number" step="0.01" required />
+          <label class="text-sm text-slate-600">OSTIE employé (%)</label>
+          <input class="input" v-model="form.ostie_taux_employe" type="number" step="0.01" required />
         </div>
       </div>
       <div class="grid grid-cols-2 gap-3">
         <div>
-          <label class="text-sm text-slate-600">Taux HS</label>
-          <input class="input" v-model="form.hs_taux" type="number" step="0.01" required />
-        </div>
-        <div>
-          <label class="text-sm text-slate-600">Prime transport</label>
-          <input class="input" v-model="form.prime_transport" type="number" step="0.01" required />
+          <label class="text-sm text-slate-600">OSTIE employeur (%)</label>
+          <input class="input" v-model="form.ostie_taux_employeur" type="number" step="0.01" required />
         </div>
       </div>
-      <div>
-        <label class="text-sm text-slate-600">Prime présence</label>
-        <input class="input" v-model="form.prime_presence" type="number" step="0.01" required />
-      </div>
+      <!-- IRSA géré via tranches ci-dessous -->
       <button class="btn w-fit" type="submit">Enregistrer</button>
       <p class="text-sm text-slate-500" v-if="message">{{ message }}</p>
+
+      <div class="mt-4">
+        <h3 class="text-sm font-semibold text-slate-700 mb-2">Tranches IRSA</h3>
+        <table class="table mb-3">
+          <thead>
+            <tr>
+              <th>Min</th>
+              <th>Max</th>
+              <th>Taux (%)</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="t in tranches" :key="t.id">
+              <td>{{ t.min_base }}</td>
+              <td>{{ t.max_base ?? '∞' }}</td>
+              <td>{{ t.taux }}</td>
+              <td class="text-right">
+                <button class="btn btn-secondary btn-xs" @click="removeTranche(t.id)">Supprimer</button>
+              </td>
+            </tr>
+            <tr v-if="!tranches.length"><td colspan="4" class="text-slate-400 text-sm">Aucune tranche</td></tr>
+          </tbody>
+        </table>
+
+        <div class="grid grid-cols-4 gap-2 items-end">
+          <div>
+            <label class="text-sm text-slate-600">Min</label>
+            <input class="input" v-model="newTranche.min_base" type="number" step="0.01" />
+          </div>
+          <div>
+            <label class="text-sm text-slate-600">Max</label>
+            <input class="input" v-model="newTranche.max_base" type="number" step="0.01" />
+          </div>
+          <div>
+            <label class="text-sm text-slate-600">Taux (%)</label>
+            <input class="input" v-model="newTranche.taux" type="number" step="0.01" />
+          </div>
+          <button class="btn btn-secondary" @click="addTranche">Ajouter tranche</button>
+        </div>
+      </div>
     </form>
   </div>
 </template>
@@ -53,31 +87,36 @@ import { onMounted, ref } from 'vue'
 import api from '../services/api'
 
 const form = ref({
-  cnaps: 0,
-  ostie: 0,
-  irsa_base: 0,
-  irsa_taux: 0,
-  hs_taux: 0,
+  cnaps_plafond: 0,
+  cnaps_taux_employe: 0,
+  cnaps_taux_employeur: 0,
+  ostie_taux_employe: 0,
+  ostie_taux_employeur: 0,
   prime_transport: 0,
   prime_presence: 0
 })
 const id = ref(null)
 const message = ref('')
+const tranches = ref([])
+const newTranche = ref({ min_base: 0, max_base: null, taux: 0 })
 
 const load = async () => {
   const { data } = await api.get('/v1/paie-parametres')
   if (data) {
     id.value = data.id
     form.value = {
-      cnaps: data.cnaps,
-      ostie: data.ostie,
-      irsa_base: data.irsa_base,
-      irsa_taux: data.irsa_taux,
-      hs_taux: data.hs_taux,
+      cnaps_plafond: data.cnaps_plafond,
+      cnaps_taux_employe: data.cnaps_taux_employe,
+      cnaps_taux_employeur: data.cnaps_taux_employeur,
+      ostie_taux_employe: data.ostie_taux_employe,
+      ostie_taux_employeur: data.ostie_taux_employeur,
       prime_transport: data.prime_transport,
       prime_presence: data.prime_presence
     }
   }
+
+  const { data: tr } = await api.get('/v1/irsa-tranches')
+  tranches.value = tr || []
 }
 
 const save = async () => {
@@ -87,6 +126,25 @@ const save = async () => {
     message.value = 'Paramètres mis à jour'
   } catch (e) {
     message.value = 'Erreur lors de la sauvegarde'
+  }
+}
+
+const addTranche = async () => {
+  try {
+    await api.post('/v1/irsa-tranches', newTranche.value)
+    await load()
+    newTranche.value = { min_base: 0, max_base: null, taux: 0 }
+  } catch (e) {
+    message.value = 'Erreur ajout tranche'
+  }
+}
+
+const removeTranche = async (idTranche) => {
+  try {
+    await api.delete(`/v1/irsa-tranches/${idTranche}`)
+    tranches.value = tranches.value.filter(t => t.id !== idTranche)
+  } catch (e) {
+    message.value = 'Erreur suppression tranche'
   }
 }
 

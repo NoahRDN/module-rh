@@ -52,6 +52,13 @@ use App\Http\Controllers\Api\AuditController;
 use App\Http\Controllers\Api\ArchiveController;
 use App\Http\Controllers\Api\PermissionController;
 
+// Nouveaux controllers IA et Automatisation
+use App\Http\Controllers\Api\ChatbotController;
+use App\Http\Controllers\Api\DocumentGeneratorController;
+use App\Http\Controllers\Api\TurnoverPredictionController;
+use App\Http\Controllers\Api\AnomalyDetectionController;
+use App\Http\Controllers\Api\AIMatchingController;
+
 Route::post('/login', [AuthController::class, 'login']);
 
 Route::middleware('auth:sanctum')->group(function () {
@@ -118,6 +125,9 @@ Route::prefix('v1')->group(function () {
         
         // Conversations/Messagerie
         Route::get('conversations', [SelfServiceController::class, 'mesConversations']);
+        
+        // Génération de documents self-service
+        Route::post('documents/generer', [DocumentGeneratorController::class, 'selfServiceGenerer']);
     });
 
     // ========================================
@@ -131,6 +141,15 @@ Route::prefix('v1')->group(function () {
         Route::post('conversations/{id}/pieces-jointes', [MessagerieController::class, 'ajouterPieceJointe']);
         Route::post('conversations/{id}/lue', [MessagerieController::class, 'marquerLu']);
         Route::get('stats-non-lus', [MessagerieController::class, 'statsNonLus']);
+    });
+
+    // ========================================
+    // CHATBOT IA (accessible à tous les authentifiés)
+    // ========================================
+    Route::middleware('auth:sanctum')->prefix('chatbot')->group(function () {
+        Route::post('/ask', [ChatbotController::class, 'ask']);
+        Route::get('/suggestions', [ChatbotController::class, 'suggestions']);
+        Route::get('/historique', [ChatbotController::class, 'historique']);
     });
 
     Route::middleware(['auth:sanctum', 'role:admin,rh'])->group(function () {
@@ -290,6 +309,62 @@ Route::prefix('v1')->group(function () {
         Route::get('/role/{role}', [PermissionController::class, 'forRole']);
         Route::put('/role/{role}', [PermissionController::class, 'updateRole']);
         Route::post('/check', [PermissionController::class, 'check']);
+    });
+
+    // ========================================
+    // GÉNÉRATION DE DOCUMENTS (Admin/RH)
+    // ========================================
+    Route::prefix('documents-generator')->group(function () {
+        Route::get('/types', [DocumentGeneratorController::class, 'types']);
+        Route::post('/generer', [DocumentGeneratorController::class, 'generer']);
+        Route::get('/employes/{employeId}/attestation-travail', [DocumentGeneratorController::class, 'attestationTravail']);
+        Route::get('/employes/{employeId}/certificat-travail', [DocumentGeneratorController::class, 'certificatTravail']);
+        Route::get('/employes/{employeId}/attestation-salaire', [DocumentGeneratorController::class, 'attestationSalaire']);
+        Route::get('/employes/{employeId}/lettre-recommandation', [DocumentGeneratorController::class, 'lettreRecommandation']);
+        Route::get('/employes/{employeId}/formations/{formationId}/attestation', [DocumentGeneratorController::class, 'attestationFormation']);
+        Route::get('/demandes-conges/{demandeId}/attestation', [DocumentGeneratorController::class, 'attestationConge']);
+        Route::get('/contrats/{contratId}/pdf', [DocumentGeneratorController::class, 'contratTravail']);
+        Route::post('/contrats/{contratId}/avenant', [DocumentGeneratorController::class, 'avenantContrat']);
+    });
+
+    // ========================================
+    // PRÉDICTION TURNOVER (Admin/RH)
+    // ========================================
+    Route::prefix('turnover')->group(function () {
+        Route::get('/', [TurnoverPredictionController::class, 'index']);
+        Route::get('/statistiques', [TurnoverPredictionController::class, 'statistiques']);
+        Route::get('/top-risques', [TurnoverPredictionController::class, 'topRisques']);
+        Route::get('/alertes', [TurnoverPredictionController::class, 'alertes']);
+        Route::get('/departements', [TurnoverPredictionController::class, 'parDepartement']);
+        Route::get('/tendances', [TurnoverPredictionController::class, 'tendances']);
+        Route::get('/employes/{employeId}', [TurnoverPredictionController::class, 'show']);
+    });
+
+    // ========================================
+    // DÉTECTION D'ANOMALIES (Admin/RH)
+    // ========================================
+    Route::prefix('anomalies')->group(function () {
+        Route::get('/', [AnomalyDetectionController::class, 'index']);
+        Route::get('/dashboard', [AnomalyDetectionController::class, 'dashboard']);
+        Route::get('/statistiques', [AnomalyDetectionController::class, 'statistiques']);
+        Route::get('/critiques', [AnomalyDetectionController::class, 'alertesCritiques']);
+        Route::get('/pointage', [AnomalyDetectionController::class, 'pointage']);
+        Route::get('/paie', [AnomalyDetectionController::class, 'paie']);
+        Route::get('/conges', [AnomalyDetectionController::class, 'conges']);
+        Route::get('/contrats', [AnomalyDetectionController::class, 'contrats']);
+        Route::get('/heures', [AnomalyDetectionController::class, 'heures']);
+    });
+
+    // ========================================
+    // MATCHING IA (Admin/RH)
+    // ========================================
+    Route::prefix('matching-ia')->group(function () {
+        Route::post('/analyser-profil', [AIMatchingController::class, 'analyserProfil']);
+        Route::post('/analyser-cv', [AIMatchingController::class, 'analyserCV']);
+        Route::get('/employes/{employeId}/suggestions-formations', [AIMatchingController::class, 'suggestionsFormations']);
+        Route::get('/employes/{employeId}/plan-carriere', [AIMatchingController::class, 'planCarriere']);
+        Route::get('/postes/{posteId}/candidats', [AIMatchingController::class, 'candidatsPostAI']);
+        Route::get('/employes/{employeId}/postes-compatibles', [AIMatchingController::class, 'postesCompatiblesAI']);
     });
 });
 

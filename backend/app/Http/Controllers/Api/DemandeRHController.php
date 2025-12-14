@@ -11,7 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
-class DemandeController extends Controller
+class DemandeRHController extends Controller
 {
     /**
      * Liste des demandes (pour RH)

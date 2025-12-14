@@ -41,6 +41,11 @@ const items = [
   { to: '/competences', label: 'Compétences', hint: 'Cartographie', icon: '🎯' },
   { to: '/formations', label: 'Formations', hint: 'Catalogue', icon: '🎓' },
   { to: '/matching', label: 'Matching', hint: 'Profil / Poste', icon: '🔄' },
+  // IA et Automatisation
+  { to: '/turnover', label: 'Prédiction Turnover', hint: 'Analyse IA', icon: '📈' },
+  { to: '/anomalies', label: 'Détection Anomalies', hint: 'Surveillance IA', icon: '🔍' },
+  { to: '/matching-ia', label: 'Matching IA', hint: 'Recommandations', icon: '🤖' },
+  // Congés et Absences
   { to: '/absences-types', label: 'Types de congé', hint: 'Congés / absences', icon: '🏷️' },
   { to: '/soldes-conges', label: 'Soldes congés', hint: 'Payés / maladie / exceptionnels', icon: '🧮' },
   { to: '/demandes-conges', label: 'Demandes de congés', hint: 'Workflow', icon: '🗓️' },

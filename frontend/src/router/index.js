@@ -34,6 +34,11 @@ import CompetencesView from '../views/CompetencesView.vue'
 import FormationsView from '../views/FormationsView.vue'
 import MatchingView from '../views/MatchingView.vue'
 
+// IA et Automatisation
+import TurnoverAnalysisView from '../views/TurnoverAnalysisView.vue'
+import AnomaliesDetectionView from '../views/AnomaliesDetectionView.vue'
+import AIMatchingView from '../views/AIMatchingView.vue'
+
 // Self-Service Employé
 import SelfServiceDashboard from '../views/SelfService/DashboardView.vue'
 import SelfServiceProfil from '../views/SelfService/ProfilView.vue'
@@ -91,6 +96,11 @@ const routes = [
       { path: 'competences', name: 'competences', component: CompetencesView, meta: { subtitle: 'Cartographie des compétences' } },
       { path: 'formations', name: 'formations', component: FormationsView, meta: { subtitle: 'Catalogue des formations' } },
       { path: 'matching', name: 'matching', component: MatchingView, meta: { subtitle: 'Matching Profil/Poste' } },
+      
+      // IA et Automatisation
+      { path: 'turnover', name: 'turnover', component: TurnoverAnalysisView, meta: { subtitle: 'Prédiction Turnover', roles: ['admin', 'rh'] } },
+      { path: 'anomalies', name: 'anomalies', component: AnomaliesDetectionView, meta: { subtitle: 'Détection Anomalies', roles: ['admin', 'rh'] } },
+      { path: 'matching-ia', name: 'matching-ia', component: AIMatchingView, meta: { subtitle: 'Matching IA', roles: ['admin', 'rh'] } },
       
       // Audit et Conformité
       { path: 'audit', name: 'audit', component: AuditView, meta: { subtitle: 'Journal d\'audit', roles: ['admin', 'rh'] } },

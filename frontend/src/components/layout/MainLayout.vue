@@ -7,6 +7,8 @@
         <RouterView />
       </main>
     </div>
+    <!-- Chatbot flottant -->
+    <ChatbotWidget />
   </div>
 </template>
 
@@ -15,6 +17,7 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import SidebarNav from './SidebarNav.vue'
 import TopBar from './TopBar.vue'
+import ChatbotWidget from '../ChatbotWidget.vue'
 
 const route = useRoute()
 const subtitle = computed(() => route.meta?.subtitle ?? 'Espace RH')

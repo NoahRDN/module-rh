@@ -43,6 +43,8 @@ const items = [
   { to: '/demandes-conges', label: 'Demandes de congés', hint: 'Workflow', icon: '🗓️' },
   { to: '/calendrier', label: 'Calendrier', hint: 'Vue globale', icon: '📆' },
   { to: '/alertes', label: 'Alertes', hint: 'Congés / absences', icon: '🔔' },
+  { to: '/alerte-settings', label: 'Config. Alertes', hint: 'Seuils & paramètres', icon: '⚙️' },
+  { to: '/performances', label: 'Performances', hint: 'Évaluations', icon: '⭐' },
   { to: '/pointages', label: 'Pointage & HS', hint: 'Entrées / sorties', icon: '⏱️' },
   { to: '/releve-presence', label: 'Relevé présence', hint: 'Heures & absences', icon: '📄' },
   { to: '/paie-parametres', label: 'Paramètres paie', hint: 'CNAPS/OSTIE/IRSA', icon: '⚙️' },

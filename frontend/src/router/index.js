@@ -25,6 +25,9 @@ import SoldeCongeDetailView from '../views/SoldeCongeDetailView.vue'
 import RelevePresenceView from '../views/RelevePresenceView.vue'
 import MainLayout from '../components/layout/MainLayout.vue'
 import WorktimeConfigView from '../views/WorktimeConfigView.vue'
+import PerformancesView from '../views/PerformancesView.vue'
+import EvaluationCreateView from '../views/EvaluationCreateView.vue'
+import AlerteSettingsView from '../views/AlerteSettingsView.vue'
 
 const routes = [
   { path: '/login', name: 'login', component: LoginView },
@@ -50,6 +53,9 @@ const routes = [
       { path: 'demandes-conges', name: 'demandes-conges', component: DemandesCongesView, meta: { subtitle: 'Congés' } },
       { path: 'calendrier', name: 'calendrier', component: CalendrierEvenementsView, meta: { subtitle: 'Calendrier' } },
       { path: 'alertes', name: 'alertes', component: AlertesView, meta: { subtitle: 'Alertes' } },
+      { path: 'alerte-settings', name: 'alerte-settings', component: AlerteSettingsView, meta: { subtitle: 'Config. Alertes' } },
+      { path: 'performances', name: 'performances', component: PerformancesView, meta: { subtitle: 'Performances' } },
+      { path: 'performances/nouvelle', name: 'evaluation-create', component: EvaluationCreateView, meta: { subtitle: 'Nouvelle évaluation' } },
       { path: 'pointages', name: 'pointages', component: PointagesView, meta: { subtitle: 'Pointage' } },
       { path: 'releve-presence', name: 'releve-presence', component: RelevePresenceView, meta: { subtitle: 'Présence' } },
       { path: 'worktime-config', name: 'worktime-config', component: WorktimeConfigView, meta: { subtitle: 'Horaires' } },

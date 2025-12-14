@@ -23,11 +23,15 @@ use App\Http\Controllers\Api\PaiePdfController;
 use App\Http\Controllers\Api\EmployePdfController;
 use App\Http\Controllers\Api\CalendrierEvenementController;
 use App\Http\Controllers\Api\AlerteController;
+use App\Http\Controllers\Api\AlerteSettingController;
 use App\Http\Controllers\Api\ContratHistoriqueController;
 use App\Http\Controllers\Api\ContratPdfController;
 use App\Http\Controllers\Api\FrequenceCongeController;
 use App\Http\Controllers\Api\TypeCongeController;
 use App\Http\Controllers\Api\WorktimeSettingController;
+use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\EvaluationController;
+use App\Http\Controllers\Api\CritereEvaluationController;
 
 Route::post('/login', [AuthController::class, 'login']);
 
@@ -77,5 +81,26 @@ Route::prefix('v1')->group(function () {
     Route::get('paie-parametres', [PaieParametreController::class, 'index']);
     Route::put('paie-parametres/{id}', [PaieParametreController::class, 'update']);
     Route::get('paies/{id}/pdf', [PaiePdfController::class, 'telecharger']);
+    
+    // Dashboard et statistiques RH
+    Route::get('dashboard/statistiques', [DashboardController::class, 'statistiques']);
+    Route::get('dashboard/alertes', [DashboardController::class, 'alertes']);
+    Route::get('dashboard/top-performers', [DashboardController::class, 'topPerformers']);
+    
+    // Paramètres des alertes
+    Route::get('alerte-settings', [AlerteSettingController::class, 'index']);
+    Route::get('alerte-settings/{id}', [AlerteSettingController::class, 'show']);
+    Route::put('alerte-settings/{id}', [AlerteSettingController::class, 'update']);
+    Route::get('alerte-settings/code/{code}', [AlerteSettingController::class, 'getByCode']);
+    
+    // Évaluations de performance
+    Route::apiResource('evaluations', EvaluationController::class);
+    Route::get('evaluations/{id}/pdf', [EvaluationController::class, 'genererPdf']);
+    Route::get('evaluations/employe/{employeId}/historique', [EvaluationController::class, 'historiqueEmploye']);
+    Route::get('evaluations-statistiques', [EvaluationController::class, 'statistiques']);
+    
+    // Critères d'évaluation
+    Route::apiResource('criteres-evaluation', CritereEvaluationController::class);
+    Route::post('criteres-evaluation/reorder', [CritereEvaluationController::class, 'reorder']);
 });
 });

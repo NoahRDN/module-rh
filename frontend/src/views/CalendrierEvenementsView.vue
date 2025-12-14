@@ -59,7 +59,7 @@
             class="event-pill"
             :class="badgeClass(evt.type)"
           >
-            {{ evt.type }} - {{ evt.employe ? evt.employe.matricule : '' }}
+            {{ evt.type }} - {{ evt.employe ? evt.employe.matricule : '' }}<span v-if="evt.meta?.type_conge_libelle"> · {{ evt.meta.type_conge_libelle }}</span>
           </div>
         </div>
       </div>
@@ -79,7 +79,7 @@
             class="event-pill"
             :class="badgeClass(evt.type)"
           >
-            {{ evt.type }} · {{ evt.employe ? evt.employe.matricule : '' }} · {{ evt.description || '—' }}
+            {{ evt.type }} · {{ evt.employe ? evt.employe.matricule : '' }} · {{ evt.description || '—' }}<span v-if="evt.meta?.type_conge_libelle"> · {{ evt.meta.type_conge_libelle }}</span>
           </div>
           <p v-if="!eventsByDate(day.dateStr).length" class="muted text-xs">Aucun événement</p>
         </div>
@@ -99,10 +99,11 @@
           class="event-pill"
           :class="badgeClass(evt.type)"
         >
-          {{ evt.type }} · {{ evt.employe ? evt.employe.matricule : '' }} · {{ evt.description || '—' }} ({{ evt.date_debut }} → {{ evt.date_fin }})
+          {{ evt.type }} · {{ evt.employe ? evt.employe.matricule : '' }} · {{ evt.description || '—' }}<span v-if="evt.meta?.type_conge_libelle"> · {{ evt.meta.type_conge_libelle }}</span> ({{ evt.date_debut }} → {{ evt.date_fin }})
         </div>
         <p v-if="!eventsByDate(formatDate(currentDate)).length" class="muted text-xs">Aucun événement</p>
       </div>
+        
     </div>
   </div>
 </template>
@@ -124,16 +125,23 @@ const fetchEvents = async () => {
   if (filter.value.matricule) params.matricule = filter.value.matricule
   if (filter.value.nom) params.nom = filter.value.nom
   const { data } = await api.get('/v1/calendrier-evenements', { params })
+  console.log('Fetched events:', data);
   events.value = data.data || []
 }
 
 const debouncedFetchEvents = debounce(fetchEvents, 300)
 
-const formatDate = (date) => date.toISOString().slice(0, 10)
+const formatDate = (date) => {
+  const d = new Date(date)
+  // Corrige le décalage de fuseau pour éviter le glissement de jour dans le calendrier
+  const tzOffset = d.getTimezoneOffset()
+  d.setMinutes(d.getMinutes() - tzOffset)
+  return d.toISOString().slice(0, 10)
+}
 
 const startOfWeek = (date) => {
   const d = new Date(date)
-  const day = (d.getDay() + 6) % 7 // lundi=0
+  const day = (d.getDay() + 6) % 7 // lundi=0+1; 
   d.setDate(d.getDate() - day)
   return d
 }
@@ -141,7 +149,7 @@ const startOfWeek = (date) => {
 const addDays = (date, days) => {
   const d = new Date(date)
   d.setDate(d.getDate() + days)
-  return d
+  return d  
 }
 
 const monthCells = computed(() => {
@@ -187,7 +195,24 @@ const title = computed(() => {
 
 const eventsByDate = (dateStr) => {
   return events.value.filter((e) => {
-    return dateStr >= e.date_debut && dateStr <= e.date_fin && (!filter.value.type || e.type === filter.value.type)
+    const isDateBetween = (date, start, end) => {
+      const d = new Date(date)
+      const s = new Date(start)
+      const e = new Date(end)
+
+      d.setHours(0,0,0,0)
+      s.setHours(0,0,0,0)
+      e.setHours(0,0,0,0)
+
+      return d >= s && d <= e
+    }
+
+    // utilisation
+    if (isDateBetween(dateStr, e.date_debut, e.date_fin)) {
+      console.log('Filtering events for date:', dateStr)
+    }
+
+    return isDateBetween(dateStr, e.date_debut, e.date_fin) && (!filter.value.type || e.type === filter.value.type)
   })
 }
 

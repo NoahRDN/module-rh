@@ -21,8 +21,10 @@ import PaieGenerationView from '../views/PaieGenerationView.vue'
 import EmployeeDetailView from '../views/EmployeeDetailView.vue'
 import EmployeeCreateView from '../views/EmployeeCreateView.vue'
 import SoldeCongesView from '../views/SoldeCongesView.vue'
+import SoldeCongeDetailView from '../views/SoldeCongeDetailView.vue'
 import RelevePresenceView from '../views/RelevePresenceView.vue'
 import MainLayout from '../components/layout/MainLayout.vue'
+import WorktimeConfigView from '../views/WorktimeConfigView.vue'
 
 const routes = [
   { path: '/login', name: 'login', component: LoginView },
@@ -44,11 +46,13 @@ const routes = [
       { path: 'contrats-historiques', name: 'contrats-historiques', component: ContratsHistoriqueView, meta: { subtitle: 'Historique contrats' } },
       { path: 'absences-types', name: 'absences-types', component: AbsenceTypesView, meta: { subtitle: 'Types de congé' } },
       { path: 'soldes-conges', name: 'soldes-conges', component: SoldeCongesView, meta: { subtitle: 'Soldes congés' } },
+      { path: 'soldes-conges/:id', name: 'solde-conge-detail', component: SoldeCongeDetailView, meta: { subtitle: 'Détail solde congé' } },
       { path: 'demandes-conges', name: 'demandes-conges', component: DemandesCongesView, meta: { subtitle: 'Congés' } },
       { path: 'calendrier', name: 'calendrier', component: CalendrierEvenementsView, meta: { subtitle: 'Calendrier' } },
       { path: 'alertes', name: 'alertes', component: AlertesView, meta: { subtitle: 'Alertes' } },
       { path: 'pointages', name: 'pointages', component: PointagesView, meta: { subtitle: 'Pointage' } },
       { path: 'releve-presence', name: 'releve-presence', component: RelevePresenceView, meta: { subtitle: 'Présence' } },
+      { path: 'worktime-config', name: 'worktime-config', component: WorktimeConfigView, meta: { subtitle: 'Horaires' } },
       { path: 'paie-parametres', name: 'paie-parametres', component: PaieParametresView, meta: { subtitle: 'Paie' } },
       { path: 'paie-generation', name: 'paie-generation', component: PaieGenerationView, meta: { subtitle: 'Paie' } },
       { path: 'documents', name: 'documents', component: DocumentsView, meta: { subtitle: 'Documents' } },

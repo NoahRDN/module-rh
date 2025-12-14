@@ -20,13 +20,17 @@ class DatabaseSeeder extends Seeder
             EmployeSeeder::class,
             DocumentSeeder::class,
             ContratSeeder::class,
+            ContratHistoriqueSeeder::class,
             UserSeeder::class,
             PaieParametreSeeder::class,
             FrequenceCongeSeeder::class,
             TypeCongeSeeder::class,
             RegleCongeSeeder::class,
             CongeAccrualSeeder::class,
-            TestCongeExpirationSeeder::class,
+            WorktimeSettingsSeeder::class,
+            JourFerieSeeder::class,
+            DemandeCongeSampleSeeder::class,
+            // TestCongeExpirationSeeder::class,
         ]);
     }
 }

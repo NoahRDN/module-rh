@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class ConsommationConge extends Model
 {
+    protected $table = 'consommations_conges';
     protected $fillable = [
         'demande_conge_id',
         'acquis_conge_id',

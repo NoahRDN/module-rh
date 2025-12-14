@@ -210,7 +210,11 @@ const handleSearch = () => {
   searchTimer = setTimeout(fetchEmployes, 300)
 }
 
-const photoUrl = (emp) => emp.photo || placeholder.value
+const photoUrl = (emp) => {
+  if (emp?.photo) return emp.photo
+  const initials = `${emp?.nom?.[0] || ''}${emp?.prenom?.[0] || ''}` || 'EMP'
+  return `https://ui-avatars.com/api/?background=0f172a&color=fff&name=${encodeURIComponent(initials)}`
+}
 
 const filteredEmployes = computed(() => {
   const f = filters.value

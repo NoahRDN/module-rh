@@ -91,19 +91,25 @@
             <option v-for="t in types" :key="t.id" :value="t.id">{{ t.libelle }}</option>
           </select>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div class="grid gap-1">
-            <label class="text-sm text-slate-400">Date début</label>
-            <input class="input" type="date" v-model="form.date_debut" required />
-          </div>
-          <div class="grid gap-1">
-            <label class="text-sm text-slate-400">Date fin</label>
-            <input class="input" type="date" v-model="form.date_fin" required />
-          </div>
+        <div class="grid gap-1">
+          <label class="text-sm text-slate-400">Date début</label>
+          <input class="input" type="date" v-model="form.date_debut" required />
+        </div>
+        <div class="grid gap-1" v-if="showDateFin">
+          <label class="text-sm text-slate-400">Date fin</label>
+          <input class="input" type="date" v-model="form.date_fin" />
         </div>
         <div class="grid gap-1">
           <label class="text-sm text-slate-400">Motif (optionnel)</label>
           <textarea class="input" rows="3" v-model="form.motif" placeholder="Motif (optionnel)"></textarea>
+        </div>
+        <div class="grid gap-1">
+          <label class="text-sm text-slate-400">Type de document (optionnel)</label>
+          <input class="input" placeholder="Justificatif congé" v-model="form.type_document" />
+        </div>
+        <div class="grid gap-1">
+          <label class="text-sm text-slate-400">Justificatif (PDF/IMG, 4 Mo max)</label>
+          <input class="input" type="file" accept=".pdf,image/*" @change="onFileChange" />
         </div>
         <button class="btn w-full" type="submit">Créer</button>
         <p class="text-sm text-slate-500" v-if="message">{{ message }}</p>
@@ -131,7 +137,16 @@ const form = ref({
   type_conge_id: '',
   date_debut: '',
   date_fin: '',
-  motif: ''
+  motif: '',
+  type_document: '',
+  justificatif: null
+})
+const showDateFin = computed(() => {
+  const t = types.value.find((x) => x.id === form.value.type_conge_id)
+  if (!t) return false
+  const utiliseSolde = !!t.utilise_solde
+  const flexible = t.jours_forfait === null || t.jours_forfait === undefined
+  return utiliseSolde || flexible
 })
 
 const badgeClass = (statut) => {
@@ -171,12 +186,37 @@ const fetchRefs = async () => {
 
 const createDemande = async () => {
   try {
-    await api.post('/v1/demandes-conges', form.value)
+    const fd = new FormData()
+    Object.entries(form.value).forEach(([key, val]) => {
+      if (key === 'date_fin' && !showDateFin.value) {
+        return
+      }
+      if (val !== null && val !== '' && key !== 'justificatif') {
+        fd.append(key, val)
+      }
+    })
+    if (form.value.justificatif) {
+      fd.append('justificatif', form.value.justificatif)
+    }
+    await api.post('/v1/demandes-conges', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
     message.value = 'Demande créée'
     await fetchDemandes()
   } catch (e) {
-    message.value = 'Erreur'
+    const errMsg = e.response?.data?.message || e.message || 'Erreur lors de la création'
+    // concaténer les erreurs de validation si présentes
+    const valErrors = e.response?.data?.errors
+    if (valErrors) {
+      const flat = Object.values(valErrors).flat().join(' | ')
+      message.value = `${errMsg} : ${flat}`
+    } else {
+      message.value = errMsg
+    }
   }
+}
+
+const onFileChange = (e) => {
+  const file = e.target.files?.[0]
+  form.value.justificatif = file || null
 }
 
 const approveManager = async (id) => {

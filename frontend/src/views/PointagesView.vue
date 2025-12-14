@@ -2,7 +2,7 @@
   <div class="flex items-center justify-between mb-4">
     <div>
       <h1 class="text-2xl font-semibold">Pointage & Heures sup</h1>
-      <p class="text-sm text-slate-500">Entrées / sorties / pauses</p>
+      <p class="text-sm text-slate-500">Entrées / sorties / pauses · retards · absences justifiées</p>
     </div>
     <div class="flex gap-2">
       <select class="select" v-model="filters.employe_id" @change="debouncedFetchPointages">
@@ -33,22 +33,27 @@
             <tr>
               <th class="cursor-pointer" @click="setSort('employe')">Employé {{ sortLabel('employe') }}</th>
               <th class="cursor-pointer" @click="setSort('type')">Type {{ sortLabel('type') }}</th>
-              <th class="cursor-pointer" @click="setSort('date')">Date/heure {{ sortLabel('date') }}</th>
-              <th class="cursor-pointer" @click="setSort('source')">Source {{ sortLabel('source') }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="p in pointagesFiltres" :key="p.id">
-              <td>{{ p.employe?.matricule || '—' }}</td>
-              <td>{{ p.type }}</td>
-              <td>{{ p.pointe_a }}</td>
-              <td>{{ p.source }}</td>
-            </tr>
-            <tr v-if="!pointagesFiltres.length">
-              <td colspan="4" class="muted">Aucun pointage</td>
-            </tr>
-          </tbody>
-        </table>
+            <th class="cursor-pointer" @click="setSort('date')">Date/heure {{ sortLabel('date') }}</th>
+            <th class="cursor-pointer" @click="setSort('source')">Source {{ sortLabel('source') }}</th>
+            <th>Absence</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="p in pointagesFiltres" :key="p.id">
+            <td>{{ p.employe?.matricule || '—' }}</td>
+            <td>{{ p.type }}</td>
+            <td>{{ p.pointe_a }}</td>
+            <td>{{ p.source }}</td>
+            <td>
+              <span v-if="p.absence_justifiee" class="chip" style="background: rgba(59,130,246,0.15); color: #93c5fd;">Justifiée</span>
+              <span v-else class="muted">—</span>
+            </td>
+          </tr>
+          <tr v-if="!pointagesFiltres.length">
+            <td colspan="5" class="muted">Aucun pointage</td>
+          </tr>
+        </tbody>
+      </table>
         <div class="flex items-center justify-between mt-3 text-sm text-slate-400">
           <span>Page {{ pagination.page }} / {{ pagination.last_page }} — {{ pagination.total }} lignes</span>
           <div class="flex items-center gap-2">

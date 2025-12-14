@@ -1,149 +1,221 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <style>
-        body {
-            font-family: DejaVu Sans, sans-serif;
-            font-size: 12px;
-            color: #333;
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 10px;
-        }
-        .title {
-            font-size: 20px;
-            font-weight: bold;
-            margin-top: 5px;
-            margin-bottom: 15px;
-        }
-        .section-title {
-            background: #f0f0f0;
-            padding: 5px;
-            font-weight: bold;
-            margin-top: 10px;
-            border-left: 4px solid #3490dc;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 6px;
-        }
-        table th, table td {
-            padding: 6px;
-            border: 1px solid #ccc;
-        }
-        .totaux td {
-            font-weight: bold;
-            background: #fafafa;
-        }
-        .footer {
-            margin-top: 40px;
-            font-size: 11px;
-            text-align: center;
-            color: #777;
-        }
-    </style>
+<meta charset="UTF-8">
+<title>Fiche de paie</title>
+
+<style>
+    body {
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 12px;
+        margin: 0;
+        padding: 30px;
+        color: #000;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    td, th {
+        border: 1px solid #000;
+        padding: 4px 6px;
+    }
+    .no-border td { border: none; }
+    .center { text-align: center; }
+    .right { text-align: right; }
+    .bold { font-weight: bold; }
+    .title { font-size: 16px; font-weight: bold; text-align: center; }
+    .subtitle { text-align: center; font-weight: bold; }
+    .section-title {
+        background: #f2f2f2;
+        font-weight: bold;
+        text-transform: uppercase;
+    }
+    .highlight { background: #e6f3ff; font-weight: bold; }
+    .net { font-size: 14px; font-weight: bold; background: #d9ead3; }
+    .signature td { border: none; padding-top: 40px; }
+</style>
 </head>
+
 <body>
 
-<div class="header">
-    <h2>Entreprise XYZ</h2>
-    <div class="title">Bulletin de Paie - {{ $paie->mois }}</div>
-</div>
+@php
+    use Carbon\Carbon;
 
-<div class="section-title">Informations Employé</div>
+    // Sécurisation des dates
+    $periode = $paie->mois
+        ? Carbon::createFromFormat('Y-m', $paie->mois)->translatedFormat('F Y')
+        : '—';
+
+    $dateEmbauche = $employe->date_embauche
+        ? Carbon::parse($employe->date_embauche)->format('d/m/Y')
+        : '—';
+@endphp
+
+<!-- ================= ENTÊTE ================= -->
+<table class="no-border">
+<tr>
+    <td width="30%"><strong>ITUniversity</strong></td>
+    <td width="40%" class="center">
+        <div class="title">FICHE DE PAIE</div>
+        <div class="subtitle">Période : {{ $periode }}</div>
+    </td>
+    <td width="30%"></td>
+</tr>
+</table>
+
+<br>
+
+<!-- ================= IDENTITÉ ================= -->
+<table class="no-border">
+<tr>
+<td width="50%">
+    <table class="no-border">
+        <tr><td>Nom et Prénoms :</td><td class="bold">{{ $employe->nom }} {{ $employe->prenom }}</td></tr>
+        <tr><td>Matricule :</td><td>{{ $employe->matricule }}</td></tr>
+        <tr><td>Fonction :</td><td>{{ $employe->poste->libelle ?? '—' }}</td></tr>
+        <tr><td>Catégorie :</td><td>{{ $employe->categorie ?? '—' }}</td></tr>
+        <tr><td>N° CNAPS :</td><td>{{ $employe->num_cnaps ?? '—' }}</td></tr>
+        <tr><td>Date d'embauche :</td><td>{{ $dateEmbauche }}</td></tr>
+        <tr><td>Ancienneté :</td><td>{{ $anciennete }}</td></tr>
+    </table>
+</td>
+
+<td width="50%">
+    <table class="no-border">
+        <tr><td>Salaire de base :</td><td class="right highlight">{{ number_format($paie->salaire_base, 2, ',', ' ') }}</td></tr>
+        <tr><td>Taux journalier :</td><td class="right">{{ number_format($taux_journalier, 2, ',', ' ') }}</td></tr>
+        <tr><td>Taux horaire :</td><td class="right">{{ number_format($taux_horaire, 2, ',', ' ') }}</td></tr>
+    </table>
+</td>
+</tr>
+</table>
+
+<br>
+
+<!-- ================= REVENUS ================= -->
 <table>
-    <tr>
-        <td><strong>Nom :</strong> {{ $employe->nom }} {{ $employe->prenom }}</td>
-        <td><strong>Matricule :</strong> {{ $employe->matricule }}</td>
-    </tr>
-    <tr>
-        <td><strong>Poste :</strong> {{ $employe->poste->nom ?? 'N/A' }}</td>
-        <td><strong>Département :</strong> {{ $employe->departement->nom ?? 'N/A' }}</td>
-    </tr>
+<tr class="section-title">
+    <th>Désignation</th>
+    <th width="15%">Nombre</th>
+    <th width="20%">Taux</th>
+    <th width="20%">Montant</th>
+</tr>
+
+<tr>
+    <td>Salaire de base du mois</td>
+    <td class="center">1 mois</td>
+    <td class="right">—</td>
+    <td class="right">{{ number_format($paie->salaire_base, 2, ',', ' ') }}</td>
+</tr>
+
+@forelse ($details_revenus as $detail)
+<tr>
+    <td>{{ $detail['libelle'] }}</td>
+    <td class="center">{{ $detail['nombre'] ?? '—' }}</td>
+    <td class="right">{{ $detail['taux'] ?? '—' }}</td>
+    <td class="right">{{ number_format($detail['montant'], 2, ',', ' ') }}</td>
+</tr>
+@empty
+<tr>
+    <td colspan="4" class="center">Aucune donnée additionnelle</td>
+</tr>
+@endforelse
+
+<tr class="bold">
+    <td colspan="3" class="right">SALAIRE BRUT</td>
+    <td class="right">{{ number_format($paie->total_brut, 2, ',', ' ') }}</td>
+</tr>
 </table>
 
-<div class="section-title">Détails Paie</div>
+<br>
+
+<!-- ================= RETENUES ================= -->
 <table>
-    <tr>
-        <th>Description</th>
-        <th>Valeur</th>
-    </tr>
-    <tr>
-        <td>Salaire de base</td>
-        <td>{{ number_format($paie->salaire_base, 0, ',', ' ') }} Ar</td>
-    </tr>
-    <tr>
-        <td>Heures travaillées</td>
-        <td>{{ $paie->heures_travaillees }} h</td>
-    </tr>
-    <tr>
-        <td>Heures supplémentaires</td>
-        <td>{{ $paie->heures_supplementaires }} h</td>
-    </tr>
-    <tr>
-        <td>Montant heures sup</td>
-        <td>{{ number_format($paie->montant_hs, 0, ',', ' ') }} Ar</td>
-    </tr>
-    <tr>
-        <td>Total retards (minutes)</td>
-        <td>{{ $paie->details->sum('retard_minutes') }}</td>
-    </tr>
-    <tr>
-        <td>Absences (jours)</td>
-        <td>{{ $paie->details->where('absent', true)->count() }}</td>
-    </tr>
+<tr class="section-title">
+    <th colspan="3">Retenues salariales</th>
+    <th>Montant</th>
+</tr>
+
+<tr>
+    <td colspan="3" class="right">CNAPS salarié</td>
+    <td class="right">{{ number_format($paie->retenue_cnaps, 2, ',', ' ') }}</td>
+</tr>
+
+<tr>
+    <td colspan="3" class="right">OSTIE salarié</td>
+    <td class="right">{{ number_format($paie->retenue_ostie, 2, ',', ' ') }}</td>
+</tr>
 </table>
 
-@if ($primes->count() > 0)
-<div class="section-title">Primes</div>
+<br>
+
+<!-- ================= DÉTAIL IRSA ================= -->
 <table>
-    @foreach ($primes as $prime)
-    <tr>
-        <td>{{ $prime->libelle }}</td>
-        <td>{{ number_format($prime->montant, 0, ',', ' ') }} Ar</td>
-    </tr>
-    @endforeach
-</table>
-@endif
+<tr class="section-title">
+    <th colspan="4">Détail IRSA</th>
+</tr>
 
-<div class="section-title">Retenues</div>
+<tr>
+    <th>Tranche</th>
+    <th class="center">Base</th>
+    <th class="center">Taux</th>
+    <th class="right">Montant</th>
+</tr>
+
+@forelse ($details_irsa as $ligne)
+<tr>
+    <td>{{ $ligne['libelle'] }}</td>
+    <td class="center">{{ number_format($ligne['base'], 2, ',', ' ') }}</td>
+    <td class="center">{{ $ligne['taux'] }}%</td>
+    <td class="right">{{ number_format($ligne['montant'], 2, ',', ' ') }}</td>
+</tr>
+@empty
+<tr>
+    <td colspan="4" class="center">Aucun IRSA applicable</td>
+</tr>
+@endforelse
+
+<tr class="bold">
+    <td colspan="3" class="right">IRSA BRUT</td>
+    <td class="right">{{ number_format($irsa_brut, 2, ',', ' ') }}</td>
+</tr>
+
+<tr>
+    <td colspan="3" class="right">Réduction IRSA</td>
+    <td class="right">{{ number_format($reduction_irsa, 2, ',', ' ') }}</td>
+</tr>
+
+<tr class="bold">
+    <td colspan="3" class="right">IRSA NET</td>
+    <td class="right">{{ number_format($irsa_brut - $reduction_irsa, 2, ',', ' ') }}</td>
+</tr>
+</table>
+
+<br>
+
+<!-- ================= TOTAL ================= -->
 <table>
-    <tr><td>CNAPS</td><td>{{ number_format($paie->retenue_cnaps, 0, ',', ' ') }} Ar</td></tr>
-    <tr><td>OSTIE</td><td>{{ number_format($paie->retenue_ostie, 0, ',', ' ') }} Ar</td></tr>
-    <tr><td>IRSA</td><td>{{ number_format($paie->retenue_irsa, 0, ',', ' ') }} Ar</td></tr>
-    @php
-        $tauxHoraire = $paie->salaire_base > 0 ? $paie->salaire_base / 173.33 : 0;
-        $retardMinutes = $paie->details->sum('retard_minutes');
-        $absences = $paie->details->where('absent', true)->count();
-        $dedRetards = ($retardMinutes / 60) * $tauxHoraire;
-        $dedAbs = $absences * ($paie->salaire_base / 30);
-    @endphp
-    <tr><td>Déduction retards</td><td>{{ number_format($dedRetards, 0, ',', ' ') }} Ar</td></tr>
-    <tr><td>Déduction absences</td><td>{{ number_format($dedAbs, 0, ',', ' ') }} Ar</td></tr>
+<tr class="bold">
+    <td colspan="3" class="right">TOTAL DES RETENUES</td>
+    <td class="right">{{ number_format($paie->total_retenues, 2, ',', ' ') }}</td>
+</tr>
+
+<tr class="net">
+    <td colspan="3" class="right">NET À PAYER</td>
+    <td class="right">{{ number_format($paie->net_a_payer, 2, ',', ' ') }}</td>
+</tr>
 </table>
 
-<div class="section-title">Synthèse</div>
-<table class="totaux">
-    <tr>
-        <td>Total Brut</td>
-        <td>{{ number_format($paie->total_brut, 0, ',', ' ') }} Ar</td>
-    </tr>
-    <tr>
-        <td>Total Retenues</td>
-        <td>{{ number_format($paie->total_retenues, 0, ',', ' ') }} Ar</td>
-    </tr>
-    <tr>
-        <td>Net à Payer</td>
-        <td>{{ number_format($paie->net_a_payer, 0, ',', ' ') }} Ar</td>
-    </tr>
-</table>
+<br>
 
-<div class="footer">
-    Bulletin généré automatiquement par Module RH.
-</div>
+<!-- ================= SIGNATURE ================= -->
+<table class="signature">
+<tr>
+    <td class="center">L’Employeur</td>
+    <td class="center">L’Employé(e)</td>
+</tr>
+</table>
 
 </body>
 </html>

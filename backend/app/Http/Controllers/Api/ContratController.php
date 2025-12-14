@@ -51,7 +51,6 @@ class ContratController extends Controller
             } catch (\Throwable $e) {
                 Log::warning('Accrual soldes après création contrat a échoué', ['error' => $e->getMessage()]);
             }
-            $this->historiser($contrat);
             return response()->json($contrat, 201);
         } catch (\Throwable $e) {
             Log::error('Erreur creation contrat', ['error' => $e->getMessage()]);

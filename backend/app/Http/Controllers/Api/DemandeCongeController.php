@@ -8,9 +8,14 @@ use App\Models\DemandeConge;
 use App\Models\TypeConge;
 use App\Services\CongeService;
 use App\Models\CalendrierEvenement;
+use App\Models\DocumentEmploye;
+use App\Models\FrequenceConge;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class DemandeCongeController extends Controller
 {
@@ -48,16 +53,65 @@ class DemandeCongeController extends Controller
             if (empty($data['type_conge_id'])) {
                 $data['type_conge_id'] = TypeConge::where('code', CongeService::CODE_CONGE_PAYE)->value('id');
             }
-            if (empty($data['jours_demandes']) && !empty($data['date_debut']) && !empty($data['date_fin'])) {
+            // Calcul automatique de la durée et de la date de fin selon le type de congé
+            $type = TypeConge::find($data['type_conge_id']);
+            if (!empty($data['date_debut']) && $type) {
                 $debut = Carbon::parse($data['date_debut']);
-                $fin = Carbon::parse($data['date_fin']);
-                $data['jours_demandes'] = $debut->diffInDays($fin) + 1;
+                $joursForfait = $type->jours_forfait ?? null;
+
+                // Besoin de saisir une date de fin dès lors que le congé utilise un solde
+                // ou qu'il n'a pas de forfait prédéfini (durée flexible).
+                $withDateFin = $type->utilise_solde || is_null($joursForfait);
+
+                if ($withDateFin && !empty($data['date_fin'])) {
+                    $fin = Carbon::parse($data['date_fin']);
+                    $jours = $debut->diffInDays($fin) + 1;
+                } elseif (!empty($data['jours_demandes'])) {
+                    $jours = (float) $data['jours_demandes'];
+                } elseif ($joursForfait) {
+                    $jours = (float) $joursForfait;
+                } else {
+                    $jours = 1;
+                }
+
+                $data['jours_demandes'] = $jours;
+                $data['date_fin'] = $withDateFin
+                    ? ($data['date_fin'] ?? $debut->copy()->addDays(max(0, $jours - 1))->toDateString())
+                    : $debut->copy()->addDays(max(0, $jours - 1))->toDateString();
             }
+
+            // Vérifier la limite par type/frequence (ex: 1 mariage/an, X par mois...)
+            if ($type && $type->limite && $type->limite_frequence_id) {
+                $this->verifierLimite($data, $type);
+            }
+
             $demande = DemandeConge::create($data);
+
+            // Sauvegarde du justificatif éventuel dans les documents employés
+            if ($request->hasFile('justificatif')) {
+                $path = $request->file('justificatif')->store('documents/conges', 'public');
+                DocumentEmploye::create([
+                    'employe_id'     => $demande->employe_id,
+                    'type_document'  => $request->input('type_document') ?: 'Justificatif congé',
+                    'fichier'        => $path,
+                    'date_expiration'=> null,
+                ]);
+            }
+
             return response()->json($demande, 201);
         } catch (\Throwable $e) {
-            Log::error('Erreur creation demande conge', ['error' => $e->getMessage()]);
-            return response()->json(['message' => 'Erreur serveur'], 500);
+            $msg = $e->getMessage();
+            if (!$msg && $e instanceof HttpResponseException) {
+                $msg = $e->getResponse()?->getContent();
+            }
+            Log::error('Erreur creation demande conge', ['error' => $msg]);
+            if ($e instanceof HttpResponseException) {
+                throw $e; // laisser passer la réponse 422 déjà formatée
+            }
+            if ($e instanceof ValidationException) {
+                return response()->json(['message' => $e->getMessage(), 'errors' => $e->errors()], 422);
+            }
+            return response()->json(['message' => $msg ?: 'Erreur serveur'], 500);
         }
     }
 
@@ -112,7 +166,7 @@ class DemandeCongeController extends Controller
     public function approveByRH(Request $request, $id)
     {
         try {
-            $demande = DemandeConge::with(['type', 'typeConge'])->findOrFail($id);
+            $demande = DemandeConge::with(['typeConge'])->findOrFail($id);
 
             $demande->update([
                 'statut' => 'rh_valide',
@@ -128,6 +182,12 @@ class DemandeCongeController extends Controller
                 'date_debut'  => $demande->date_debut,
                 'date_fin'    => $demande->date_fin,
                 'description' => $demande->typeConge?->libelle ?? 'Congé',
+                'meta'        => [
+                    'type_conge_id'    => $demande->type_conge_id,
+                    'type_conge_code'  => $demande->typeConge?->code,
+                    'type_conge_libelle' => $demande->typeConge?->libelle,
+                    'demande_id'       => $demande->id,
+                ],
             ]);
 
             return response()->json(['message' => 'Validé par RH', 'demande' => $demande]);
@@ -149,6 +209,61 @@ class DemandeCongeController extends Controller
         } catch (\Throwable $e) {
             Log::error('Erreur rejet demande conge', ['id' => $id, 'error' => $e->getMessage()]);
             return response()->json(['message' => 'Erreur serveur'], 500);
+        }
+    }
+
+    /**
+     * Vérifie la limite du type de congé sur une période donnée (ex: 1/an, 1/mois, 1/événement).
+     */
+    protected function verifierLimite(array $data, TypeConge $type): void
+    {
+        $freq = $type->limiteFrequence;
+        if (!$freq || !$type->limite) {
+            return;
+        }
+        $debut = Carbon::parse($data['date_debut']);
+        $start = $debut->copy();
+        $end = $debut->copy();
+        switch ($freq->code) {
+            case 'MOIS':
+                $start = $debut->copy()->startOfMonth();
+                $end = $debut->copy()->endOfMonth();
+                break;
+            case 'AN':
+                $start = $debut->copy()->startOfYear();
+                $end = $debut->copy()->endOfYear();
+                break;
+            case 'EVENEMENT':
+                // on considère toute la vie de l'employé pour l'événement (mariage, décès...)
+                $start = Carbon::parse('1900-01-01');
+                $end = Carbon::parse('2999-12-31');
+                break;
+            default:
+                // fallback: limite sur l'année
+                $start = $debut->copy()->startOfYear();
+                $end = $debut->copy()->endOfYear();
+                break;
+        }
+
+        $count = DemandeConge::where('employe_id', $data['employe_id'])
+            ->where('type_conge_id', $type->id)
+            ->whereIn('statut', ['en_attente', 'manager_valide', 'rh_valide'])
+            ->whereDate('date_debut', '>=', $start->toDateString())
+            ->whereDate('date_debut', '<=', $end->toDateString())
+            ->count();
+
+        if ($count >= $type->limite) {
+            // Log::info('Limite congé atteinte', [
+            //     'employe_id' => $data['employe_id'],
+            //     'type_conge_id' => $type->id,
+            //     'limite' => $type->limite,
+            //     'frequence' => $freq->libelle ?? $freq->code,
+            // ]);
+            abort(response()->json([
+                'message' => 'Limite atteinte pour ce type de congé sur la période',
+                'limite' => $type->limite,
+                'frequence' => $freq->libelle ?? $freq->code,
+            ], 422));
         }
     }
 }

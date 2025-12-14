@@ -6,16 +6,16 @@ use Illuminate\Database\Eloquent\Model;
 
 class JourFerie extends Model
 {
-    protected $table = 'jour_ferie';
-    protected $primaryKey = 'id_jour';
-    public $timestamps = false;
+    protected $table = 'jours_feries';
 
     protected $fillable = [
-        'nom', 'date_jour', 'repetition_annuelle'
+        'nom',
+        'date',
+        'recurrent',
     ];
 
     protected $casts = [
-        'date_jour' => 'date',
-        'repetition_annuelle' => 'boolean',
+        'date' => 'date',
+        'recurrent' => 'boolean',
     ];
 }

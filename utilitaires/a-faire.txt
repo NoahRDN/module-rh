@@ -29,7 +29,6 @@ a reajuster:
 - reajuster soldes-conges, genre sur les conge assigne aux employes en fonction de son anciennete, poste
 
 
-
 ==================
 comprehension assignation conge: 
 - un employe qui a un contrat peut avoir un conge: 
@@ -44,3 +43,109 @@ liste regroupe par date Premier acquis et Expiration max et solde actuel et sold
 ---------
 questionnement 
 - qu'en est il si il change de contrat, est ce que le contage continue ou il perd tous? 
+
+==========================================
+a faire plus tard:
+- correction des dates dans l'emploi du temps 
+- lors du filtre certain elements sont encore dans l'autre page meme si le premier page est vide 
+
+==================================
+fonctionnement pointage
+- il y a l'employe qui est pointe a chaque presence: 
+    - identifie son retard 
+        - il faut savoir alors par consequent que l'entreprise commence de quel heure a quel heure 
+    - identifier son absence  
+        - absence peut etre justifier ou non 
+    - identifier les horaire supplementaire
+        - horaire supplementaire
+        - horaire du dimanche 
+        - horaire conge
+
+- releve de presence:
+    - possibilite de trier par jour, par semaine, par moi:
+        - par jour: 
+            - absence, retard, heure de travail, heure de pose, detail des horaire de la journe
+        - par semaine:
+            - absence, retard, heure de travail, heure de pose, detail des horaire de la journe, heure supplementaire
+        - par moi: 
+            - absence, retard, heure de travail, heure de pose, detail des horaire de la journe
+
+++++++++++++++++++
+a faire: 
+- reverification que tous les element pour le systeme de pointage et releve de presence est présent 
+- passer aux generation de fiche de paie 
+
+================
+fonctionnement fiche de paie:
+- plusieurs element prise en compte dans fiche paie: 
+    - petite description sur l'employe
+        - nom et prenom, numero matricule, fonction (poste), n° cnaps, date d'embauche, anciennete, classification (categoue), salaire de base, taux journalières, taux horaire, indice
+    - periode de salaire
+    - absence deductible: xJxHxMN
+    - prime rendement
+    - prime d'anciennete
+    - heure supplementaire majore
+    - majoration pour heure de nuit 
+    - primes diverses 
+    - rappels sur périodes antérieurs
+    - droit de congés 
+    - droits de préavis 
+    - indemnité de licenciement 
+
+remarque: 
+Revenu imposable: Brut − cotisations déductibles
+
++++++++++++++++++
+questionnement:
+- c'est quoi un indice? de quel maniere est calculer le taux journalières? 
+- c'est quoi le taux dans dans absence deductible et meme pour salaire? 
+- c'est quoi une prime de rendement ? 
+- c'est quoi une prime d'anciennete? 
+- c'est quoi la difference entre moajoration pour heure de nuit et heure supplementatire majore? 
+- c'est quoi le s primes divers et de quels manieres ils les obtients ? 
+- c'est quoi rappels sur périodes antérieurs? 
+- c'est quoi droit de congés ?
+- c'est quoi droits de préavis ?
+- c'est quoi indemnité de licenciement ?
+- c'est quoi tous ces tranche IRSA? 
+- pour le retenu cnaps 1 % par exemple, c'est par rapport a quoi? 
+- c'est quoi ce deuduction IRSA et de quel maniere l'avoir et l'interet de l'avoir? 
+- montant impossable comment ca? de quel maniere l'idenitifer et sa difference et role par rapport au solde net et brut? 
+- c'est quoi cet avantage en nature? 
+- c'est quoi et pourquoi on est obliger de les payer: Cotisations sociales (CNAPS & OSTIE)? 
+- je ne comprends pas : "Les parts employeur ne diminuent pas le net Elles sont payées par l’entreprise"
+- je ne comprends pas: "Impôt dû (IRSA) Calculé selon barème"? 
+- c'est quoi: "Enfants à charge & IGR
+Colonne	Rôle
+ENFANT À CHARGE	Réduction fiscale
+Montant	Réduction IRSA
+IGR NET	IRSA après réduction
+
+📌 Plus d’enfants = moins d’impôt"? 
+- c'est quoi : "Autres retenues
+Colonne	Exemples
+AUTRES RETENUES	Prêt, sanction, mutuelle
+TOTAL RETENUES	Somme de toutes les retenues"? 
+- devrait on mettre aussi dans la fiche de paye le nombre d'enfant de l'employe et son IRG net? 
+
+**********
+a anticiper: 
+- possibilite d'augmenter un salaire 
+==================
+fonctionnement presence
+- travail 8h par jour, 5j/7j
+- samedi est considerer comme une heure supplementaire normal
+- le soir est 
+
+a tester:
+- si il n'a plus de conge solde, il ne peux plus faire une demande de demande de conge payer
+- respecter aussi les max imposer pour les autres conge
+- revoir le foncitonnement d'un conge non payant 
+- faire une exception aussi si il y a dec conge qui se superpose au meme moment pour la meme personne
+- le cas ou c'est le repsonsable qui choisi le duree en fonction des document ou commentaire envoyer par l'employe 
+
+=========================
+ajustement a faire:
+- un type de conge sans solde 
+- l'employe ne travail que 5j/7
+- 

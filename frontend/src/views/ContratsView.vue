@@ -78,7 +78,6 @@
           <td class="space-x-2">
             <button class="btn btn-secondary text-xs" style="padding:6px 10px;" @click="ouvrirCloture(c)">Clore</button>
             <button class="btn btn-secondary text-xs" style="padding:6px 10px;" @click="ouvrirRenouv(c)">Renouveler</button>
-            <button class="btn btn-secondary text-xs" style="padding:6px 10px;" @click="ouvrirStatut(c)">Statut</button>
             <RouterLink class="btn btn-secondary text-xs" style="padding:6px 10px;" :to="`/contrats/${c.id}`">Fiche</RouterLink>
             <button class="btn btn-secondary text-xs" style="padding:6px 10px;" @click="telechargerPdf(c.id)">PDF</button>
             <div v-if="renouvellementId === c.id" class="mt-2 flex flex-col gap-2 p-3 rounded-lg border border-slate-200 bg-slate-50/60 dark:bg-slate-800/40">
@@ -104,10 +103,6 @@
                   <input class="input" type="number" min="0" v-model.number="renouvellement.duree_ans" />
                 </label>
               </div>
-              <label class="text-xs text-slate-500" v-if="renouvellementCible === 'essai'">
-                Début période d'essai
-                <input class="input mt-1" type="date" v-model="renouvellementEssaiDebut" />
-              </label>
               <div class="flex gap-2">
                 <button class="btn btn-secondary text-xs" style="padding:6px 10px;" @click="confirmerRenouv(c)">Confirmer</button>
                 <button class="btn btn-secondary text-xs" style="padding:6px 10px;" @click="annulerRenouv">Annuler</button>
@@ -125,18 +120,6 @@
                 <button class="btn btn-secondary text-xs" style="padding:6px 10px;" @click="annulerCloture">Annuler</button>
               </div>
               <p class="text-xs text-red-500" v-if="messageCloture">{{ messageCloture }}</p>
-            </div>
-            <div v-if="statutId === c.id" class="mt-2 flex flex-col gap-2 p-3 rounded-lg border border-blue-200 bg-blue-50/60 dark:bg-slate-800/40">
-              <p class="text-sm font-semibold text-blue-700">Modifier le statut</p>
-              <select class="select" v-model="nouveauStatut">
-                <option value="en_cours">En cours</option>
-                <option value="termine">Terminé</option>
-              </select>
-              <div class="flex gap-2">
-                <button class="btn btn-secondary text-xs" style="padding:6px 10px;" @click="confirmerStatut(c)">Mettre à jour</button>
-                <button class="btn btn-secondary text-xs" style="padding:6px 10px;" @click="annulerStatut">Annuler</button>
-              </div>
-              <p class="text-xs text-red-500" v-if="messageStatut">{{ messageStatut }}</p>
             </div>
           </td>
           <td>{{ c.employe?.departement?.nom || '—' }}</td>
@@ -242,21 +225,23 @@ const confirmerRenouv = async (c) => {
   }
 }
 
-const duree = (c) => {
+import { parseISO, intervalToDuration, formatDuration } from 'date-fns'
+import { fr } from 'date-fns/locale'
+
+function duree(c) {
   const start = c.periode_essai_debut || c.date_debut
-  const end = c.periode_essai_fin || c.date_fin
+  const end   = c.periode_essai_fin   || c.date_fin
   if (!start || !end) return '—'
-  const s = new Date(start)
-  const e = new Date(end)
-  if (isNaN(s) || isNaN(e)) return '—'
-  const diffMs = e - s
-  if (diffMs <= 0) return '—'
-  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-  if (days >= 365) return `${(days / 365).toFixed(1)} an(s)`
-  if (days >= 30) return `${(days / 30).toFixed(1)} mois`
-  if (days >= 7) return `${(days / 7).toFixed(1)} semaine(s)`
-  return `${days} jour(s)`
+
+  const s = parseISO(start)
+  const e = parseISO(end)
+  if (isNaN(s) || isNaN(e) || e <= s) return '—'
+
+  const d = intervalToDuration({ start: s, end: e })
+  // Exemple: "6 mois" / "1 an 2 mois" / "10 jours"
+  return formatDuration(d, { locale: fr })
 }
+
 
 const fetchContrats = async () => {
   loading.value = true

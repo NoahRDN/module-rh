@@ -121,42 +121,58 @@
             <button class="btn btn-secondary btn-xs" @click="loadPointages">Actualiser</button>
           </div>
         </div>
-        <div v-if="pointageMode==='week'" class="grid gap-2 md:grid-cols-2">
-          <div v-for="w in pointagesSynth" :key="w.label" class="info-item">
-            <p class="font-semibold">Semaine {{ w.label }}</p>
-            <p class="text-sm">Heures : {{ w.heures_travaillees }} | HS : {{ w.heures_supplementaires }}</p>
-            <p class="text-sm">Retards : {{ w.retard_minutes }} min | Absences : {{ w.absences }}</p>
-            <p class="text-sm">Dimanches : {{ w.dimanches }}</p>
+        <div v-if="!isActif" class="muted text-sm">Employé inactif : pointages non affichés.</div>
+        <template v-else>
+          <div v-if="pointageMode==='week'" class="grid gap-2 md:grid-cols-2">
+            <div v-for="w in pointagesSynth" :key="w.label" class="info-item">
+              <p class="font-semibold">Semaine {{ w.label }}</p>
+              <p class="text-sm">Heures : {{ w.heures_travaillees }} | HS : {{ w.heures_supplementaires }}</p>
+              <p class="text-sm">Retards : {{ w.retard_minutes }} min | Absences : {{ w.absences }}</p>
+              <p class="text-sm">Dimanches : {{ w.dimanches }}</p>
+            </div>
+            <p v-if="!pointagesSynth.length" class="muted text-sm">Aucune donnée</p>
           </div>
-          <p v-if="!pointagesSynth.length" class="muted text-sm">Aucune donnée</p>
-        </div>
-        <div v-if="pointageMode==='month'" class="grid gap-2 md:grid-cols-2">
-          <div v-for="d in pointagesDetails" :key="d.jour" class="info-item">
-            <p class="font-semibold">{{ d.jour }}</p>
-            <p class="text-sm">Heures : {{ d.heures_travaillees }} | HS : {{ d.heures_supplementaires }}</p>
-            <p class="text-sm">Retard : {{ d.retard_minutes }} min | Absences : {{ d.absent ? 1 : 0 }}</p>
+          <div v-if="pointageMode==='month'" class="grid gap-2 md:grid-cols-2">
+            <div v-for="d in pointagesDetails" :key="d.jour" class="info-item">
+              <p class="font-semibold">{{ d.jour }}</p>
+              <p class="text-sm">Heures : {{ d.heures_travaillees }} | HS : {{ d.heures_supplementaires }}</p>
+              <p class="text-sm">Retard : {{ d.retard_minutes }} min | Absences : {{ d.absent ? 1 : 0 }}</p>
+            </div>
           </div>
-        </div>
-        <div v-if="pointageMode==='year'" class="grid gap-2 md:grid-cols-3">
-          <div v-for="m in pointagesSynth" :key="m.label" class="info-item">
-            <p class="font-semibold">{{ m.label }}</p>
-            <p class="text-sm">Heures : {{ m.heures_travaillees }} | HS : {{ m.heures_supplementaires }}</p>
-            <p class="text-sm">Retards : {{ m.retard_minutes }} min | Absences : {{ m.absences }}</p>
+          <div v-if="pointageMode==='year'" class="grid gap-2 md:grid-cols-3">
+            <div v-for="m in pointagesSynth" :key="m.label" class="info-item">
+              <p class="font-semibold">{{ m.label }}</p>
+              <p class="text-sm">Heures : {{ m.heures_travaillees }} | HS : {{ m.heures_supplementaires }}</p>
+              <p class="text-sm">Retards : {{ m.retard_minutes }} min | Absences : {{ m.absences }}</p>
+            </div>
           </div>
-        </div>
+        </template>
       </div>
 
       <div class="card">
-        <h3>Soldes de congé</h3>
+        <div class="flex items-center justify-between mb-2">
+          <h3>Soldes de congé</h3>
+          <RouterLink class="text-sm underline" to="/soldes-conges">Voir tout</RouterLink>
+        </div>
         <table class="table text-sm">
-          <thead><tr><th>Type</th><th>Solde actuel</th><th>Solde annuel</th></tr></thead>
-          <tbody>
-            <tr v-for="s in soldes" :key="s.id">
-              <td>{{ s.type?.nom || '—' }}</td>
-              <td>{{ s.solde_actuel }}</td>
-              <td>{{ s.solde_annuel }}</td>
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Acquis</th>
+              <th>Utilisé</th>
+              <th>Solde</th>
+              <th>Expiration</th>
             </tr>
-            <tr v-if="!soldes.length"><td colspan="3" class="muted">Aucun solde</td></tr>
+          </thead>
+          <tbody>
+            <tr v-for="s in soldes" :key="s.type_conge_id || s.id">
+              <td>{{ s.type_conge?.libelle || s.type_conge_libelle || '—' }}</td>
+              <td>{{ s.total_acquis ?? s.acquis_periode ?? 0 }}</td>
+              <td>{{ s.total_utilise ?? s.utilise_periode ?? 0 }}</td>
+              <td>{{ s.solde_actuel ?? s.solde_periode ?? 0 }}</td>
+              <td>{{ s.expire_first || '—' }}</td>
+            </tr>
+            <tr v-if="!soldes.length"><td colspan="5" class="muted">Aucun solde</td></tr>
           </tbody>
         </table>
       </div>
@@ -181,7 +197,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, computed } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import api from '../services/api'
 
@@ -199,6 +215,7 @@ const pointageYear = ref(new Date().getFullYear())
 const pointagesSynth = ref([])
 const pointagesDetails = ref([])
 const placeholder = 'https://via.placeholder.com/120?text=EMP'
+const isActif = computed(() => !!employe.value?.actif)
 
 const fetchEmploye = async () => {
   const { data } = await api.get(`/v1/employes/${route.params.id}`)
@@ -225,6 +242,7 @@ const fetchSoldes = async () => {
   try {
     const { data } = await api.get('/v1/soldes-conges', { params: { employe_id: route.params.id } })
     soldes.value = data.data || []
+    console.log("Soldes fetched:", JSON.parse(JSON.stringify(soldes.value)))
   } catch (e) {
     soldes.value = []
   }
@@ -306,7 +324,11 @@ const weekLabel = (date) => {
   return `${fmt(monday)} → ${fmt(end)}`
 }
 
-const photoUrl = (emp) => emp.photo || placeholder
+const photoUrl = (emp) => {
+  if (emp?.photo) return emp.photo
+  const initials = `${emp?.nom?.[0] || ''}${emp?.prenom?.[0] || ''}` || 'EMP'
+  return `https://ui-avatars.com/api/?background=0f172a&color=fff&name=${encodeURIComponent(initials)}`
+}
 
 const formatDate = (d) => (d ? String(d).split('T')[0] : '')
 

@@ -45,6 +45,40 @@
         </div>
       </div>
     </div>
+
+    <div class="card">
+      <div class="flex items-center justify-between mb-2">
+        <h3>Historique de ce contrat</h3>
+        <RouterLink class="text-sm underline" to="/contrats-historiques">Voir tout</RouterLink>
+      </div>
+      <table class="table text-sm">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Numéro</th>
+            <th>Type</th>
+            <th>Durée</th>
+            <th>Contrat</th>
+            <th>Période d'essai</th>
+            <th>Statut</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="h in histContrats" :key="h.id">
+            <td>{{ h.id }}</td>
+            <td>{{ h.numero || '—' }}</td>
+            <td>{{ h.type_contrat }}</td>
+            <td>{{ duree(h) }}</td>
+            <td>{{ formatDate(h.date_debut) }} → {{ formatDate(h.date_fin) || '—' }}</td>
+            <td>{{ formatDate(h.periode_essai_debut) || '—' }} → {{ formatDate(h.periode_essai_fin) || '—' }}</td>
+            <td>{{ h.statut || '—' }}</td>
+          </tr>
+          <tr v-if="!histContrats.length">
+            <td colspan="7" class="muted">Aucun historique</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </template>
 
@@ -52,14 +86,22 @@
 import { onMounted, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import api from '../services/api'
+import { parseISO, intervalToDuration, formatDuration } from 'date-fns'
+import { fr } from 'date-fns/locale'
 
 const route = useRoute()
 const router = useRouter()
 const contrat = ref(null)
+const histContrats = ref([])
 
 const fetchContrat = async () => {
   const { data } = await api.get(`/v1/contrats/${route.params.id}`)
   contrat.value = data
+  // Charger l'historique uniquement pour ce contrat
+  if (data?.id) {
+    const hist = await api.get('/v1/contrats-historiques', { params: { contrat_id: data.id } })
+    histContrats.value = hist.data?.data || []
+  }
 }
 
 const formatDate = (d) => (d ? String(d).split('T')[0] : '')
@@ -80,6 +122,17 @@ const telechargerPdf = async () => {
   } catch (e) {
     // ignore
   }
+}
+
+const duree = (row) => {
+  const start = row.periode_essai_debut || row.date_debut
+  const end = row.periode_essai_fin || row.date_fin
+  if (!start || !end) return '—'
+  const s = parseISO(start)
+  const e = parseISO(end)
+  if (isNaN(s) || isNaN(e) || e <= s) return '—'
+  const d = intervalToDuration({ start: s, end: e })
+  return formatDuration(d, { locale: fr, format: ['years', 'months', 'days'] }) || '—'
 }
 
 onMounted(fetchContrat)

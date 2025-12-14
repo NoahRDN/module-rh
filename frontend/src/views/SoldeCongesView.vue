@@ -31,13 +31,13 @@
           <label class="text-xs text-slate-400">Département</label>
           <input class="input" placeholder="Département" v-model="filters.departement" />
         </div>
-        <div class="grid gap-1">
+        <!-- <div class="grid gap-1">
           <label class="text-xs text-slate-400">Du</label>
           <input class="input" type="date" v-model="filters.from" />
-        </div>
+        </div> -->
         <div class="grid gap-1">
-          <label class="text-xs text-slate-400">Au</label>
-          <input class="input" type="date" v-model="filters.to" />
+          <label class="text-xs text-slate-400">Simulation date actuelle</label>
+          <input class="input" type="date" v-model="filters.simulation_date" />
         </div>
       </div>
       <div class="flex justify-end mb-2">
@@ -50,8 +50,10 @@
             <th class="cursor-pointer" @click="setSort('type')">Type {{ sortLabel('type') }}</th>
             <th>Premier acquis</th>
             <th>Expiration max</th>
-            <th class="cursor-pointer" @click="setSort('solde_actuel')">Solde actuel {{ sortLabel('solde_actuel') }}</th>
-            <th class="cursor-pointer" @click="setSort('solde_annuel')">Solde annuel {{ sortLabel('solde_annuel') }}</th>
+            <th>Acquis période</th>
+            <th>Utilisé période</th>
+            <th class="cursor-pointer" @click="setSort('solde_actuel')">Solde période {{ sortLabel('solde_actuel') }}</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -59,12 +61,16 @@
             <td>{{ s.employe ? `${s.employe.matricule} - ${s.employe.nom} ${s.employe.prenom}` : `${s.employe_matricule || ''} ${s.employe_nom || ''} ${s.employe_prenom || ''}` }}</td>
             <td>{{ s.type_conge?.libelle || s.type_conge_libelle || '—' }}</td>
             <td>{{ s.premier_acquis || '—' }}</td>
-            <td>{{ s.derniere_expiration || '—' }}</td>
-            <td>{{ s.solde_actuel }}</td>
-            <td>{{ s.solde_annuel }}</td>
+            <td>{{ s.expire_first || '—' }}</td>
+            <td>{{ s.acquis_periode ?? s.total_acquis ?? '—' }}</td>
+            <td>{{ s.utilise_periode ?? s.total_utilise ?? '—' }}</td>
+            <td>{{ s.solde_periode ?? s.solde_actuel }}</td>
+            <td>
+              <button class="btn btn-secondary btn-xs" @click="openDetail(s)">Détails</button>
+            </td>
           </tr>
           <tr v-if="!soldesFiltres.length">
-            <td colspan="6" class="muted">Aucun solde</td>
+            <td colspan="8" class="muted">Aucun solde</td>
           </tr>
         </tbody>
       </table>
@@ -80,7 +86,8 @@
 </template>
 
 <script setup>
-import { onMounted, ref, computed } from 'vue'
+import { onMounted, ref, computed, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import api from '../services/api'
 import { debounce } from '../utils/debounce'
 
@@ -91,7 +98,7 @@ const filterEmploye = ref('')
 const message = ref('')
 const loading = ref(false)
 const pagination = ref({ page: 1, last_page: 1, total: 0 })
-const filters = ref({ matricule: '', nom: '', type: '', departement: '', from: '', to: '' })
+const filters = ref({ matricule: '', nom: '', type: '', departement: '', from: '', to: '', simulation_date: '' })
 const sortKey = ref('employe')
 const sortDir = ref('asc')
 
@@ -114,13 +121,21 @@ const messagePeriode = ref('')
 const congesRange = ref({ from: '', to: '', employe_id: '' })
 const demandesRange = ref([])
 
+const selected = ref(null)
+const showDetail = ref(false)
+
 const fetchSoldes = async () => {
   loading.value = true
   const params = {
     page: pagination.value.page,
     employe_id: filterEmploye.value || undefined,
     from: filters.value.from || undefined,
-    to: filters.value.to || undefined
+    to: filters.value.to || undefined,
+    simulation_date: filters.value.simulation_date || undefined,
+    matricule: filters.value.matricule || undefined,
+    nom: filters.value.nom || undefined,
+    type: filters.value.type || undefined,
+    departement: filters.value.departement || undefined
   }
   const { data } = await api.get('/v1/soldes-conges', { params })
   soldes.value = data.data || []
@@ -174,14 +189,7 @@ const prevPage = () => {
 }
 
 const soldesFiltres = computed(() => {
-  const f = filters.value
-  const toStr = (v) => String(v || '').toLowerCase()
-  let list = soldes.value.filter((s) =>
-    toStr(s.employe?.matricule).includes(toStr(f.matricule)) &&
-    (`${toStr(s.employe?.nom)} ${toStr(s.employe?.prenom)}`).includes(toStr(f.nom)) &&
-    toStr(s.type_conge?.libelle).includes(toStr(f.type)) &&
-    toStr(s.employe?.departement?.nom).includes(toStr(f.departement))
-  )
+  let list = soldes.value
   const key = sortKey.value
   const dir = sortDir.value
   list = [...list].sort((a, b) => {
@@ -211,7 +219,36 @@ const setSort = (key) => {
   else { sortKey.value = key; sortDir.value = 'asc' }
 }
 const sortLabel = (key) => (sortKey.value === key ? (sortDir.value === 'asc' ? '▲' : '▼') : '')
-const resetFilters = () => { filters.value = { matricule: '', nom: '', type: '', departement: '', from: '', to: '' } }
+const resetFilters = () => {
+  filters.value = { matricule: '', nom: '', type: '', departement: '', from: '', to: '', simulation_date: '' }
+  pagination.value.page = 1
+  debouncedFetchSoldes()
+}
+
+const router = useRouter()
+const goToDetail = (s) => {
+  if (!s?.id) return
+  router.push(`/soldes-conges/${s.id}`)
+}
+
+const openDetail = (s) => {
+  selected.value = s
+  showDetail.value = true
+}
+
+const closeDetail = () => {
+  showDetail.value = false
+  selected.value = null
+}
+
+// Rafraîchir quand la plage de dates change
+watch(
+  () => [filters.value.from, filters.value.to, filters.value.simulation_date, filters.value.matricule, filters.value.nom, filters.value.type, filters.value.departement],
+  () => {
+    pagination.value.page = 1
+    debouncedFetchSoldes()
+  }
+)
 
 const calculerPeriode = async () => {
   messagePeriode.value = ''

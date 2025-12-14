@@ -47,11 +47,14 @@
                 <input class="input" type="number" min="0" v-model.number="form.duree_ans" />
               </label>
             </div>
-            <p class="text-xs text-slate-500">Laissez 0 pour ignorer l'unité</p>
           </div>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="grid gap-1">
+            <label class="text-sm text-slate-400">Début période d'essai (optionnel)</label>
+            <input class="input" type="date" v-model="form.essai_debut" />
+          </div>
           <div class="grid gap-1">
             <label class="text-sm text-slate-400">Durée de période d'essai</label>
             <div class="flex flex-wrap gap-2 md:flex-nowrap">
@@ -68,11 +71,6 @@
                 <input class="input" type="number" min="0" v-model.number="form.essai_ans" />
               </label>
             </div>
-            <p class="text-xs text-slate-500">La période peut démarrer plus tard si précisé ci-dessous.</p>
-          </div>
-          <div class="grid gap-1">
-            <label class="text-sm text-slate-400">Début période d'essai (optionnel)</label>
-            <input class="input" type="date" v-model="form.essai_debut" />
           </div>
         </div>
 

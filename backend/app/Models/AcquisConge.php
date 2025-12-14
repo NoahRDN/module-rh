@@ -10,14 +10,20 @@ class AcquisConge extends Model
         'employe_id',
         'type_conge_id',
         'jours_acquis',
-        'jours_utilises',
         'acquis_le',
         'expire_le',
+        'acquis_first',
+        'expire_first',
+        'contrat_type',
+        'contrat_fin',
     ];
 
     protected $casts = [
         'acquis_le' => 'date',
         'expire_le' => 'date',
+        'acquis_first' => 'date',
+        'expire_first' => 'date',
+        'contrat_fin' => 'date',
     ];
 
     public function employe()
@@ -37,6 +43,7 @@ class AcquisConge extends Model
 
     public function reste(): float
     {
-        return (float) $this->jours_acquis - (float) $this->jours_utilises;
+        $consomme = $this->consommations()->sum('jours_utilises');
+        return (float) $this->jours_acquis - (float) $consomme;
     }
 }

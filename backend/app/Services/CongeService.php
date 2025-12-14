@@ -40,6 +40,11 @@ class CongeService
         })->get();
 
         foreach ($employes as $emp) {
+            $contrat = $this->contratActifLe($emp, $finMois);
+            if (!$contrat) {
+                continue;
+            }
+
             // Vérifier si déjà crédité pour ce mois
             $existe = AcquisConge::where('employe_id', $emp->id)
                 ->where('type_conge_id', $type->id)
@@ -50,34 +55,35 @@ class CongeService
             }
 
             // Créditer le 2,5 standard (peut être remplacé par règle plus tard)
+            [$acquisFirst, $expireFirst] = $this->determineFenetre($emp->id, $type->id, $finMois);
+            $expireFinal = Carbon::parse($expireFirst);
             AcquisConge::create([
                 'employe_id' => $emp->id,
                 'type_conge_id' => $type->id,
+                'contrat_type' => $contrat->type_contrat ?? null,
+                'contrat_fin' => $contrat->date_fin,
                 'jours_acquis' => 2.5,
                 'acquis_le' => $finMois->toDateString(),
-                'expire_le' => $finMois->copy()->addYears(3)->toDateString(),
+                'expire_le' => $expireFinal->toDateString(),
+                'acquis_first' => $acquisFirst,
+                'expire_first' => $expireFinal->toDateString(),
             ]);
         }
     }
 
     /**
-     * Créditer un employé mois par mois, depuis le début de son contrat actif jusqu'au mois courant.
+     * Créditer un employé mois par mois, depuis le début de son premier contrat
+     * jusqu'au mois courant, sans jamais remettre les compteurs à zéro lors d'un passage
+     * CDD -> CDI (ou autre type de contrat). On crédite chaque mois où AU MOINS
+     * un contrat est actif.
      */
     public function accrueMensuelPourEmploye(Employe $employe, ?Carbon $date = null): void
     {
         $dateRef = $date ?: Carbon::now();
 
-        // Contrat en cours sur la date de référence
-        $contratActif = $employe->contrats()
-            ->where('statut', 'en_cours')
-            ->whereDate('date_debut', '<=', $dateRef->toDateString())
-            ->where(function ($q) use ($dateRef) {
-                $q->whereNull('date_fin')->orWhereDate('date_fin', '>=', $dateRef->toDateString());
-            })
-            ->orderBy('date_debut')
-            ->first();
-
-        if (!$contratActif) {
+        // Premier contrat de l'employé (quel que soit le type ou le statut)
+        $premierContrat = $employe->contrats()->orderBy('date_debut')->first();
+        if (!$premierContrat) {
             return;
         }
 
@@ -86,8 +92,9 @@ class CongeService
             return;
         }
 
-        // On crédite uniquement les mois ENTIEREMENT écoulés : on s'arrête au dernier jour du mois précédent
-        $moisCursor = Carbon::parse($contratActif->date_debut)->startOfMonth();
+        // On crédite uniquement les mois ENTIEREMENT écoulés : on s'arrête au dernier jour du mois précédent.
+        // Le curseur part du premier mois du premier contrat.
+        $moisCursor = Carbon::parse($premierContrat->date_debut)->startOfMonth();
         $fin = $dateRef->copy()->subMonthNoOverflow()->endOfMonth();
 
         if ($moisCursor->gt($fin)) {
@@ -96,6 +103,14 @@ class CongeService
 
         while ($moisCursor->lte($fin)) {
             $acquisDate = $moisCursor->copy()->endOfMonth();
+
+            // Vérifier qu'au moins un contrat est actif sur le mois (pas de trou dans la relation de travail)
+            $contratSurMois = $this->contratActifLe($employe, $acquisDate, $moisCursor);
+            if (!$contratSurMois) {
+                $moisCursor->addMonth();
+                continue;
+            }
+
             $deja = AcquisConge::where('employe_id', $employe->id)
                 ->where('type_conge_id', $type->id)
                 ->whereDate('acquis_le', $acquisDate->toDateString())
@@ -103,12 +118,18 @@ class CongeService
             if (!$deja) {
                 $jours = $this->tauxAcquisition($employe, $type);
                 if ($jours > 0) {
+                    [$acquisFirst, $expireFirst] = $this->determineFenetre($employe->id, $type->id, $acquisDate);
+                    $expireFinal = Carbon::parse($expireFirst);
                     AcquisConge::create([
                         'employe_id' => $employe->id,
                         'type_conge_id' => $type->id,
+                        'contrat_type' => $contratSurMois->type_contrat ?? null,
+                        'contrat_fin' => $contratSurMois->date_fin,
                         'jours_acquis' => $jours,
                         'acquis_le' => $acquisDate->toDateString(),
-                        'expire_le' => $acquisDate->copy()->addYears(3)->toDateString(),
+                        'expire_le' => $expireFinal->toDateString(),
+                        'acquis_first' => $acquisFirst,
+                        'expire_first' => $expireFinal->toDateString(),
                     ]);
                 }
             }
@@ -157,12 +178,22 @@ class CongeService
         // Cas non PAYE : on crée un acquis ponctuel correspondant à la durée autorisée
         if ($type->code !== self::CODE_CONGE_PAYE) {
             DB::transaction(function () use ($demande, $type, $joursDemandes) {
+                $acquisDate = Carbon::parse($demande->date_debut);
+                // [$acquisFirst, $expireFirst] = $this->determineFenetre($demande->employe_id, $type->id, $acquisDate);
+                $contrat = $this->contratActifLe($demande->employe, $acquisDate);
+                $expireFinal = Carbon::parse($demande->date_fin);
                 $acquis = AcquisConge::create([
                     'employe_id'    => $demande->employe_id,
                     'type_conge_id' => $type->id,
+                    'contrat_type'  => $contrat->type_contrat ?? null,
+                    'contrat_fin'   => $contrat->date_fin ?? null,
                     'jours_acquis'  => $joursDemandes,
-                    'acquis_le'     => now()->toDateString(),
-                    'expire_le'     => $demande->date_fin ?? now()->addYears(1)->toDateString(),
+                    'acquis_le'     => $acquisDate->toDateString(),
+                    'expire_le'     => ($demande->date_fin && Carbon::parse($demande->date_fin)->lt($expireFinal))
+                        ? Carbon::parse($demande->date_fin)->toDateString()
+                        : $expireFinal->toDateString(),
+                    'acquis_first'  => $acquisDate,
+                    'expire_first'  => $expireFinal->toDateString(),
                 ]);
 
                 ConsommationConge::create([
@@ -179,8 +210,9 @@ class CongeService
             $restant = $joursDemandes;
             $acquisList = AcquisConge::where('employe_id', $demande->employe_id)
                 ->where('type_conge_id', $type->id)
-                ->whereDate('expire_le', '>=', now())
-                ->orderBy('expire_le')
+                ->whereDate('expire_le', '>=', Carbon::parse($demande->date_fin))
+                ->orderBy('acquis_first')
+                ->orderBy('acquis_le')
                 ->lockForUpdate()
                 ->get();
 
@@ -213,6 +245,21 @@ class CongeService
     }
 
     /**
+     * Retourne le contrat actif à une date donnée.
+     */
+    protected function contratActifLe(Employe $employe, Carbon $date, ?Carbon $debutMois = null)
+    {
+        $debut = $debutMois ?: $date;
+        return $employe->contrats()
+            ->whereDate('date_debut', '<=', $date->toDateString())
+            ->where(function ($q) use ($debut) {
+                $q->whereNull('date_fin')->orWhereDate('date_fin', '>=', $debut->toDateString());
+            })
+            ->orderBy('date_debut')
+            ->first();
+    }
+
+    /**
      * Solde entre deux dates (simple) basé sur acquis/conso.
      */
     public function soldeEntre(int $employeId, int $typeCongeId, ?Carbon $from = null, ?Carbon $to = null): float
@@ -220,13 +267,9 @@ class CongeService
         $acquisQuery = AcquisConge::where('employe_id', $employeId)
             ->where('type_conge_id', $typeCongeId);
 
-        // Par défaut, on ne compte que les acquis non expirés
+        // Par défaut, on ne compte que les acquis non expirés (fenêtre de 3 ans)
         $dateLimite = $to ? $to->copy()->endOfDay() : now();
-        $acquisQuery->whereDate('expire_le', '>=', $dateLimite->toDateString());
-
-        // Disponible à partir du 1er du mois suivant l'acquisition
-        $dateDispoLimite = $to ? $to->copy()->endOfDay() : now();
-        $acquisQuery->whereRaw("(date_trunc('month', acquis_le) + interval '1 month') <= ?", [$dateDispoLimite->toDateString()]);
+        $acquisQuery->whereDate('expire_first', '>=', $dateLimite->toDateString());
 
         if ($from) {
             $acquisQuery->whereDate('acquis_le', '>=', $from);
@@ -241,5 +284,60 @@ class CongeService
         $totalConso = (float) ConsommationConge::whereIn('acquis_conge_id', $acquisIds)->sum('jours_utilises');
 
         return $totalAcquis - $totalConso;
+    }
+
+    /**
+     * Résumé (acquis, utilisé, solde) sur une période.
+     */
+    public function resumeEntre(int $employeId, int $typeCongeId, ?Carbon $from = null, ?Carbon $to = null): array
+    {
+        $acquisQuery = AcquisConge::where('employe_id', $employeId)
+            ->where('type_conge_id', $typeCongeId);
+
+        $dateFin = $to ? $to->copy()->endOfDay() : now();
+
+        $acquisQuery->whereDate('expire_first', '>=', $dateFin->toDateString());
+
+        if ($from) {
+            $acquisQuery->whereDate('acquis_le', '>=', $from);
+        }
+        if ($to) {
+            $acquisQuery->whereDate('acquis_le', '<=', $to);
+        }
+
+        $acquisIds = $acquisQuery->pluck('id');
+        $totalAcquis = (float) AcquisConge::whereIn('id', $acquisIds)->sum('jours_acquis');
+        $totalConso = (float) ConsommationConge::whereIn('acquis_conge_id', $acquisIds)->sum('jours_utilises');
+
+        return [
+            'acquis' => $totalAcquis,
+            'utilise' => $totalConso,
+            'solde' => $totalAcquis - $totalConso,
+        ];
+    }
+
+    /**
+     * Détermine la fenêtre (acquis_first / expire_first) à utiliser pour un nouvel acquis.
+     * Si une fenêtre en cours existe et couvre la date d'acquisition, on la réutilise.
+     * Sinon, on démarre une nouvelle fenêtre de 3 ans à partir de la date d'acquisition.
+     */
+    private function determineFenetre(int $employeId, int $typeCongeId, Carbon $acquisDate): array
+    {
+        // Rechercher une fenêtre encore valide couvrant la date d'acquisition
+        $fenetre = AcquisConge::where('employe_id', $employeId)
+            ->where('type_conge_id', $typeCongeId)
+            ->whereDate('expire_first', '>=', $acquisDate->toDateString())
+            ->orderByDesc('acquis_first')
+            ->first();
+
+        if ($fenetre && $fenetre->acquis_first && $fenetre->expire_first) {
+            return [$fenetre->acquis_first->toDateString(), $fenetre->expire_first->toDateString()];
+        }
+
+        // Sinon, on crée une nouvelle fenêtre de 3 ans à partir de la fin de mois acquise
+        $acquisFirst = $acquisDate->copy()->endOfMonth();
+        // addYearsNoOverflow pour éviter le passage au 1er mars sur les années bissextiles, puis on reprend la fin du mois
+        $expireFirst = $acquisFirst->copy()->addYearsNoOverflow(3)->endOfMonth();
+        return [$acquisFirst->toDateString(), $expireFirst->toDateString()];
     }
 }

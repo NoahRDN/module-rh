@@ -12,11 +12,13 @@ class CalendrierEvenement extends Model
         'date_debut',
         'date_fin',
         'description',
+        'meta',
     ];
 
     protected $casts = [
         'date_debut' => 'date',
         'date_fin'   => 'date',
+        'meta'       => 'array',
     ];
 
     public function employe()

@@ -13,8 +13,13 @@ class ContratHistoriqueController extends Controller
     {
         try {
             $employe = $request->query('employe_id');
+            $contrat = $request->query('contrat_id');
+
             $query = ContratHistorique::with(['employe', 'contrat'])->orderByDesc('created_at');
-            if ($employe) {
+
+            if ($contrat) {
+                $query->where('contrat_id', $contrat);
+            } elseif ($employe) {
                 $query->where('employe_id', $employe);
             }
             return response()->json($query->paginate(10));

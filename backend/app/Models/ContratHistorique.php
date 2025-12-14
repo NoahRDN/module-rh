@@ -17,6 +17,7 @@ class ContratHistorique extends Model
         'periode_essai_fin',
         'renouvelable',
         'salaire_base',
+        'statut',
     ];
 
     protected $casts = [
@@ -25,6 +26,7 @@ class ContratHistorique extends Model
         'date_fin' => 'date',
         'periode_essai_debut' => 'date',
         'periode_essai_fin' => 'date',
+        'statut' => 'string',
     ];
 
     public function contrat()

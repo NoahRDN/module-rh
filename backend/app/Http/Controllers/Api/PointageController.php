@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\PointageRequest;
 use App\Models\Pointage;
+use App\Models\DemandeConge;
 use Carbon\Carbon;
 use DateInterval;
 use DatePeriod;
@@ -13,6 +14,12 @@ use Illuminate\Support\Facades\Log;
 
 class PointageController extends Controller
 {
+    /**
+     * Paramètres horaires de référence.
+     */
+    private int $journeeDebutHeure = 8;
+    private int $journeeFinHeure   = 17;
+    private int $pauseMinutes      = 60;
     public function index(Request $request)
     {
         try {
@@ -61,6 +68,12 @@ class PointageController extends Controller
             $jourStr = $day->format('Y-m-d');
             $liste = $pointages[$jourStr] ?? collect();
             $resume = $this->calculerJournee($liste, $jourStr);
+
+            // Absence justifiée si un congé approuvé couvre ce jour
+            if ($resume['absent'] && $this->isCongeValide($request->employe_id, $jourStr)) {
+                $resume['absent'] = false;
+                $resume['absence_justifiee'] = true;
+            }
 
             $totalHeures += $resume['heures_travaillees'];
             $totalHs += $resume['heures_supplementaires'];
@@ -113,6 +126,11 @@ class PointageController extends Controller
 
         $resume = $this->calculerJournee($pointages, $date);
 
+        if ($resume['absent'] && $this->isCongeValide($employeId, $date)) {
+            $resume['absent'] = false;
+            $resume['absence_justifiee'] = true;
+        }
+
         return response()->json([
             'date'      => $date,
             'employe_id'=> $employeId,
@@ -161,6 +179,8 @@ class PointageController extends Controller
      */
     protected function calculerJournee($pointages, $jour)
     {
+        $estDimanche = Carbon::parse($jour)->isSunday();
+
         if ($pointages->isEmpty()) {
             return [
                 'heures_travaillees' => 0,
@@ -169,6 +189,9 @@ class PointageController extends Controller
                 'premiere_entree' => null,
                 'derniere_sortie' => null,
                 'absent' => true,
+                'absence_justifiee' => false,
+                'conge' => false,
+                'dimanche' => $estDimanche,
                 'minutes_pauses' => 0,
             ];
         }
@@ -186,6 +209,9 @@ class PointageController extends Controller
                 'premiere_entree' => optional($premiereEntree)->pointe_a,
                 'derniere_sortie' => optional($derniereSortie)->pointe_a,
                 'absent' => true,
+                'absence_justifiee' => false,
+                'conge' => false,
+                'dimanche' => $estDimanche,
                 'minutes_pauses' => 0,
             ];
         }
@@ -196,13 +222,13 @@ class PointageController extends Controller
         $minutesBrut = $debut->diffInMinutes($fin);
         $pauses = $this->calculerDureePauses($pointages);
         $minutesTravail = max(0, $minutesBrut - $pauses);
-
-        $minutesNormales = 8 * 60;
+        Log::debug("Minutes travail: " . $minutesTravail);
+        $minutesNormales = ($this->journeeFinHeure - $this->journeeDebutHeure) * 60 - $this->pauseMinutes;
 
         $heuresTravaillees = round($minutesTravail / 60, 2);
         $heuresSupp = max(0, round(($minutesTravail - $minutesNormales) / 60, 2));
 
-        $heureTheorique = (clone $date)->setTime(8, 0, 0);
+        $heureTheorique = (clone $date)->setTime($this->journeeDebutHeure, 0, 0);
         $retardMinutes = 0;
         if ($debut->greaterThan($heureTheorique)) {
             $retardMinutes = $heureTheorique->diffInMinutes($debut);
@@ -216,6 +242,9 @@ class PointageController extends Controller
             'derniere_sortie'         => $fin,
             'minutes_pauses'          => $pauses,
             'absent'                  => false,
+            'absence_justifiee'       => false,
+            'conge'                   => false,
+            'dimanche'                => $estDimanche,
         ];
     }
 
@@ -235,5 +264,17 @@ class PointageController extends Controller
             }
         }
         return $total;
+    }
+
+    /**
+     * Vérifie si un congé validé couvre le jour donné.
+     */
+    protected function isCongeValide(int $employeId, string $jour): bool
+    {
+        return DemandeConge::where('employe_id', $employeId)
+            ->where('statut', 'rh_valide')
+            ->whereDate('date_debut', '<=', $jour)
+            ->whereDate('date_fin', '>=', $jour)
+            ->exists();
     }
 }

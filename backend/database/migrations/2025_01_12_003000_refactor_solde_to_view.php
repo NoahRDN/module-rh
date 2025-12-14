@@ -11,6 +11,16 @@ return new class extends Migration {
         // Supprimer la vue existante si elle dépend d'anciennes colonnes
         DB::statement('DROP VIEW IF EXISTS view_solde_conges');
 
+        // S'assurer que les colonnes nécessaires existent
+        Schema::table('acquis_conges', function (Blueprint $table) {
+            if (!Schema::hasColumn('acquis_conges', 'acquis_first')) {
+                $table->date('acquis_first')->nullable()->after('expire_le');
+            }
+            if (!Schema::hasColumn('acquis_conges', 'expire_first')) {
+                $table->date('expire_first')->nullable()->after('acquis_first');
+            }
+        });
+
         // Supprimer les tables devenues inutiles
         if (Schema::hasTable('soldes_conges')) {
             Schema::drop('soldes_conges');
@@ -38,6 +48,8 @@ SELECT
     ac.type_conge_id,
     tc.libelle AS type_conge_libelle,
     tc.code AS type_conge_code,
+    MIN(ac.acquis_first) AS acquis_first,
+    MAX(ac.expire_first) AS expire_first,
     MIN(ac.id) FILTER (WHERE ac.id IS NOT NULL) AS premier_acquis_id,
     MIN(ac.acquis_le) AS premier_acquis,
     MAX(ac.expire_le) AS derniere_expiration,
@@ -51,8 +63,7 @@ FROM acquis_conges ac
 JOIN employes e ON e.id = ac.employe_id
 JOIN types_conges tc ON tc.id = ac.type_conge_id
 LEFT JOIN consommations_conges cons ON cons.acquis_conge_id = ac.id
-WHERE ac.expire_le >= CURRENT_DATE
-  AND (date_trunc('month', ac.acquis_le) + interval '1 month') <= CURRENT_DATE
+WHERE ac.expire_first >= CURRENT_DATE
 GROUP BY ac.employe_id, e.matricule, e.nom, e.prenom, ac.type_conge_id, tc.libelle, tc.code;
 SQL);
     }

@@ -27,6 +27,7 @@ use App\Http\Controllers\Api\ContratHistoriqueController;
 use App\Http\Controllers\Api\ContratPdfController;
 use App\Http\Controllers\Api\FrequenceCongeController;
 use App\Http\Controllers\Api\TypeCongeController;
+use App\Http\Controllers\Api\WorktimeSettingController;
 
 Route::post('/login', [AuthController::class, 'login']);
 
@@ -60,6 +61,8 @@ Route::prefix('v1')->group(function () {
     Route::get('documents/types', [DocumentUploadController::class, 'types']);
     Route::post('documents/upload', [DocumentUploadController::class, 'store']);
     Route::apiResource('soldes-conges', SoldeCongeController::class)->only(['index','show']);
+    Route::get('worktime', [WorktimeSettingController::class, 'show']);
+    Route::put('worktime', [WorktimeSettingController::class, 'update']);
     Route::apiResource('demandes-conges', DemandeCongeController::class);
     Route::apiResource('calendrier-evenements', CalendrierEvenementController::class)->only(['index', 'store']);
     Route::get('alertes', [AlerteController::class, 'index']);

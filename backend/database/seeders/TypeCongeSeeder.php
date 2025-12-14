@@ -14,7 +14,7 @@ class TypeCongeSeeder extends Seeder
 
         $types = [
             ['libelle' => 'Congé payé', 'code' => 'PAYE', 'utilise_solde' => true, 'paye' => true, 'frequence_code' => 'MOIS', 'jours_forfait' => 2.5, 'description' => '2,5 jours/mois cumulables 3 ans', 'cumulable' => true, 'cumulable_duree' => 36, 'cumulable_frequence_code' => 'MOIS'],
-            ['libelle' => 'Congé sans solde', 'code' => 'SANS_SOLDE', 'utilise_solde' => false, 'paye' => false, 'frequence_code' => 'MANAGER'],
+            ['libelle' => 'Congé sans solde', 'code' => 'SANS_SOLDE', 'utilise_solde' => false, 'paye' => false, 'frequence_code' => 'MANAGER', 'description' => 'Durée flexible, validée par manager/RH, ne consomme pas de solde'],
 
             // Modèle A : événements distincts
             ['libelle' => 'Congé mariage', 'code' => 'MARIAGE', 'utilise_solde' => false, 'paye' => true, 'frequence_code' => 'EVENEMENT', 'jours_forfait' => 3, 'limite' => 1, 'limite_frequence_code' => 'AN', 'description' => '1 fois par an, 3 jours'],

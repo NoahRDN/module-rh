@@ -146,12 +146,22 @@ class PaieController extends Controller
 
     protected function calculerJournee($pointages, $jour)
     {
+        $dayCode = Carbon::parse($jour)->format('D'); // Mon, Tue...
+        $dayCode = strtolower(substr($dayCode, 0, 3)); // mon, tue, wed...
+        $settings = $this->loadWorktimeSettings();
+        $workingDays = $settings['working_days'] ?? ['mon','tue','wed','thu','fri'];
+        $saturdayMode = $settings['saturday_mode'] ?? 'normal'; // normal|hs
+        $isSunday = $dayCode === 'sun';
+        $isSaturday = $dayCode === 'sat';
+        $isWorking = in_array($dayCode, $workingDays) || ($isSaturday && $saturdayMode === 'normal');
+
         if ($pointages->isEmpty()) {
             return [
                 'heures_travaillees' => 0,
                 'heures_supplementaires' => 0,
                 'retard_minutes' => 0,
-                'absent' => true,
+                // absent seulement si c'est un jour travaillé
+                'absent' => $isWorking,
             ];
         }
 
@@ -175,12 +185,17 @@ class PaieController extends Controller
         $pauses = $this->calculerDureePauses($pointages);
         $minutesTravail = max(0, $minutesBrut - $pauses);
 
-        $minutesNormales = 8 * 60;
+        $settings = $this->loadWorktimeSettings();
+        $hoursPerDay = (float) ($settings['hours_per_day'] ?? 8);
+        $minutesNormales = $hoursPerDay * 60;
 
         $heuresTravaillees = round($minutesTravail / 60, 2);
         $heuresSupp = max(0, round(($minutesTravail - $minutesNormales) / 60, 2));
 
-        $heureTheorique = (clone $date)->setTime(8, 0, 0);
+        $settings = $this->loadWorktimeSettings();
+        $startHour = (int) ($settings['start_hour'] ?? 8);
+        $startMinute = (int) ($settings['start_minute'] ?? 0);
+        $heureTheorique = (clone $date)->setTime($startHour, $startMinute, 0);
         $retardMinutes = 0;
         if ($debut->greaterThan($heureTheorique)) {
             $retardMinutes = $heureTheorique->diffInMinutes($debut);
@@ -213,20 +228,29 @@ class PaieController extends Controller
     }
 
     /**
-     * Calcul des HS hebdomadaires (8h à 1.3, 12h suivantes à 1.5, dimanche à 1.4).
+     * Calcul des HS hebdomadaires en fonction de la config worktime.
      */
     protected function calculerHsHebdo(array $details, float $tauxHoraire): array
     {
+        $config = $this->loadWorktimeSettings();
+        $threshold = (float) ($config['weekly_threshold'] ?? 40);
+        $mult = $config['multipliers'] ?? [];
+        $weekdays = $config['working_days'] ?? ['mon','tue','wed','thu','fri'];
+        $saturdayMode = $config['saturday_mode'] ?? 'normal';
+
         $weeks = [];
         foreach ($details as $d) {
             $date = Carbon::parse($d['jour']);
             $weekKey = $date->isoWeekYear() . '-' . $date->isoWeek();
             if (!isset($weeks[$weekKey])) {
-                $weeks[$weekKey] = ['weekday_hours' => 0, 'sunday_hours' => 0];
+                $weeks[$weekKey] = ['weekday_hours' => 0, 'saturday_hours' => 0, 'sunday_hours' => 0];
             }
             $hours = $d['heures_travaillees'] ?? 0;
+            $dayCode = strtolower(substr($date->format('D'), 0, 3));
             if ($date->isSunday()) {
                 $weeks[$weekKey]['sunday_hours'] += $hours;
+            } elseif ($dayCode === 'sat') {
+                $weeks[$weekKey]['saturday_hours'] += $hours;
             } else {
                 $weeks[$weekKey]['weekday_hours'] += $hours;
             }
@@ -237,25 +261,56 @@ class PaieController extends Controller
 
         foreach ($weeks as $week) {
             $weekdayHours = $week['weekday_hours'];
+            $saturdayHours = $week['saturday_hours'];
             $sundayHours = $week['sunday_hours'];
 
-            $overtime = max(0, $weekdayHours - 40);
+            // Si samedi "normal", il compte dans les heures ouvrées pour le seuil
+            if ($saturdayMode === 'normal') {
+                $weekdayHours += $saturdayHours;
+                $saturdayHsHours = 0;
+            } else {
+                // samedi traité comme HS à taux spécifique
+                $saturdayHsHours = $saturdayHours;
+            }
+
+            $overtime = max(0, $weekdayHours - $threshold);
             $first8 = min(8, $overtime);
             $next12 = min(12, max(0, $overtime - $first8));
             $beyond = max(0, $overtime - $first8 - $next12);
 
-            $hsWeekHours = $overtime + $sundayHours;
+            $hsWeekHours = $overtime + $sundayHours + $saturdayHsHours;
 
             $amount = 0;
-            $amount += $first8 * $tauxHoraire * 1.3;
-            $amount += $next12 * $tauxHoraire * 1.5;
-            $amount += $beyond * $tauxHoraire * 1.5;
-            $amount += $sundayHours * $tauxHoraire * 1.4;
+            $amount += $first8 * $tauxHoraire * ($mult['weekday_first8'] ?? 1.3);
+            $amount += $next12 * $tauxHoraire * ($mult['weekday_next12'] ?? 1.5);
+            $amount += $beyond * $tauxHoraire * ($mult['weekday_beyond'] ?? 1.5);
+            $amount += $sundayHours * $tauxHoraire * ($mult['sunday'] ?? 1.4);
+            $amount += $saturdayHsHours * $tauxHoraire * ($mult['saturday'] ?? 1.4);
 
             $totalHsHours += $hsWeekHours;
             $totalHsAmount += $amount;
         }
 
         return [round($totalHsHours, 2), round($totalHsAmount, 2)];
+    }
+
+    /**
+     * Charge les paramètres depuis la table, ou fallback sur config/worktime.php.
+     */
+    protected function loadWorktimeSettings(): array
+    {
+        $setting = \App\Models\WorktimeSetting::first();
+        if ($setting) {
+            return [
+                'working_days' => $setting->working_days ?: config('worktime.working_days'),
+                'saturday_mode' => $setting->saturday_mode ?: config('worktime.saturday_mode'),
+                'start_hour' => $setting->start_hour ?? config('worktime.start_hour'),
+                'start_minute' => $setting->start_minute ?? config('worktime.start_minute'),
+                'hours_per_day' => $setting->hours_per_day ?? config('worktime.hours_per_day'),
+                'weekly_threshold' => $setting->weekly_threshold ?? config('worktime.weekly_threshold'),
+                'multipliers' => $setting->multipliers ?: config('worktime.multipliers'),
+            ];
+        }
+        return config('worktime');
     }
 }

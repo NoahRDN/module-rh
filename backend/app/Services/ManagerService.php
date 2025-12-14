@@ -223,14 +223,14 @@ class ManagerService
 
         return [
             'nombre_evaluations' => $evaluations->count(),
-            'note_moyenne' => round($evaluations->avg('note_globale'), 2),
+            'note_moyenne' => round($evaluations->avg('score_global') ?? 0, 2),
             'repartition_notes' => [
-                'excellent' => $evaluations->where('note_globale', '>=', 4)->count(),
-                'bon' => $evaluations->whereBetween('note_globale', [3, 4])->count(),
-                'moyen' => $evaluations->whereBetween('note_globale', [2, 3])->count(),
-                'insuffisant' => $evaluations->where('note_globale', '<', 2)->count(),
+                'excellent' => $evaluations->where('score_global', '>=', 90)->count(),
+                'bon' => $evaluations->whereBetween('score_global', [75, 90])->count(),
+                'moyen' => $evaluations->whereBetween('score_global', [60, 75])->count(),
+                'insuffisant' => $evaluations->where('score_global', '<', 60)->count(),
             ],
-            'evaluations_recentes' => $evaluations->sortByDesc('date_evaluation')->take(5),
+            'evaluations_recentes' => $evaluations->sortByDesc('date_evaluation')->take(5)->values(),
         ];
     }
 

@@ -94,12 +94,12 @@ class SelfServiceController extends Controller
 
             $user = $request->user();
 
-            // Vérifier l'ancien mot de passe
-            if ($user->password !== $validated['mot_de_passe_actuel']) {
+            // Vérifier l'ancien mot de passe avec Hash::check
+            if (!Hash::check($validated['mot_de_passe_actuel'], $user->password)) {
                 return response()->json(['message' => 'Mot de passe actuel incorrect'], 422);
             }
 
-            $user->password = $validated['nouveau_mot_de_passe'];
+            $user->password = Hash::make($validated['nouveau_mot_de_passe']);
             $user->save();
 
             return response()->json(['message' => 'Mot de passe modifié avec succès']);
@@ -380,22 +380,46 @@ class SelfServiceController extends Controller
                 return response()->json(['message' => 'Profil employé non lié'], 403);
             }
 
-            $employe = Employe::with(['poste', 'departement'])->findOrFail($user->employe_id);
+            $employe = Employe::with(['poste', 'departement', 'competences.categorie'])->findOrFail($user->employe_id);
 
             // Notifications non lues
+            $notifications = $user->notifications()->orderBy('created_at', 'desc')->take(10)->get();
             $notificationsNonLues = $user->notificationsNonLues()->count();
 
-            // Demandes en cours
+            // Demandes RH
+            $demandes = Demande::with(['typeDemande'])
+                ->where('employe_id', $user->employe_id)
+                ->orderBy('created_at', 'desc')
+                ->take(10)
+                ->get();
+
             $demandesEnCours = Demande::where('employe_id', $user->employe_id)
                 ->whereIn('statut', ['soumise', 'en_cours'])
                 ->count();
 
-            // Congés en attente
+            // Congés
+            $demandesConges = DemandeConge::with('typeConge')
+                ->where('employe_id', $user->employe_id)
+                ->orderBy('created_at', 'desc')
+                ->take(5)
+                ->get();
+            
             $congesEnAttente = DemandeConge::where('employe_id', $user->employe_id)
-                ->whereIn('statut', ['en_attente', 'approuve_manager'])
+                ->whereIn('statut', ['en_attente', 'manager_valide'])
                 ->count();
 
-            // Messages non lus
+            // Solde congés
+            $soldeConges = \DB::table('view_solde_conges')
+                ->where('employe_id', $user->employe_id)
+                ->first();
+
+            // Conversations et messages
+            $conversations = Conversation::with(['dernierMessage'])
+                ->where('employe_id', $user->employe_id)
+                ->orderBy('derniere_activite', 'desc')
+                ->take(5)
+                ->get();
+
             $messagesNonLus = \App\Models\Message::whereHas('conversation', function($q) use ($user) {
                 $q->where('employe_id', $user->employe_id);
             })
@@ -403,34 +427,64 @@ class SelfServiceController extends Controller
                 ->where('lu', false)
                 ->count();
 
-            // Prochaines formations
-            $prochainesFormations = \App\Models\FormationEmploye::with('formation')
+            // Compétences
+            $competences = $employe->competences->map(function($competence) {
+                return [
+                    'id' => $competence->id,
+                    'nom' => $competence->nom,
+                    'competence' => $competence,
+                    'niveau' => $competence->pivot->niveau,
+                    'date_evaluation' => $competence->pivot->date_evaluation,
+                ];
+            });
+
+            // Formations
+            $formations = \App\Models\FormationEmploye::with('formation')
                 ->where('employe_id', $user->employe_id)
-                ->where('statut', 'planifiee')
-                ->whereNotNull('date_debut')
+                ->orderBy('date_debut', 'desc')
+                ->take(5)
+                ->get();
+
+            $formationsEnCours = \App\Models\FormationEmploye::where('employe_id', $user->employe_id)
+                ->where('statut', 'en_cours')
+                ->count();
+
+            // Événements à venir
+            $evenements = \App\Models\CalendrierEvenement::where(function($q) use ($user) {
+                $q->whereNull('employe_id')->orWhere('employe_id', $user->employe_id);
+            })
                 ->where('date_debut', '>=', now())
                 ->orderBy('date_debut')
-                ->take(3)
+                ->take(5)
                 ->get();
 
             return response()->json([
-                'employe' => [
+                'profil' => [
                     'id' => $employe->id,
                     'nom' => $employe->nom,
                     'prenom' => $employe->prenom,
-                    'poste' => $employe->poste?->nom,
-                    'departement' => $employe->departement?->nom,
+                    'matricule' => $employe->matricule,
+                    'poste' => $employe->poste,
+                    'departement' => $employe->departement,
                 ],
+                'solde_conges' => $soldeConges,
+                'demandes' => $demandes,
+                'demandes_conges' => $demandesConges,
+                'competences' => $competences,
+                'formations' => $formations,
+                'notifications' => $notifications,
+                'conversations' => $conversations,
+                'evenements' => $evenements,
                 'stats' => [
                     'notifications_non_lues' => $notificationsNonLues,
                     'demandes_en_cours' => $demandesEnCours,
                     'conges_en_attente' => $congesEnAttente,
                     'messages_non_lus' => $messagesNonLus,
+                    'formations_en_cours' => $formationsEnCours,
                 ],
-                'prochaines_formations' => $prochainesFormations,
             ]);
         } catch (\Throwable $e) {
-            Log::error('Erreur dashboard employé', ['error' => $e->getMessage()]);
+            Log::error('Erreur dashboard employé', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return response()->json(['message' => 'Erreur serveur'], 500);
         }
     }

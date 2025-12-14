@@ -44,6 +44,8 @@ import SelfServiceDashboard from '../views/SelfService/DashboardView.vue'
 import SelfServiceProfil from '../views/SelfService/ProfilView.vue'
 import SelfServiceDemandes from '../views/SelfService/DemandesView.vue'
 import SelfServiceMessagerie from '../views/SelfService/MessagerieView.vue'
+import SelfServiceConges from '../views/SelfService/CongesView.vue'
+import SelfServiceBulletins from '../views/SelfService/BulletinsView.vue'
 
 // Manager Portal
 import ManagerDashboardView from '../views/Manager/DashboardView.vue'
@@ -129,7 +131,8 @@ const routes = [
       { path: 'profil', name: 'self-service-profil', component: SelfServiceProfil, meta: { subtitle: 'Mon profil' } },
       { path: 'demandes', name: 'self-service-demandes', component: SelfServiceDemandes, meta: { subtitle: 'Mes demandes' } },
       { path: 'messagerie', name: 'self-service-messagerie', component: SelfServiceMessagerie, meta: { subtitle: 'Messagerie RH' } },
-      // TODO: Ajouter plus de vues self-service (bulletins, congés, formations, compétences)
+      { path: 'conges', name: 'self-service-conges', component: SelfServiceConges, meta: { subtitle: 'Mes congés' } },
+      { path: 'bulletins', name: 'self-service-bulletins', component: SelfServiceBulletins, meta: { subtitle: 'Mes bulletins' } },
     ]
   }
 ]

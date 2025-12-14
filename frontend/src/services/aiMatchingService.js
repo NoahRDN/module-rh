@@ -11,7 +11,7 @@ const aiMatchingService = {
    * @returns {Promise}
    */
   analyserProfil(employeId, posteId) {
-    return api.post('/matching-ia/analyser-profil', { employe_id: employeId, poste_id: posteId })
+    return api.post('/v1/matching-ia/analyser-profil', { employe_id: employeId, poste_id: posteId })
   },
 
   /**
@@ -21,7 +21,7 @@ const aiMatchingService = {
    * @returns {Promise}
    */
   analyserCV(cvText, posteId) {
-    return api.post('/matching-ia/analyser-cv', { cv_text: cvText, poste_id: posteId })
+    return api.post('/v1/matching-ia/analyser-cv', { cv_texte: cvText, poste_id: posteId })
   },
 
   /**
@@ -31,8 +31,8 @@ const aiMatchingService = {
    * @returns {Promise}
    */
   suggestionsFormations(employeId, posteId = null) {
-    return api.get(`/matching-ia/employes/${employeId}/suggestions-formations`, { 
-      params: posteId ? { poste_id: posteId } : {} 
+    return api.get(`/v1/matching-ia/employes/${employeId}/suggestions-formations`, { 
+      params: posteId ? { poste_cible_id: posteId } : {} 
     })
   },
 
@@ -42,7 +42,7 @@ const aiMatchingService = {
    * @returns {Promise}
    */
   planCarriere(employeId) {
-    return api.get(`/matching-ia/employes/${employeId}/plan-carriere`)
+    return api.get(`/v1/matching-ia/employes/${employeId}/plan-carriere`)
   },
 
   /**
@@ -52,7 +52,7 @@ const aiMatchingService = {
    * @returns {Promise}
    */
   candidatsPourPoste(posteId, limit = 10) {
-    return api.get(`/matching-ia/postes/${posteId}/candidats`, { params: { limit } })
+    return api.get(`/v1/matching-ia/postes/${posteId}/candidats`, { params: { limit } })
   },
 
   /**
@@ -62,7 +62,7 @@ const aiMatchingService = {
    * @returns {Promise}
    */
   postesCompatibles(employeId, limit = 10) {
-    return api.get(`/matching-ia/employes/${employeId}/postes-compatibles`, { params: { limit } })
+    return api.get(`/v1/matching-ia/employes/${employeId}/postes-compatibles`, { params: { limit } })
   },
 
   // === Utilitaires ===
@@ -82,7 +82,7 @@ const aiMatchingService = {
     const formData = new FormData()
     formData.append('cv_file', file)
     
-    const response = await api.post('/matching-ia/extract-cv', formData, {
+    const response = await api.post('/v1/matching-ia/extract-cv', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
     

@@ -145,7 +145,7 @@
         <form @submit.prevent="saveCompetence" class="modal-body">
           <div class="form-group">
             <label>Catégorie *</label>
-            <select v-model="competenceForm.categorie_competence_id" required>
+            <select v-model="competenceForm.categorie_id" required>
               <option value="">Sélectionner...</option>
               <option v-for="cat in categories" :key="cat.id" :value="cat.id">
                 {{ cat.nom }}
@@ -210,7 +210,7 @@ const categorieForm = ref({
 })
 
 const competenceForm = ref({
-  categorie_competence_id: '',
+  categorie_id: '',
   code: '',
   nom: '',
   description: '',
@@ -229,7 +229,7 @@ const categoriesFiltrees = computed(() => {
 })
 
 const getCompetencesByCategorie = (categorieId) => {
-  let result = competences.value.filter(c => c.categorie_competence_id === categorieId && c.actif)
+  let result = competences.value.filter(c => c.categorie_id === categorieId && c.actif)
   if (recherche.value) {
     const term = recherche.value.toLowerCase()
     result = result.filter(c => c.nom.toLowerCase().includes(term) || c.code.toLowerCase().includes(term))
@@ -356,7 +356,7 @@ const deleteCompetence = async (comp) => {
 
 const resetCompetenceForm = () => {
   editingCompetence.value = null
-  competenceForm.value = { categorie_competence_id: '', code: '', nom: '', description: '', actif: true }
+  competenceForm.value = { categorie_id: '', code: '', nom: '', description: '', actif: true }
 }
 
 onMounted(loadData)

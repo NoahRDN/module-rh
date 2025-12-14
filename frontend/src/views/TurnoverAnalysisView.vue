@@ -104,18 +104,18 @@
       <div v-else class="employees-list">
         <div 
           v-for="emp in filteredEmployees" 
-          :key="emp.employe_id"
+          :key="emp.employe?.id || emp.id"
           class="employee-card"
-          :class="'risk-' + emp.niveau_risque"
+          :class="'risk-' + (emp.niveau_risque?.niveau || emp.niveau_risque)"
           @click="showDetails(emp)"
         >
           <div class="employee-info">
             <div class="employee-avatar">
-              {{ getInitials(emp.employe_nom) }}
+              {{ getInitials(getEmployeNom(emp)) }}
             </div>
             <div class="employee-details">
-              <h4>{{ emp.employe_nom }}</h4>
-              <p>{{ emp.poste || 'N/A' }} - {{ emp.departement || 'N/A' }}</p>
+              <h4>{{ getEmployeNom(emp) }}</h4>
+              <p>{{ emp.employe?.poste || emp.poste || 'N/A' }} - {{ emp.employe?.departement || emp.departement || 'N/A' }}</p>
             </div>
           </div>
 
@@ -123,12 +123,12 @@
             <div class="score-circle" :style="getScoreStyle(emp.score_global)">
               {{ Math.round(emp.score_global) }}%
             </div>
-            <span class="risk-label">{{ getRiskLabel(emp.niveau_risque) }}</span>
+            <span class="risk-label">{{ getRiskLabel(emp.niveau_risque?.niveau || emp.niveau_risque) }}</span>
           </div>
 
           <div class="factors-preview">
             <div 
-              v-for="(value, key) in getTopFactors(emp.facteurs)" 
+              v-for="(value, key) in getTopFactors(emp.scores_facteurs || emp.facteurs)" 
               :key="key"
               class="factor-pill"
               :class="getFactorClass(value)"
@@ -232,11 +232,11 @@ export default {
       let result = [...this.employees]
       
       if (this.filters.niveau) {
-        result = result.filter(e => e.niveau_risque === this.filters.niveau)
+        result = result.filter(e => e.niveau_risque?.niveau === this.filters.niveau)
       }
       
       if (this.filters.departement) {
-        result = result.filter(e => e.departement_id == this.filters.departement)
+        result = result.filter(e => e.employe?.departement_id == this.filters.departement || e.departement_id == this.filters.departement)
       }
       
       result.sort((a, b) => b.score_global - a.score_global)
@@ -262,8 +262,8 @@ export default {
           turnoverService.getParDepartement()
         ])
         
-        this.employees = employeesRes.data.analyses || []
-        this.stats = statsRes.data.par_niveau || {}
+        this.employees = employeesRes.data.employes || []
+        this.stats = statsRes.data.statistiques?.par_niveau || {}
         
         this.updateChart(deptRes.data.departements || [])
       } catch (error) {
@@ -339,9 +339,16 @@ export default {
         query: { 
           action: 'create',
           type: 'entretien',
-          employe_id: employee.employe_id
+          employe_id: employee.employe?.id || employee.employe_id
         }
       })
+    },
+    getEmployeNom(emp) {
+      if (emp.employe_nom) return emp.employe_nom
+      if (emp.employe) {
+        return `${emp.employe.nom || ''} ${emp.employe.prenom || ''}`.trim()
+      }
+      return emp.nom || 'Inconnu'
     },
     getInitials(name) {
       if (!name) return '?'

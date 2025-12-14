@@ -9,7 +9,7 @@ const turnoverService = {
    * @returns {Promise}
    */
   analyserTous() {
-    return api.get('/turnover')
+    return api.get('/v1/turnover')
   },
 
   /**
@@ -18,7 +18,7 @@ const turnoverService = {
    * @returns {Promise}
    */
   analyserEmploye(employeId) {
-    return api.get(`/turnover/employes/${employeId}`)
+    return api.get(`/v1/turnover/employes/${employeId}`)
   },
 
   /**
@@ -27,7 +27,7 @@ const turnoverService = {
    * @returns {Promise}
    */
   getTopRisques(limit = 10) {
-    return api.get('/turnover/top-risques', { params: { limit } })
+    return api.get('/v1/turnover/top-risques', { params: { limit } })
   },
 
   /**
@@ -35,7 +35,7 @@ const turnoverService = {
    * @returns {Promise}
    */
   getStatistiques() {
-    return api.get('/turnover/statistiques')
+    return api.get('/v1/turnover/statistiques')
   },
 
   /**
@@ -44,7 +44,7 @@ const turnoverService = {
    * @returns {Promise}
    */
   getAlertes(niveau = 'modere') {
-    return api.get('/turnover/alertes', { params: { niveau } })
+    return api.get('/v1/turnover/alertes', { params: { niveau } })
   },
 
   /**
@@ -52,7 +52,7 @@ const turnoverService = {
    * @returns {Promise}
    */
   getParDepartement() {
-    return api.get('/turnover/par-departement')
+    return api.get('/v1/turnover/departements')
   },
 
   /**
@@ -61,7 +61,7 @@ const turnoverService = {
    * @returns {Promise}
    */
   getTendances(mois = 12) {
-    return api.get('/turnover/tendances', { params: { mois } })
+    return api.get('/v1/turnover/tendances', { params: { mois } })
   }
 }
 

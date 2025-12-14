@@ -20,11 +20,21 @@ class DemandeConge extends Model
         'statut',
         'motif',
         'approuve_par',
+        // Champs workflow manager
+        'manager_id',
+        'date_validation_manager',
+        'commentaire_manager',
+        // Champs workflow RH
+        'rh_id',
+        'date_validation_rh',
+        'commentaire_rh',
     ];
 
     protected $casts = [
         'date_debut' => 'date',
         'date_fin'   => 'date',
+        'date_validation_manager' => 'datetime',
+        'date_validation_rh' => 'datetime',
     ];
 
     public function employe()

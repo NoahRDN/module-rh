@@ -27,10 +27,10 @@
               <th class="permission-header">Permission</th>
               <th 
                 v-for="role in roles" 
-                :key="role.name"
+                :key="role.code"
                 class="role-header"
               >
-                <span class="role-badge" :class="role.name">
+                <span class="role-badge" :class="role.code">
                   {{ role.label }}
                 </span>
               </th>
@@ -62,8 +62,8 @@
                 <label class="checkbox-wrapper" v-if="!permission.isGroupHeader">
                   <input 
                     type="checkbox"
-                    :checked="hasPermission(permission.id, role.name)"
-                    @change="togglePermission(permission.id, role.name, $event.target.checked)"
+                    :checked="hasPermission(permission.code, role.code)"
+                    @change="togglePermission(permission.code, role.code, $event.target.checked)"
                     :disabled="saving"
                   />
                   <span class="checkmark"></span>
@@ -257,7 +257,7 @@ export default {
       saving: false,
       deleting: false,
       permissions: [],
-      matrix: {},
+      matrix: { roles: [], permissions: [] },
       searchQuery: '',
       showCreateModal: false,
       editingPermission: null,
@@ -270,10 +270,10 @@ export default {
         roles: []
       },
       roles: [
-        { name: 'admin', label: 'Administrateur' },
-        { name: 'rh', label: 'RH' },
-        { name: 'manager', label: 'Manager' },
-        { name: 'employe', label: 'Employé' }
+        { code: 'admin', label: 'Administrateur' },
+        { code: 'rh', label: 'RH' },
+        { code: 'manager', label: 'Manager' },
+        { code: 'employe', label: 'Employé' }
       ],
       modules: [
         'conges',
@@ -337,17 +337,30 @@ export default {
         console.error('Erreur chargement matrice:', err)
       }
     },
-    hasPermission(permissionId, role) {
-      return this.matrix[role]?.includes(permissionId) || false
+    hasPermission(permissionCode, role) {
+      // La matrice a une structure: { roles: [...], permissions: [{ code, libelle, groupe, admin: bool, rh: bool, ... }] }
+      const perm = this.matrix.permissions?.find(p => p.code === permissionCode)
+      return perm ? perm[role] === true : false
     },
-    async togglePermission(permissionId, role, checked) {
+    async togglePermission(permissionCode, role, checked) {
       this.saving = true
       try {
+        // Récupérer les permissions actuelles du rôle
+        const rolePermsResponse = await permissionService.getForRole(role)
+        let currentPerms = rolePermsResponse.data.data?.map(p => p.code) || []
+        
         if (checked) {
-          await permissionService.assignToRole(role, permissionId)
+          // Ajouter la permission
+          if (!currentPerms.includes(permissionCode)) {
+            currentPerms.push(permissionCode)
+          }
         } else {
-          await permissionService.removeFromRole(role, permissionId)
+          // Retirer la permission
+          currentPerms = currentPerms.filter(p => p !== permissionCode)
         }
+        
+        // Mettre à jour toutes les permissions du rôle
+        await permissionService.updateRole(role, currentPerms)
         await this.loadMatrix()
         await this.loadPermissions()
       } catch (err) {

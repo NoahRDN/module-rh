@@ -10,7 +10,7 @@ const anomalyService = {
    * @returns {Promise}
    */
   detecterToutes(params = {}) {
-    return api.get('/anomalies', { params })
+    return api.get('/v1/anomalies', { params })
   },
 
   /**
@@ -18,7 +18,7 @@ const anomalyService = {
    * @returns {Promise}
    */
   getDashboard() {
-    return api.get('/anomalies/dashboard')
+    return api.get('/v1/anomalies/dashboard')
   },
 
   /**
@@ -26,7 +26,7 @@ const anomalyService = {
    * @returns {Promise}
    */
   getStatistiques() {
-    return api.get('/anomalies/statistiques')
+    return api.get('/v1/anomalies/statistiques')
   },
 
   /**
@@ -34,7 +34,7 @@ const anomalyService = {
    * @returns {Promise}
    */
   getAlertesCritiques() {
-    return api.get('/anomalies/critiques')
+    return api.get('/v1/anomalies/critiques')
   },
 
   // === Anomalies par catégorie ===
@@ -45,7 +45,7 @@ const anomalyService = {
    * @returns {Promise}
    */
   detecterPointage(params = {}) {
-    return api.get('/anomalies/pointage', { params })
+    return api.get('/v1/anomalies/pointage', { params })
   },
 
   /**
@@ -54,7 +54,7 @@ const anomalyService = {
    * @returns {Promise}
    */
   detecterPaie(params = {}) {
-    return api.get('/anomalies/paie', { params })
+    return api.get('/v1/anomalies/paie', { params })
   },
 
   /**
@@ -63,7 +63,7 @@ const anomalyService = {
    * @returns {Promise}
    */
   detecterConges(params = {}) {
-    return api.get('/anomalies/conges', { params })
+    return api.get('/v1/anomalies/conges', { params })
   },
 
   /**
@@ -72,7 +72,7 @@ const anomalyService = {
    * @returns {Promise}
    */
   detecterContrats(params = {}) {
-    return api.get('/anomalies/contrats', { params })
+    return api.get('/v1/anomalies/contrats', { params })
   },
 
   /**
@@ -81,7 +81,7 @@ const anomalyService = {
    * @returns {Promise}
    */
   detecterHeures(params = {}) {
-    return api.get('/anomalies/heures', { params })
+    return api.get('/v1/anomalies/heures', { params })
   },
 
   // === Utilitaires ===

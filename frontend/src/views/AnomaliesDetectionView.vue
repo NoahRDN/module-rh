@@ -10,28 +10,28 @@
       <div class="stat-card critical" @click="filterBySeverity('critique')">
         <span class="stat-icon">🚨</span>
         <div class="stat-content">
-          <span class="stat-value">{{ dashboard.par_severite?.critique || 0 }}</span>
+          <span class="stat-value">{{ dashboard.statistiques?.par_gravite?.critique || 0 }}</span>
           <span class="stat-label">Critiques</span>
         </div>
       </div>
       <div class="stat-card high" @click="filterBySeverity('haute')">
         <span class="stat-icon">⚠️</span>
         <div class="stat-content">
-          <span class="stat-value">{{ dashboard.par_severite?.haute || 0 }}</span>
+          <span class="stat-value">{{ dashboard.statistiques?.par_gravite?.haute || 0 }}</span>
           <span class="stat-label">Hautes</span>
         </div>
       </div>
       <div class="stat-card medium" @click="filterBySeverity('moyenne')">
         <span class="stat-icon">⚡</span>
         <div class="stat-content">
-          <span class="stat-value">{{ dashboard.par_severite?.moyenne || 0 }}</span>
+          <span class="stat-value">{{ dashboard.statistiques?.par_gravite?.moyenne || 0 }}</span>
           <span class="stat-label">Moyennes</span>
         </div>
       </div>
       <div class="stat-card low" @click="filterBySeverity('basse')">
         <span class="stat-icon">ℹ️</span>
         <div class="stat-content">
-          <span class="stat-value">{{ dashboard.par_severite?.basse || 0 }}</span>
+          <span class="stat-value">{{ dashboard.statistiques?.par_gravite?.basse || 0 }}</span>
           <span class="stat-label">Basses</span>
         </div>
       </div>
@@ -59,7 +59,7 @@
       <div class="filters-bar">
         <div class="filter-group">
           <label>Sévérité</label>
-          <select v-model="filters.severite" @change="applyFilters">
+          <select v-model="filters.gravite" @change="applyFilters">
             <option value="">Toutes</option>
             <option value="critique">Critique</option>
             <option value="haute">Haute</option>
@@ -96,17 +96,17 @@
             v-for="(anomaly, index) in filteredAnomalies" 
             :key="index"
             class="anomaly-card"
-            :class="'severity-' + anomaly.severite"
+            :class="'severity-' + anomaly.gravite"
           >
             <div class="anomaly-icon">
-              {{ getSeverityIcon(anomaly.severite) }}
+              {{ getSeverityIcon(anomaly.gravite) }}
             </div>
             
             <div class="anomaly-content">
               <div class="anomaly-header">
                 <h4>{{ anomaly.message || getAnomalyTitle(anomaly.type) }}</h4>
-                <span class="severity-badge" :class="anomaly.severite">
-                  {{ anomaly.severite }}
+                <span class="severity-badge" :class="anomaly.gravite">
+                  {{ anomaly.gravite }}
                 </span>
               </div>
               
@@ -184,7 +184,7 @@ export default {
       },
       activeTab: 'pointage',
       filters: {
-        severite: '',
+        gravite: '',
         dateDebut: '',
         dateFin: ''
       },
@@ -202,13 +202,13 @@ export default {
     filteredAnomalies() {
       let list = this.anomalies[this.activeTab] || []
       
-      if (this.filters.severite) {
-        list = list.filter(a => a.severite === this.filters.severite)
+      if (this.filters.gravite) {
+        list = list.filter(a => a.gravite === this.filters.gravite)
       }
       
       return list.sort((a, b) => {
         const order = { critique: 0, haute: 1, moyenne: 2, basse: 3 }
-        return (order[a.severite] || 4) - (order[b.severite] || 4)
+        return (order[a.gravite] || 4) - (order[b.gravite] || 4)
       })
     }
   },
@@ -261,7 +261,7 @@ export default {
       this.activeTab = key
     },
     filterBySeverity(severity) {
-      this.filters.severite = severity
+      this.filters.gravite = severity
     },
     applyFilters() {
       this.loadData()

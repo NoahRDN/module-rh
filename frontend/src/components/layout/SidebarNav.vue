@@ -38,6 +38,9 @@ const items = [
   { to: '/postes', label: 'Postes', hint: 'Fonctions', icon: '🪜' },
   { to: '/contrats', label: 'Contrats', hint: 'CDD / CDI / Stage', icon: '📄' },
   { to: '/contrats-historiques', label: 'Hist. contrats', hint: 'Versions & renouvellements', icon: '🗂️' },
+  { to: '/competences', label: 'Compétences', hint: 'Cartographie', icon: '🎯' },
+  { to: '/formations', label: 'Formations', hint: 'Catalogue', icon: '🎓' },
+  { to: '/matching', label: 'Matching', hint: 'Profil / Poste', icon: '🔄' },
   { to: '/absences-types', label: 'Types de congé', hint: 'Congés / absences', icon: '🏷️' },
   { to: '/soldes-conges', label: 'Soldes congés', hint: 'Payés / maladie / exceptionnels', icon: '🧮' },
   { to: '/demandes-conges', label: 'Demandes de congés', hint: 'Workflow', icon: '🗓️' },
@@ -50,7 +53,8 @@ const items = [
   { to: '/paie-parametres', label: 'Paramètres paie', hint: 'CNAPS/OSTIE/IRSA', icon: '⚙️' },
   { to: '/paie-generation', label: 'Génération paie', hint: 'Brut/Net', icon: '💰' },
   { to: '/documents', label: 'Documents', hint: 'RH & pièces', icon: '📁' },
-  { to: '/historiques', label: 'Historique postes', hint: 'Mobilités', icon: '⏱️' }
+  { to: '/historiques', label: 'Historique postes', hint: 'Mobilités', icon: '⏱️' },
+  { to: '/self-service', label: 'Mon Espace', hint: 'Self-Service', icon: '🏠' }
 ]
 </script>
 

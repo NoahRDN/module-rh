@@ -22,6 +22,7 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
+        'employe_id',
     ];
 
     /**
@@ -41,6 +42,26 @@ class User extends Authenticatable
         ];
     }
 
+    public function employe()
+    {
+        return $this->belongsTo(Employe::class);
+    }
+
+    public function notifications()
+    {
+        return $this->hasMany(Notification::class);
+    }
+
+    public function notificationsNonLues()
+    {
+        return $this->notifications()->where('lu', false);
+    }
+
+    public function conversationsAssignees()
+    {
+        return $this->hasMany(Conversation::class, 'assigne_a');
+    }
+
     public function isAdmin(): bool
     {
         return $this->role === 'admin';
@@ -54,5 +75,15 @@ class User extends Authenticatable
     public function isManager(): bool
     {
         return $this->role === 'manager';
+    }
+
+    public function isEmploye(): bool
+    {
+        return $this->role === 'employe';
+    }
+
+    public function canAccessSelfService(): bool
+    {
+        return $this->employe_id !== null;
     }
 }

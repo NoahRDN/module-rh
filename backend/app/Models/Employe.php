@@ -54,6 +54,35 @@ class Employe extends Model
         return $this->hasMany(HistoriquePoste::class);
     }
 
+    public function competences()
+    {
+        return $this->belongsToMany(Competence::class, 'employe_competences')
+            ->withPivot('niveau', 'date_evaluation', 'commentaire', 'evalue_par')
+            ->withTimestamps();
+    }
+
+    public function formations()
+    {
+        return $this->belongsToMany(Formation::class, 'formation_employes')
+            ->withPivot('statut', 'date_debut', 'date_fin', 'note', 'commentaire', 'certificat_obtenu')
+            ->withTimestamps();
+    }
+
+    public function formationsEnCours()
+    {
+        return $this->formations()->wherePivot('statut', 'en_cours');
+    }
+
+    public function formationsTerminees()
+    {
+        return $this->formations()->wherePivot('statut', 'terminee');
+    }
+
+    public function user()
+    {
+        return $this->hasOne(User::class, 'employe_id');
+    }
+
     public function ajouterChangementPoste($nouveauPosteId, $nouveauDepartementId, $motif = null): void
     {
         $this->historiquePostes()->create([

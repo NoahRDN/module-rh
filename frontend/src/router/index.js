@@ -29,6 +29,20 @@ import PerformancesView from '../views/PerformancesView.vue'
 import EvaluationCreateView from '../views/EvaluationCreateView.vue'
 import AlerteSettingsView from '../views/AlerteSettingsView.vue'
 
+// Compétences et Formations
+import CompetencesView from '../views/CompetencesView.vue'
+import FormationsView from '../views/FormationsView.vue'
+import MatchingView from '../views/MatchingView.vue'
+
+// Self-Service Employé
+import SelfServiceDashboard from '../views/SelfService/DashboardView.vue'
+import SelfServiceProfil from '../views/SelfService/ProfilView.vue'
+import SelfServiceDemandes from '../views/SelfService/DemandesView.vue'
+import SelfServiceMessagerie from '../views/SelfService/MessagerieView.vue'
+
+// Layout Self-Service (utilise MainLayout pour le moment)
+const SelfServiceLayout = MainLayout
+
 const routes = [
   { path: '/login', name: 'login', component: LoginView },
   {
@@ -63,7 +77,26 @@ const routes = [
       { path: 'paie-generation', name: 'paie-generation', component: PaieGenerationView, meta: { subtitle: 'Paie' } },
       { path: 'documents', name: 'documents', component: DocumentsView, meta: { subtitle: 'Documents' } },
       { path: 'historiques', name: 'historiques', component: HistoriquePostesView, meta: { subtitle: 'Mobilités' } },
-      { path: 'historiques/nouveau', name: 'historiques-create', component: HistoriqueCreateView, meta: { subtitle: 'Nouvelle mobilité' } }
+      { path: 'historiques/nouveau', name: 'historiques-create', component: HistoriqueCreateView, meta: { subtitle: 'Nouvelle mobilité' } },
+      
+      // Compétences et Formations
+      { path: 'competences', name: 'competences', component: CompetencesView, meta: { subtitle: 'Cartographie des compétences' } },
+      { path: 'formations', name: 'formations', component: FormationsView, meta: { subtitle: 'Catalogue des formations' } },
+      { path: 'matching', name: 'matching', component: MatchingView, meta: { subtitle: 'Matching Profil/Poste' } }
+    ]
+  },
+  // Routes Self-Service Employé
+  {
+    path: '/self-service',
+    component: SelfServiceLayout,
+    meta: { requiresAuth: true },
+    children: [
+      { path: '', redirect: '/self-service/dashboard' },
+      { path: 'dashboard', name: 'self-service-dashboard', component: SelfServiceDashboard, meta: { subtitle: 'Mon espace' } },
+      { path: 'profil', name: 'self-service-profil', component: SelfServiceProfil, meta: { subtitle: 'Mon profil' } },
+      { path: 'demandes', name: 'self-service-demandes', component: SelfServiceDemandes, meta: { subtitle: 'Mes demandes' } },
+      { path: 'messagerie', name: 'self-service-messagerie', component: SelfServiceMessagerie, meta: { subtitle: 'Messagerie RH' } },
+      // TODO: Ajouter plus de vues self-service (bulletins, congés, formations, compétences)
     ]
   }
 ]

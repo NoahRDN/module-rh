@@ -33,11 +33,34 @@ use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\EvaluationController;
 use App\Http\Controllers\Api\CritereEvaluationController;
 
+// Nouveaux controllers pour compétences, formations, self-service
+use App\Http\Controllers\Api\CategorieCompetenceController;
+use App\Http\Controllers\Api\CompetenceController;
+use App\Http\Controllers\Api\EmployeCompetenceController;
+use App\Http\Controllers\Api\PosteCompetenceController;
+use App\Http\Controllers\Api\FormationController;
+use App\Http\Controllers\Api\FormationEmployeController;
+use App\Http\Controllers\Api\MatchingController;
+use App\Http\Controllers\Api\DemandeRHController;
+use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\MessagerieController;
+use App\Http\Controllers\Api\SelfServiceController;
+
 Route::post('/login', [AuthController::class, 'login']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
+    
+    // Notifications (accessible à tous les utilisateurs authentifiés)
+    Route::prefix('notifications')->group(function () {
+        Route::get('/', [NotificationController::class, 'index']);
+        Route::get('/count', [NotificationController::class, 'countNonLues']);
+        Route::post('/{id}/lue', [NotificationController::class, 'marquerLue']);
+        Route::post('/lire-toutes', [NotificationController::class, 'marquerToutesLues']);
+        Route::delete('/{id}', [NotificationController::class, 'destroy']);
+        Route::delete('/lues', [NotificationController::class, 'supprimerLues']);
+    });
 });
 
 Route::group(['prefix' => 'employes'], function()
@@ -54,6 +77,55 @@ Route::prefix('v1')->group(function () {
     Route::get('types-conges', [TypeCongeController::class, 'index']);
     Route::get('frequences-conges', [FrequenceCongeController::class, 'index']);
     Route::apiResource('historiques-postes', HistoriquePosteController::class)->only(['index', 'store', 'show', 'destroy']);
+    
+    // Compétences et formations (lecture publique pour certaines)
+    Route::get('niveaux-competence', [CompetenceController::class, 'niveaux']);
+    Route::get('categories-competences', [CategorieCompetenceController::class, 'index']);
+    Route::get('competences', [CompetenceController::class, 'index']);
+    Route::get('competences/cartographie', [CompetenceController::class, 'cartographie']);
+    Route::get('formations', [FormationController::class, 'index']);
+    Route::get('types-demandes', [DemandeRHController::class, 'types']);
+
+    // ========================================
+    // ROUTES SELF-SERVICE EMPLOYÉ
+    // ========================================
+    Route::middleware('auth:sanctum')->prefix('self-service')->group(function () {
+        // Dashboard et profil
+        Route::get('dashboard', [SelfServiceController::class, 'dashboard']);
+        Route::get('profil', [SelfServiceController::class, 'monProfil']);
+        Route::put('profil', [SelfServiceController::class, 'mettreAJourProfil']);
+        Route::post('changer-mot-de-passe', [SelfServiceController::class, 'changerMotDePasse']);
+        
+        // Bulletins et congés
+        Route::get('bulletins', [SelfServiceController::class, 'mesBulletins']);
+        Route::get('solde-conges', [SelfServiceController::class, 'monSoldeConges']);
+        Route::get('demandes-conges', [SelfServiceController::class, 'mesDemandesConges']);
+        Route::post('demandes-conges', [SelfServiceController::class, 'creerDemandeConge']);
+        
+        // Demandes (attestations, remboursements)
+        Route::get('demandes', [SelfServiceController::class, 'mesDemandes']);
+        Route::post('demandes', [SelfServiceController::class, 'creerDemande']);
+        
+        // Compétences et formations
+        Route::get('competences', [SelfServiceController::class, 'mesCompetences']);
+        Route::get('formations', [SelfServiceController::class, 'mesFormations']);
+        
+        // Conversations/Messagerie
+        Route::get('conversations', [SelfServiceController::class, 'mesConversations']);
+    });
+
+    // ========================================
+    // ROUTES MESSAGERIE (authentifié)
+    // ========================================
+    Route::middleware('auth:sanctum')->prefix('messagerie')->group(function () {
+        Route::get('conversations', [MessagerieController::class, 'conversations']);
+        Route::post('conversations', [MessagerieController::class, 'creerConversation']);
+        Route::get('conversations/{id}', [MessagerieController::class, 'showConversation']);
+        Route::post('conversations/{id}/messages', [MessagerieController::class, 'envoyerMessage']);
+        Route::post('conversations/{id}/pieces-jointes', [MessagerieController::class, 'ajouterPieceJointe']);
+        Route::post('conversations/{id}/lue', [MessagerieController::class, 'marquerLu']);
+        Route::get('stats-non-lus', [MessagerieController::class, 'statsNonLus']);
+    });
 
     Route::middleware(['auth:sanctum', 'role:admin,rh'])->group(function () {
     Route::apiResource('employes', ApiEmployeController::class);
@@ -102,5 +174,66 @@ Route::prefix('v1')->group(function () {
     // Critères d'évaluation
     Route::apiResource('criteres-evaluation', CritereEvaluationController::class);
     Route::post('criteres-evaluation/reorder', [CritereEvaluationController::class, 'reorder']);
+    
+    // ========================================
+    // GESTION DES COMPÉTENCES (Admin/RH)
+    // ========================================
+    Route::apiResource('categories-competences', CategorieCompetenceController::class)->except(['index']);
+    Route::apiResource('competences', CompetenceController::class)->except(['index']);
+    
+    // Compétences des employés
+    Route::get('employes/{employeId}/competences', [EmployeCompetenceController::class, 'index']);
+    Route::post('employes/{employeId}/competences', [EmployeCompetenceController::class, 'store']);
+    Route::put('employes/{employeId}/competences', [EmployeCompetenceController::class, 'bulkUpdate']);
+    Route::delete('employes/{employeId}/competences/{competenceId}', [EmployeCompetenceController::class, 'destroy']);
+    Route::get('employes/{employeId}/competences/radar', [EmployeCompetenceController::class, 'radar']);
+    
+    // Compétences requises des postes
+    Route::get('postes/{posteId}/competences', [PosteCompetenceController::class, 'index']);
+    Route::post('postes/{posteId}/competences', [PosteCompetenceController::class, 'store']);
+    Route::put('postes/{posteId}/competences', [PosteCompetenceController::class, 'bulkUpdate']);
+    Route::delete('postes/{posteId}/competences/{competenceId}', [PosteCompetenceController::class, 'destroy']);
+    
+    // ========================================
+    // GESTION DES FORMATIONS (Admin/RH)
+    // ========================================
+    Route::apiResource('formations', FormationController::class)->except(['index']);
+    Route::apiResource('formation-employes', FormationEmployeController::class);
+    Route::get('employes/{employeId}/formations', [FormationEmployeController::class, 'historiqueEmploye']);
+    
+    // ========================================
+    // MATCHING ET SUGGESTIONS (Admin/RH)
+    // ========================================
+    Route::prefix('matching')->group(function () {
+        Route::post('compatibilite', [MatchingController::class, 'compatibilite']);
+        Route::get('postes/{posteId}/candidats', [MatchingController::class, 'candidatsPourPoste']);
+        Route::get('employes/{employeId}/postes-compatibles', [MatchingController::class, 'postesCompatibles']);
+        Route::get('employes/{employeId}/suggestions-formations', [MatchingController::class, 'suggestionsFormations']);
+        Route::get('analyse-globale', [MatchingController::class, 'analyseGlobale']);
+    });
+    
+    // ========================================
+    // DEMANDES RH (attestations, remboursements)
+    // ========================================
+    Route::prefix('demandes-rh')->group(function () {
+        Route::get('/', [DemandeRHController::class, 'index']);
+        Route::post('/', [DemandeRHController::class, 'store']);
+        Route::get('/{id}', [DemandeRHController::class, 'show']);
+        Route::put('/{id}', [DemandeRHController::class, 'update']);
+        Route::post('/{id}/soumettre', [DemandeRHController::class, 'soumettre']);
+        Route::post('/{id}/approuver', [DemandeRHController::class, 'approuver']);
+        Route::post('/{id}/rejeter', [DemandeRHController::class, 'rejeter']);
+        Route::post('/{id}/annuler', [DemandeRHController::class, 'annuler']);
+        Route::post('/{id}/documents', [DemandeRHController::class, 'ajouterDocument']);
+        Route::delete('/{demandeId}/documents/{documentId}', [DemandeRHController::class, 'supprimerDocument']);
+    });
+    
+    // ========================================
+    // MESSAGERIE RH (gestion conversations)
+    // ========================================
+    Route::prefix('messagerie-rh')->group(function () {
+        Route::post('conversations/{id}/assigner', [MessagerieController::class, 'assigner']);
+        Route::put('conversations/{id}/statut', [MessagerieController::class, 'changerStatut']);
+    });
 });
 });

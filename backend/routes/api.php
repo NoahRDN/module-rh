@@ -46,6 +46,12 @@ use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\MessagerieController;
 use App\Http\Controllers\Api\SelfServiceController;
 
+// Controllers pour Manager, Audit, Archives et Permissions
+use App\Http\Controllers\Api\ManagerController;
+use App\Http\Controllers\Api\AuditController;
+use App\Http\Controllers\Api\ArchiveController;
+use App\Http\Controllers\Api\PermissionController;
+
 Route::post('/login', [AuthController::class, 'login']);
 
 Route::middleware('auth:sanctum')->group(function () {
@@ -235,5 +241,82 @@ Route::prefix('v1')->group(function () {
         Route::post('conversations/{id}/assigner', [MessagerieController::class, 'assigner']);
         Route::put('conversations/{id}/statut', [MessagerieController::class, 'changerStatut']);
     });
+
+    // ========================================
+    // AUDIT (Admin/RH uniquement)
+    // ========================================
+    Route::prefix('audit')->group(function () {
+        Route::get('/', [AuditController::class, 'index']);
+        Route::get('/statistiques', [AuditController::class, 'statistiques']);
+        Route::get('/actions', [AuditController::class, 'actions']);
+        Route::get('/types', [AuditController::class, 'types']);
+        Route::get('/users', [AuditController::class, 'users']);
+        Route::get('/export', [AuditController::class, 'export']);
+        Route::get('/entity-history', [AuditController::class, 'entityHistory']);
+        Route::get('/{id}', [AuditController::class, 'show']);
+    });
+
+    // ========================================
+    // ARCHIVES (Admin/RH uniquement)
+    // ========================================
+    Route::prefix('archives')->group(function () {
+        // Paramètres de rétention
+        Route::get('/settings', [ArchiveController::class, 'settings']);
+        Route::get('/settings/{id}', [ArchiveController::class, 'showSetting']);
+        Route::put('/settings/{id}', [ArchiveController::class, 'updateSetting']);
+        
+        // Documents archivés
+        Route::get('/', [ArchiveController::class, 'index']);
+        Route::post('/', [ArchiveController::class, 'store']);
+        Route::get('/types', [ArchiveController::class, 'types']);
+        Route::get('/statistiques', [ArchiveController::class, 'statistiques']);
+        Route::get('/expiring', [ArchiveController::class, 'expiringDocuments']);
+        Route::get('/expired', [ArchiveController::class, 'expiredDocuments']);
+        Route::post('/process-expired', [ArchiveController::class, 'processExpired']);
+        Route::post('/verify-integrity', [ArchiveController::class, 'verifyIntegrity']);
+        Route::get('/{id}', [ArchiveController::class, 'show']);
+        Route::get('/{id}/download', [ArchiveController::class, 'download']);
+        Route::post('/{id}/note', [ArchiveController::class, 'addNote']);
+    });
+
+    // ========================================
+    // PERMISSIONS (Admin uniquement)
+    // ========================================
+    Route::middleware(['role:admin'])->prefix('permissions')->group(function () {
+        Route::get('/', [PermissionController::class, 'index']);
+        Route::get('/grouped', [PermissionController::class, 'grouped']);
+        Route::get('/roles', [PermissionController::class, 'roles']);
+        Route::get('/matrix', [PermissionController::class, 'matrix']);
+        Route::get('/role/{role}', [PermissionController::class, 'forRole']);
+        Route::put('/role/{role}', [PermissionController::class, 'updateRole']);
+        Route::post('/check', [PermissionController::class, 'check']);
+    });
 });
+
+    // ========================================
+    // PORTAIL MANAGER (Managers, RH, Admin)
+    // ========================================
+    Route::middleware(['auth:sanctum', 'manager'])->prefix('v1/manager')->group(function () {
+        // Dashboard
+        Route::get('/dashboard', [ManagerController::class, 'dashboard']);
+        
+        // Équipe
+        Route::get('/equipe', [ManagerController::class, 'equipe']);
+        
+        // Demandes de congés de l'équipe
+        Route::get('/demandes-conges', [ManagerController::class, 'demandesConges']);
+        Route::post('/demandes-conges/{id}/valider', [ManagerController::class, 'validerDemandeConge']);
+        Route::post('/demandes-conges/{id}/rejeter', [ManagerController::class, 'rejeterDemandeConge']);
+        
+        // Demandes RH de l'équipe
+        Route::get('/demandes-rh', [ManagerController::class, 'demandesRH']);
+        Route::post('/demandes-rh/{id}/valider', [ManagerController::class, 'validerDemandeRH']);
+        
+        // Statistiques
+        Route::get('/statistiques/absences', [ManagerController::class, 'statistiquesAbsences']);
+        Route::get('/statistiques/performance', [ManagerController::class, 'statistiquesPerformance']);
+        
+        // Calendrier
+        Route::get('/calendrier-absences', [ManagerController::class, 'calendrierAbsences']);
+    });
 });

@@ -54,6 +54,13 @@ const items = [
   { to: '/paie-generation', label: 'Génération paie', hint: 'Brut/Net', icon: '💰' },
   { to: '/documents', label: 'Documents', hint: 'RH & pièces', icon: '📁' },
   { to: '/historiques', label: 'Historique postes', hint: 'Mobilités', icon: '⏱️' },
+  // Portail Manager
+  { to: '/manager', label: 'Portail Manager', hint: 'Mon équipe', icon: '👔' },
+  // Audit & Conformité
+  { to: '/audit', label: 'Journal d\'audit', hint: 'Traçabilité', icon: '🔍' },
+  { to: '/archives', label: 'Archives', hint: 'Documents légaux', icon: '🗄️' },
+  { to: '/permissions', label: 'Permissions', hint: 'Contrôle d\'accès', icon: '🔐' },
+  // Self-Service
   { to: '/self-service', label: 'Mon Espace', hint: 'Self-Service', icon: '🏠' }
 ]
 </script>

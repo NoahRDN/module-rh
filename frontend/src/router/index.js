@@ -40,6 +40,14 @@ import SelfServiceProfil from '../views/SelfService/ProfilView.vue'
 import SelfServiceDemandes from '../views/SelfService/DemandesView.vue'
 import SelfServiceMessagerie from '../views/SelfService/MessagerieView.vue'
 
+// Manager Portal
+import ManagerDashboardView from '../views/Manager/DashboardView.vue'
+
+// Audit et Conformité
+import AuditView from '../views/AuditView.vue'
+import ArchivesView from '../views/ArchivesView.vue'
+import PermissionsView from '../views/PermissionsView.vue'
+
 // Layout Self-Service (utilise MainLayout pour le moment)
 const SelfServiceLayout = MainLayout
 
@@ -82,7 +90,22 @@ const routes = [
       // Compétences et Formations
       { path: 'competences', name: 'competences', component: CompetencesView, meta: { subtitle: 'Cartographie des compétences' } },
       { path: 'formations', name: 'formations', component: FormationsView, meta: { subtitle: 'Catalogue des formations' } },
-      { path: 'matching', name: 'matching', component: MatchingView, meta: { subtitle: 'Matching Profil/Poste' } }
+      { path: 'matching', name: 'matching', component: MatchingView, meta: { subtitle: 'Matching Profil/Poste' } },
+      
+      // Audit et Conformité
+      { path: 'audit', name: 'audit', component: AuditView, meta: { subtitle: 'Journal d\'audit', roles: ['admin', 'rh'] } },
+      { path: 'archives', name: 'archives', component: ArchivesView, meta: { subtitle: 'Archives', roles: ['admin', 'rh'] } },
+      { path: 'permissions', name: 'permissions', component: PermissionsView, meta: { subtitle: 'Permissions', roles: ['admin'] } }
+    ]
+  },
+  // Routes Manager Portal
+  {
+    path: '/manager',
+    component: MainLayout,
+    meta: { requiresAuth: true, roles: ['admin', 'rh', 'manager'] },
+    children: [
+      { path: '', redirect: '/manager/dashboard' },
+      { path: 'dashboard', name: 'manager-dashboard', component: ManagerDashboardView, meta: { subtitle: 'Tableau de bord Manager' } }
     ]
   },
   // Routes Self-Service Employé

@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use App\Models\ContratHistorique;
 
 class Contrat extends Model
 {
+    use Auditable;
+
     protected $table = 'contrats';
 
     protected $fillable = [

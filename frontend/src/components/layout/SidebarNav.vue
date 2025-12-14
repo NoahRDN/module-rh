@@ -38,19 +38,36 @@ const items = [
   { to: '/postes', label: 'Postes', hint: 'Fonctions', icon: '🪜' },
   { to: '/contrats', label: 'Contrats', hint: 'CDD / CDI / Stage', icon: '📄' },
   { to: '/contrats-historiques', label: 'Hist. contrats', hint: 'Versions & renouvellements', icon: '🗂️' },
+  { to: '/competences', label: 'Compétences', hint: 'Cartographie', icon: '🎯' },
+  { to: '/formations', label: 'Formations', hint: 'Catalogue', icon: '🎓' },
+  { to: '/matching', label: 'Matching', hint: 'Profil / Poste', icon: '🔄' },
+  // IA et Automatisation
+  { to: '/turnover', label: 'Prédiction Turnover', hint: 'Analyse IA', icon: '📈' },
+  { to: '/anomalies', label: 'Détection Anomalies', hint: 'Surveillance IA', icon: '🔍' },
+  { to: '/matching-ia', label: 'Matching IA', hint: 'Recommandations', icon: '🤖' },
+  // Congés et Absences
   { to: '/absences-types', label: 'Types de congé', hint: 'Congés / absences', icon: '🏷️' },
   { to: '/soldes-conges', label: 'Soldes congés', hint: 'Payés / maladie / exceptionnels', icon: '🧮' },
   { to: '/demandes-conges', label: 'Demandes de congés', hint: 'Workflow', icon: '🗓️' },
   { to: '/calendrier', label: 'Calendrier', hint: 'Vue globale', icon: '📆' },
   { to: '/alertes', label: 'Alertes', hint: 'Congés / absences', icon: '🔔' },
+  { to: '/alerte-settings', label: 'Config. Alertes', hint: 'Seuils & paramètres', icon: '⚙️' },
+  { to: '/performances', label: 'Performances', hint: 'Évaluations', icon: '⭐' },
   { to: '/pointages', label: 'Pointage & HS', hint: 'Entrées / sorties', icon: '⏱️' },
   { to: '/releve-presence', label: 'Relevé présence', hint: 'Heures & absences', icon: '📄' },
   { to: '/paie-parametres', label: 'Paramètres paie', hint: 'CNAPS/OSTIE/IRSA', icon: '⚙️' },
   { to: '/paie-generation', label: 'Génération paie', hint: 'Brut/Net', icon: '💰' },
   { to: '/worktime-config', label: 'Worktime', hint: 'configuration', icon: '⚙️' },
   { to: '/documents', label: 'Documents', hint: 'RH & pièces', icon: '📁' },
-
-  { to: '/historiques', label: 'Historique postes', hint: 'Mobilités', icon: '⏱️' }
+  { to: '/historiques', label: 'Historique postes', hint: 'Mobilités', icon: '⏱️' },
+  // Portail Manager
+  { to: '/manager', label: 'Portail Manager', hint: 'Mon équipe', icon: '👔' },
+  // Audit & Conformité
+  { to: '/audit', label: 'Journal d\'audit', hint: 'Traçabilité', icon: '🔍' },
+  { to: '/archives', label: 'Archives', hint: 'Documents légaux', icon: '🗄️' },
+  { to: '/permissions', label: 'Permissions', hint: 'Contrôle d\'accès', icon: '🔐' },
+  // Self-Service
+  { to: '/self-service', label: 'Mon Espace', hint: 'Self-Service', icon: '🏠' }
 ]
 </script>
 

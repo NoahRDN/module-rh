@@ -14,8 +14,16 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->append(HandleCors::class);
+        
+        // Middleware d'audit global pour les API
+        $middleware->api(append: [
+            \App\Http\Middleware\AuditMiddleware::class,
+        ]);
+        
         $middleware->alias([
             'role' => \App\Http\Middleware\RoleMiddleware::class,
+            'permission' => \App\Http\Middleware\CheckPermission::class,
+            'manager' => \App\Http\Middleware\EnsureIsManager::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

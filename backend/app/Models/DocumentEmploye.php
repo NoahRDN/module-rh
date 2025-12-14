@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Model;
 
 class DocumentEmploye extends Model
 {
+    use Auditable;
+
     protected $table = 'documents_employes';
 
     protected $fillable = [

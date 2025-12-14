@@ -25,4 +25,21 @@ class Poste extends Model
     {
         return $this->hasMany(Employe::class);
     }
+
+    public function competences()
+    {
+        return $this->belongsToMany(Competence::class, 'poste_competences')
+            ->withPivot('niveau_requis', 'obligatoire', 'poids')
+            ->withTimestamps();
+    }
+
+    public function competencesObligatoires()
+    {
+        return $this->competences()->wherePivot('obligatoire', true);
+    }
+
+    public function competencesSouhaitees()
+    {
+        return $this->competences()->wherePivot('obligatoire', false);
+    }
 }

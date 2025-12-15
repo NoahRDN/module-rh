@@ -31,7 +31,7 @@ class DemandeCongeSampleSeeder extends Seeder
                 'date_fin' => Carbon::now()->addDays(5)->toDateString(),
                 'jours_demandes' => 3,
                 'motif' => 'Repos planifié',
-                'statut' => 'rh_valide',
+                'statut' => 'rh_valide', // validé (état final)
             ],
             // Employé 3 - congé sans solde en attente
             [
@@ -51,7 +51,7 @@ class DemandeCongeSampleSeeder extends Seeder
                 'date_fin' => Carbon::now()->subDays(2)->toDateString(),
                 'jours_demandes' => 3,
                 'motif' => 'Certificat médical',
-                'statut' => 'manager_valide',
+                'statut' => 'rh_valide', // validation unique (manager)
             ],
         ];
 

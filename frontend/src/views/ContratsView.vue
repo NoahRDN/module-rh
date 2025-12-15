@@ -16,7 +16,7 @@
 
   <p class="text-sm text-emerald-600" v-if="banner">{{ banner }}</p>
 
-  <div class="grid gap-2 md:grid-cols-3 lg:grid-cols-6 mb-3">
+  <div class="grid gap-2 md:grid-cols-3 lg:grid-cols-6 mb-3 filters-card">
     <input class="input" placeholder="Numéro" v-model="filters.numero" />
     <input class="input" placeholder="Matricule" v-model="filters.matricule" />
     <input class="input" placeholder="Nom" v-model="filters.nom" />
@@ -24,11 +24,16 @@
     <input class="input" placeholder="Département" v-model="filters.departement" />
     <input class="input" placeholder="Poste" v-model="filters.poste" />
   </div>
-  <div class="flex justify-end mb-3">
+  <div class="flex justify-end items-center mb-3">
     <button class="btn btn-secondary btn-xs" @click="resetFilters">Réinitialiser</button>
   </div>
 
-  <div class="card">
+  <div v-if="loading" class="loading-overlay">
+    <div class="spinner-big"></div>
+    <p>Chargement des contrats...</p>
+  </div>
+
+  <div v-else class="card">
     <table class="table">
       <thead>
         <tr>
@@ -475,3 +480,53 @@ onMounted(async () => {
   await fetchContrats()
 })
 </script>
+
+<style scoped>
+.filters-card {
+  background: #fff;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+.loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #94a3b8;
+  font-size: 14px;
+}
+.spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #e2e8f0;
+  border-top: 2px solid #0ea5e9;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.loading-overlay {
+  position: relative;
+  min-height: 240px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.spinner-big {
+  width: 46px;
+  height: 46px;
+  border: 4px solid #e2e8f0;
+  border-top: 4px solid #0ea5e9;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+</style>

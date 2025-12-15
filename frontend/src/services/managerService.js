@@ -19,10 +19,9 @@ export const managerService = {
   },
 
   /**
-   * Récupère les demandes de congés de l'équipe
+   * Récupère les demandes de congés de l'équipe (filtres optionnels)
    */
-  getDemandesConges(statut = null) {
-    const params = statut ? { statut } : {}
+  getDemandesConges(params = {}) {
     return api.get('/v1/manager/demandes-conges', { params })
   },
 

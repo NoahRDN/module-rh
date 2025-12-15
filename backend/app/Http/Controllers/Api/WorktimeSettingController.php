@@ -33,6 +33,8 @@ class WorktimeSettingController extends Controller
             'night_start' => 'required|string',
             'night_end' => 'required|string',
             'night_rate' => 'required|numeric|min:0',
+            'deduct_from_leave_balance' => 'boolean',
+            'deduct_from_salary' => 'boolean',
         ]);
 
         $setting = WorktimeSetting::first() ?? $this->defaults();
@@ -55,6 +57,8 @@ class WorktimeSettingController extends Controller
             'night_start' => config('worktime.night_start', '22:00'),
             'night_end' => config('worktime.night_end', '05:00'),
             'night_rate' => config('worktime.night_rate', 20),
+            'deduct_from_leave_balance' => config('worktime.deduct_from_leave_balance', true),
+            'deduct_from_salary' => config('worktime.deduct_from_salary', true),
         ]);
     }
 
@@ -63,6 +67,8 @@ class WorktimeSettingController extends Controller
         $setting->night_rate = $this->normalizePercent($setting->night_rate);
         $mult = $setting->multipliers ?: config('worktime.multipliers', []);
         $setting->multipliers = collect($mult)->map(fn($v) => $this->normalizePercent($v))->toArray();
+        $setting->deduct_from_leave_balance = (bool) ($setting->deduct_from_leave_balance ?? true);
+        $setting->deduct_from_salary = (bool) ($setting->deduct_from_salary ?? true);
         return $setting;
     }
 

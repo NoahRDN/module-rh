@@ -5,7 +5,7 @@ return [
     'working_days' => ['mon', 'tue', 'wed', 'thu', 'fri'],
 
     // Gestion du samedi : 'normal' (compte comme un jour ouvré) ou 'hs' (majoré)
-    'saturday_mode' => 'normal', // valeurs possibles : normal | hs
+    'saturday_mode' => 'hs', // valeurs possibles : normal | hs
 
     // Heure de début théorique pour le retard (24h format)
     'start_hour' => 8,
@@ -33,4 +33,8 @@ return [
         'sunday'         => 40,
         'holiday'        => 100,
     ],
+
+    // Gestion des prélèvements en cas d'absences/retards
+    'deduct_from_leave_balance' => false,  // prélève en priorité sur le solde de congé
+    'deduct_from_salary' => false,         // prélève sur le salaire (taux journalier/horaire) si nécessaire
 ];

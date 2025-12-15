@@ -6,10 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\EmployeRequest;
 use App\Models\Employe;
 use App\Models\Poste;
+use App\Models\User;
 use App\Http\Controllers\Api\SoldeCongeController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Str;
 
 class EmployeController extends Controller
 {
@@ -60,6 +62,9 @@ class EmployeController extends Controller
             }
 
             $employe = Employe::create($payload);
+
+            // Créer automatiquement un compte utilisateur associé (rôle employé)
+            $this->creerUserPourEmploye($employe);
 
             // Créditer les soldes de congés (accrual) dès la création
             try {
@@ -142,5 +147,37 @@ class EmployeController extends Controller
         } while (Employe::where('matricule', $mat)->exists());
 
         return $mat;
+    }
+
+    /**
+     * Crée un user associé à l'employé si non existant.
+     */
+    private function creerUserPourEmploye(Employe $employe): void
+    {
+        try {
+            if (!$employe->email) {
+                return;
+            }
+
+            if (User::where('email', $employe->email)->exists()) {
+                return;
+            }
+
+            $password = env('DEFAULT_USER_PASSWORD', 'password');
+            $email = $employe->email;
+            if (User::where('email', $email)->exists()) {
+                $email = Str::replace('@', '+' . Str::random(4) . '@', $email);
+            }
+
+            User::create([
+                'name' => trim($employe->nom . ' ' . $employe->prenom),
+                'email' => $email,
+                'password' => $password, // AuthController compare en clair
+                'role' => 'employe',
+                'employe_id' => $employe->id,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Création user employé échouée', ['employe_id' => $employe->id, 'error' => $e->getMessage()]);
+        }
     }
 }

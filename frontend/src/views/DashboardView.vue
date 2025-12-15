@@ -122,7 +122,8 @@
           <h3>Pyramide des âges</h3>
         </div>
         <div class="chart-container">
-          <canvas ref="chartAges"></canvas>
+          <div v-if="!hasAges" class="chart-empty">Aucune donnée d'âge disponible</div>
+          <canvas v-else ref="chartAges"></canvas>
         </div>
       </div>
 
@@ -207,19 +208,6 @@
         </table>
       </div>
 
-      <div class="card">
-        <div class="page-title">
-          <h1>Actions rapides</h1>
-          <span>Raccourcis</span>
-        </div>
-        <div class="quick-actions">
-          <RouterLink to="/employes/nouveau" class="btn btn-primary">👤 Nouvel employé</RouterLink>
-          <RouterLink to="/contrats/nouveau" class="btn btn-secondary">📄 Nouveau contrat</RouterLink>
-          <RouterLink to="/performances/nouvelle" class="btn btn-secondary">⭐ Nouvelle évaluation</RouterLink>
-          <RouterLink to="/demandes-conges" class="btn btn-secondary">🗓️ Congés</RouterLink>
-          <RouterLink to="/alerte-settings" class="btn btn-secondary">⚙️ Config. alertes</RouterLink>
-        </div>
-      </div>
     </div>
   </div>
 </template>
@@ -245,6 +233,10 @@ const chartDepartements = ref(null)
 const chartContrats = ref(null)
 const chartTendances = ref(null)
 const chartAges = ref(null)
+const hasAges = computed(() => {
+  const arr = statsData.value.repartitions?.tranches_age || []
+  return arr.some((a) => Number(a.value) > 0)
+})
 
 // Instances de graphiques
 let charts = {}
@@ -403,7 +395,7 @@ const updateCharts = () => {
   }
 
   // Graphique Âges (Bar horizontal)
-  if (chartAges.value && statsData.value.repartitions.tranches_age?.length) {
+  if (chartAges.value && statsData.value.repartitions.tranches_age?.length && hasAges.value) {
     const data = statsData.value.repartitions.tranches_age
     charts.ages = new Chart(chartAges.value, {
       type: 'bar',
@@ -579,6 +571,15 @@ onUnmounted(() => {
 .chart-container {
   height: 250px;
   position: relative;
+}
+.chart-empty {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  border: 1px dashed var(--border);
+  border-radius: 12px;
 }
 
 .performers-list {

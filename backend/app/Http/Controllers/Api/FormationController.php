@@ -12,7 +12,8 @@ class FormationController extends Controller
     public function index(Request $request)
     {
         try {
-            $query = Formation::with('competences.categorie');
+            $query = Formation::with('competences.categorie')
+                ->withCount('inscriptions');
 
             if ($request->has('actif')) {
                 $query->where('actif', $request->boolean('actif'));

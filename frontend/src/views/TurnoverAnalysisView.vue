@@ -291,8 +291,8 @@ export default {
       const ctx = this.$refs.chartDepartements
       if (!ctx) return
       
-      const labels = deptData.map(d => d.nom)
-      const scores = deptData.map(d => d.risque_moyen || 0)
+      const labels = deptData.map(d => d.nom || d.departement || 'Non assigné')
+      const scores = deptData.map(d => d.score_moyen ?? d.risque_moyen ?? 0)
       const colors = scores.map(s => {
         if (s >= 70) return '#ef4444'
         if (s >= 50) return '#f97316'

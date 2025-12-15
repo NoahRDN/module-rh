@@ -5,16 +5,16 @@
       <span>Mobilités internes</span>
     </div>
     <div class="flex items-center gap-2">
-      <select class="select" v-model="filterEmploye" @change="debouncedFetchHistorique">
-        <option value="">Tous les employés</option>
-        <option v-for="emp in employes" :key="emp.id" :value="emp.id">{{ emp.matricule }} - {{ emp.nom }}</option>
-      </select>
       <RouterLink class="btn whitespace-nowrap" to="/historiques/nouveau">+ Nouvelle mobilité</RouterLink>
     </div>
   </div>
 
   <div class="card">
     <div class="grid gap-2 md:grid-cols-3 lg:grid-cols-5 mb-3">
+      <select class="select" v-model="filterEmploye" @change="debouncedFetchHistorique">
+        <option value="">Tous les employés</option>
+        <option v-for="emp in employes" :key="emp.id" :value="emp.id">{{ emp.matricule }} - {{ emp.nom }}</option>
+      </select>
       <input class="input" placeholder="Matricule" v-model="filters.matricule" />
       <input class="input" placeholder="Nom" v-model="filters.nom" />
       <input class="input" placeholder="Poste" v-model="filters.poste" />

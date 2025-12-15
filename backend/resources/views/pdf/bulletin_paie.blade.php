@@ -73,8 +73,8 @@
     <table class="no-border">
         <tr><td>Nom et Prénoms :</td><td class="bold">{{ $employe->nom }} {{ $employe->prenom }}</td></tr>
         <tr><td>Matricule :</td><td>{{ $employe->matricule }}</td></tr>
-        <tr><td>Fonction :</td><td>{{ $employe->poste->libelle ?? '—' }}</td></tr>
-        <tr><td>Catégorie :</td><td>{{ $employe->categorie ?? '—' }}</td></tr>
+        <tr><td>Fonction :</td><td>{{ $posteActif->nom ?? $employe->poste->nom ?? '—' }}</td></tr>
+        <tr><td>Catégorie :</td><td>{{ $posteActif->categorie ?? $employe->poste->categorie ?? '—' }}</td></tr>
         <tr><td>N° CNAPS :</td><td>{{ $employe->num_cnaps ?? '—' }}</td></tr>
         <tr><td>Date d'embauche :</td><td>{{ $dateEmbauche }}</td></tr>
         <tr><td>Ancienneté :</td><td>{{ $anciennete }}</td></tr>

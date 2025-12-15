@@ -22,6 +22,8 @@ class WorktimeSettingsSeeder extends Seeder
                 'night_start' => config('worktime.night_start'),
                 'night_end' => config('worktime.night_end'),
                 'night_rate' => config('worktime.night_rate'),
+                'deduct_from_leave_balance' => config('worktime.deduct_from_leave_balance', false),
+                'deduct_from_salary' => config('worktime.deduct_from_salary', false),
             ]
         );
     }

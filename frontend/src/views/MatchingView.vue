@@ -27,7 +27,7 @@
             <select v-model="selectedEmploye" @change="onEmployeChange">
               <option value="">Sélectionner un employé...</option>
               <option v-for="emp in employes" :key="emp.id" :value="emp.id">
-                {{ emp.nom }} {{ emp.prenom }} - {{ emp.poste?.titre || 'Sans poste' }}
+                {{ emp.nom }} {{ emp.prenom }} - {{ emp.poste?.nom || emp.poste?.titre || 'Sans poste' }}
               </option>
             </select>
           </div>
@@ -36,7 +36,7 @@
             <select v-model="selectedPoste" @change="calculerMatch">
               <option value="">Sélectionner un poste...</option>
               <option v-for="poste in postes" :key="poste.id" :value="poste.id">
-                {{ poste.titre }}
+                {{ poste.nom || poste.titre }}
               </option>
             </select>
           </div>
@@ -129,7 +129,7 @@
             <select v-model="posteRecherche" @change="chercherCandidats">
               <option value="">Sélectionner un poste...</option>
               <option v-for="poste in postes" :key="poste.id" :value="poste.id">
-                {{ poste.titre }} ({{ poste.departement?.nom }})
+                {{ poste.nom || poste.titre }} ({{ poste.departement?.nom || '—' }})
               </option>
             </select>
           </div>
@@ -145,20 +145,20 @@
 
       <!-- Liste des candidats -->
       <div v-if="candidats.length" class="candidats-list">
-        <div v-for="candidat in candidats" :key="candidat.employe.id" class="card candidat-card">
+        <div v-for="candidat in candidats" :key="candidat.employe?.id || JSON.stringify(candidat)" class="card candidat-card">
           <div class="candidat-score" :class="getScoreClass(candidat.score_global)">
-            {{ candidat.score_global }}%
+            {{ candidat.score_global ?? candidat.compatibilite?.score_global ?? 0 }}%
           </div>
           <div class="candidat-info">
-            <h4>{{ candidat.employe.nom }} {{ candidat.employe.prenom }}</h4>
-            <p>{{ candidat.employe.poste?.titre || 'Sans poste actuel' }}</p>
+            <h4>{{ candidat.employe?.nom }} {{ candidat.employe?.prenom }}</h4>
+            <p>{{ candidat.employe?.poste?.nom || candidat.employe?.poste?.titre || 'Sans poste actuel' }}</p>
           </div>
           <div class="candidat-details">
             <span class="detail">
-              <span class="icon">✅</span> {{ candidat.competences_acquises?.length || 0 }} acquises
+              <span class="icon">✅</span> {{ candidat.competences_acquises?.length || candidat.compatibilite?.competences_ok?.length || 0 }} acquises
             </span>
             <span class="detail">
-              <span class="icon">⚠️</span> {{ candidat.competences_manquantes?.length || 0 }} à développer
+              <span class="icon">⚠️</span> {{ candidat.competences_manquantes?.length || candidat.compatibilite?.competences_manquantes?.length || 0 }} à développer
             </span>
           </div>
           <button class="btn btn-secondary btn-sm" @click="voirDetailCandidat(candidat)">
@@ -192,16 +192,16 @@
 
       <!-- Liste des postes compatibles -->
       <div v-if="postesCompatibles.length" class="postes-list">
-        <div v-for="item in postesCompatibles" :key="item.poste.id" class="card poste-card">
-          <div class="poste-score" :class="getScoreClass(item.score_global)">
-            {{ item.score_global }}%
+        <div v-for="item in postesCompatibles" :key="item.poste?.id || JSON.stringify(item)" class="card poste-card">
+          <div class="poste-score" :class="getScoreClass(item.score_global ?? item.compatibilite?.score_global ?? 0)">
+            {{ item.score_global ?? item.compatibilite?.score_global ?? 0 }}%
           </div>
           <div class="poste-info">
-            <h4>{{ item.poste.titre }}</h4>
-            <p>{{ item.poste.departement?.nom }}</p>
+            <h4>{{ item.poste?.nom || item.poste?.titre }}</h4>
+            <p>{{ item.poste?.departement?.nom }}</p>
           </div>
           <div class="poste-details">
-            <span>{{ item.competences_requises }} compétences requises</span>
+            <span>{{ item.competences_requises ?? item.compatibilite?.competences_ok?.length ?? 0 }} compétences requises</span>
           </div>
         </div>
       </div>
@@ -216,36 +216,49 @@
       <div v-if="analyseGlobale" class="analyse-globale">
         <div class="stats-grid">
           <div class="card stat-card">
-            <span class="stat-value">{{ analyseGlobale.employes_evalues }}</span>
+            <span class="stat-value">{{ analyseGlobale.total_employes ?? analyseGlobale.employes_evalues ?? 0 }}</span>
             <span class="stat-label">Employés évalués</span>
           </div>
           <div class="card stat-card">
-            <span class="stat-value">{{ analyseGlobale.postes_avec_requis }}</span>
-            <span class="stat-label">Postes avec requis</span>
+            <span class="stat-value">{{ analyseGlobale.par_categorie?.length || analyseGlobale.postes_avec_requis || 0 }}</span>
+            <span class="stat-label">Catégories analysées</span>
           </div>
           <div class="card stat-card">
-            <span class="stat-value">{{ analyseGlobale.taux_couverture_moyen }}%</span>
+            <span class="stat-value">{{ analyseGlobale.taux_couverture_moyen ?? 0 }}%</span>
             <span class="stat-label">Couverture moyenne</span>
           </div>
         </div>
 
         <div class="card">
-          <h4>🔥 Compétences les plus demandées</h4>
+          <h4>📊 Répartition par catégorie</h4>
           <div class="top-list">
-            <div v-for="comp in analyseGlobale.competences_demandees" :key="comp.id" class="top-item">
-              <span class="name">{{ comp.nom }}</span>
-              <span class="count">{{ comp.postes_count }} postes</span>
+            <div v-for="cat in analyseGlobale.par_categorie || []" :key="cat.nom" class="top-item">
+              <span class="name">{{ cat.nom }}</span>
+              <span class="count">{{ cat.count }} compétences • niveau moyen {{ cat.moyenne_niveau }}</span>
             </div>
+            <div v-if="!analyseGlobale.par_categorie?.length" class="muted">Aucune donnée</div>
           </div>
         </div>
 
         <div class="card">
-          <h4>⚠️ Lacunes critiques</h4>
+          <h4>🔥 Compétences communes</h4>
           <div class="top-list">
-            <div v-for="lacune in analyseGlobale.lacunes_critiques" :key="lacune.competence_id" class="top-item warning">
-              <span class="name">{{ lacune.competence_nom }}</span>
-              <span class="count">{{ lacune.employes_sans }} employés sans cette compétence</span>
+            <div v-for="comp in analyseGlobale.competences_communes || []" :key="comp.nom" class="top-item">
+              <span class="name">{{ comp.nom }} <small class="muted">({{ comp.categorie }})</small></span>
+              <span class="count">{{ comp.count }} employés • {{ comp.pourcentage_employes }}%</span>
             </div>
+            <div v-if="!analyseGlobale.competences_communes?.length" class="muted">Aucune donnée</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h4>⚠️ Compétences rares</h4>
+          <div class="top-list">
+            <div v-for="comp in analyseGlobale.competences_rares || []" :key="comp.nom" class="top-item warning">
+              <span class="name">{{ comp.nom }} <small class="muted">({{ comp.categorie }})</small></span>
+              <span class="count">{{ comp.count }} employés • {{ comp.pourcentage_employes }}%</span>
+            </div>
+            <div v-if="!analyseGlobale.competences_rares?.length" class="muted">Aucune donnée</div>
           </div>
         </div>
       </div>
@@ -304,8 +317,9 @@ const loadData = async () => {
       api.get('/v1/employes'),
       api.get('/v1/postes')
     ])
-    employes.value = empRes.data.data || empRes.data
-    postes.value = posteRes.data.data || posteRes.data
+    const normalize = (r) => r?.data?.data || r?.data || r || []
+    employes.value = normalize(empRes)
+    postes.value = normalize(posteRes)
   } catch (error) {
     console.error('Erreur chargement:', error)
   }
@@ -322,7 +336,12 @@ const calculerMatch = async () => {
   loading.value = true
   try {
     const res = await competenceService.calculerCompatibilite(selectedEmploye.value, selectedPoste.value)
-    matchResult.value = res.data
+    const payload = res.data || {}
+    matchResult.value = {
+      ...payload.compatibilite,
+      employe: payload.employe,
+      poste: payload.poste,
+    }
   } catch (error) {
     console.error('Erreur:', error)
     alert('Erreur lors du calcul: ' + (error.response?.data?.message || error.message))
@@ -340,7 +359,7 @@ const chercherCandidats = async () => {
     const res = await competenceService.getCandidatsPourPoste(posteRecherche.value, { 
       score_minimum: scoreMinimum.value 
     })
-    candidats.value = res.data.data || res.data
+    candidats.value = res.data.candidats || res.data.data || res.data || []
   } catch (error) {
     console.error('Erreur:', error)
   } finally {
@@ -349,9 +368,13 @@ const chercherCandidats = async () => {
 }
 
 const voirDetailCandidat = (candidat) => {
-  selectedEmploye.value = candidat.employe.id
+  selectedEmploye.value = candidat.employe?.id
   selectedPoste.value = posteRecherche.value
-  matchResult.value = candidat
+  matchResult.value = {
+    ...candidat,
+    employe: candidat.employe,
+    poste: { id: posteRecherche.value, nom: postes.value.find(p => p.id === posteRecherche.value)?.nom }
+  }
   activeTab.value = 'individuel'
 }
 
@@ -362,7 +385,7 @@ const chercherPostes = async () => {
   loading.value = true
   try {
     const res = await competenceService.getPostesCompatibles(employeRecherche.value)
-    postesCompatibles.value = res.data.data || res.data
+    postesCompatibles.value = res.data.postes_compatibles || res.data.data || res.data || []
   } catch (error) {
     console.error('Erreur:', error)
   } finally {
@@ -375,7 +398,7 @@ const lancerAnalyseGlobale = async () => {
   loading.value = true
   try {
     const res = await competenceService.getAnalyseGlobale()
-    analyseGlobale.value = res.data
+    analyseGlobale.value = res.data || res.data?.data || null
   } catch (error) {
     console.error('Erreur:', error)
   } finally {
@@ -782,18 +805,51 @@ onMounted(loadData)
 .stat-card {
   padding: 20px;
   text-align: center;
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  color: white;
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid #e5e7eb;
+  position: relative;
+  overflow: hidden;
 }
 
 .stat-value {
   display: block;
   font-size: 2rem;
   font-weight: bold;
+  color: #2563eb;
 }
 
 .stat-label {
   font-size: 0.9rem;
+  color: #64748b;
+}
+
+.stat-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  opacity: 0.06;
+  pointer-events: none;
+}
+
+/* Mode sombre */
+:deep(.dark) .stat-card {
+  background: #0f172a;
+  border-color: #1f2937;
+  color: #e2e8f0;
+}
+
+:deep(.dark) .stat-card .stat-value {
+  color: #60a5fa;
+}
+
+:deep(.dark) .stat-card .stat-label {
+  color: #94a3b8;
+}
+
+:deep(.dark) .stat-card::after {
+  opacity: 0.12;
 }
 
 .top-list {

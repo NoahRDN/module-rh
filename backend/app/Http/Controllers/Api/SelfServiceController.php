@@ -8,8 +8,10 @@ use App\Models\Demande;
 use App\Models\SoldeConge;
 use App\Models\DemandeConge;
 use App\Models\Paie;
+use App\Http\Controllers\Api\PaiePdfController;
 use App\Models\Conversation;
 use App\Models\Notification;
+use App\Models\DocumentEmploye;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Hash;
@@ -123,9 +125,14 @@ class SelfServiceController extends Controller
                 return response()->json(['message' => 'Profil employé non lié'], 403);
             }
 
-            $bulletins = Paie::where('employe_id', $user->employe_id)
-                ->orderBy('periode', 'desc')
-                ->get();
+            $query = Paie::where('employe_id', $user->employe_id)
+                ->orderBy('periode', 'desc');
+
+            if ($request->filled('annee')) {
+                $query->where('annee', $request->input('annee'));
+            }
+
+            $bulletins = $query->get();
 
             return response()->json($bulletins);
         } catch (\Throwable $e) {
@@ -183,6 +190,29 @@ class SelfServiceController extends Controller
     }
 
     /**
+     * Télécharger un bulletin PDF (self-service)
+     */
+    public function telechargerBulletin($id, Request $request)
+    {
+        try {
+            $user = $request->user();
+            
+            if (!$user->employe_id) {
+                return response()->json(['message' => 'Profil employé non lié'], 403);
+            }
+
+            $paie = Paie::where('employe_id', $user->employe_id)->findOrFail($id);
+
+            // Reutiliser le contrôleur PDF existant après vérification propriétaire
+            $pdfController = app(PaiePdfController::class);
+            return $pdfController->telecharger($paie->id);
+        } catch (\Throwable $e) {
+            Log::error('Erreur téléchargement bulletin self-service', ['error' => $e->getMessage()]);
+            return response()->json(['message' => 'Erreur serveur'], 500);
+        }
+    }
+
+    /**
      * Créer une demande de congé
      */
     public function creerDemandeConge(Request $request)
@@ -196,7 +226,8 @@ class SelfServiceController extends Controller
 
             $validated = $request->validate([
                 'type_conge_id' => 'required|exists:types_conges,id',
-                'date_debut' => 'required|date|after_or_equal:today',
+                // Autoriser les dates passées pour régularisation, on ne garde que la cohérence début/fin
+                'date_debut' => 'required|date',
                 'date_fin' => 'required|date|after_or_equal:date_debut',
                 'motif' => 'nullable|string',
             ]);
@@ -364,6 +395,30 @@ class SelfServiceController extends Controller
             return response()->json($formations);
         } catch (\Throwable $e) {
             Log::error('Erreur récupération formations', ['error' => $e->getMessage()]);
+            return response()->json(['message' => 'Erreur serveur'], 500);
+        }
+    }
+
+    /**
+     * Mes documents personnels
+     */
+    public function mesDocuments(Request $request)
+    {
+        try {
+            $user = $request->user();
+            
+            if (!$user->employe_id) {
+                return response()->json(['message' => 'Profil employé non lié'], 403);
+            }
+
+            $docs = DocumentEmploye::with('type')
+                ->where('employe_id', $user->employe_id)
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            return response()->json($docs);
+        } catch (\Throwable $e) {
+            Log::error('Erreur récupération documents', ['error' => $e->getMessage()]);
             return response()->json(['message' => 'Erreur serveur'], 500);
         }
     }

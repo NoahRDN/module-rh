@@ -115,8 +115,9 @@ class DashboardController extends Controller
         $now = now()->toDateString();
         
         // Ancienneté moyenne (en années)
+        // PostgreSQL compatible : age(now(), date_embauche) converti en années
         $anciennete = Employe::whereNotNull('date_embauche')
-            ->selectRaw('AVG(DATEDIFF(CURDATE(), date_embauche) / 365) as moyenne')
+            ->selectRaw("AVG(EXTRACT(epoch FROM age(now(), date_embauche)) / 31557600) as moyenne")
             ->value('moyenne') ?? 0;
 
         // Taux de turnover = (Départs / Effectif moyen) * 100
@@ -182,17 +183,31 @@ class DashboardController extends Controller
         $now = now()->toDateString();
 
         // Par département
-        $parDepartement = Departement::withCount(['employes' => function ($q) use ($now) {
-            $q->whereHas('contrats', function ($q2) use ($now) {
-                $q2->whereDate('date_debut', '<=', $now)
-                   ->where(function ($q3) use ($now) {
-                       $q3->whereNull('date_fin')->orWhereDate('date_fin', '>=', $now);
-                   });
-            });
-        }])
-        ->having('employes_count', '>', 0)
-        ->get()
-        ->map(fn($d) => ['label' => $d->nom, 'value' => $d->employes_count]);
+        $parDepartement = Departement::select('departements.id', 'departements.nom')
+            ->whereExists(function ($q) use ($now) {
+                $q->select(DB::raw(1))
+                    ->from('employes')
+                    ->whereColumn('employes.departement_id', 'departements.id')
+                    ->whereExists(function ($q2) use ($now) {
+                        $q2->select(DB::raw(1))
+                            ->from('contrats')
+                            ->whereColumn('contrats.employe_id', 'employes.id')
+                            ->whereDate('date_debut', '<=', $now)
+                            ->where(function ($q3) use ($now) {
+                                $q3->whereNull('date_fin')->orWhereDate('date_fin', '>=', $now);
+                            });
+                    });
+            })
+            ->withCount(['employes as employes_actifs_count' => function ($q) use ($now) {
+                $q->whereHas('contrats', function ($q2) use ($now) {
+                    $q2->whereDate('date_debut', '<=', $now)
+                        ->where(function ($q3) use ($now) {
+                            $q3->whereNull('date_fin')->orWhereDate('date_fin', '>=', $now);
+                        });
+                });
+            }])
+            ->get()
+            ->map(fn($d) => ['label' => $d->nom, 'value' => $d->employes_actifs_count]);
 
         // Par type de contrat
         $parTypeContrat = Contrat::whereDate('date_debut', '<=', $now)

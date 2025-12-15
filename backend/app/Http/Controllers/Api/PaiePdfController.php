@@ -17,8 +17,14 @@ class PaiePdfController extends Controller
     public function telecharger($id)
     {
         try {
-            $paie = Paie::with(['employe', 'employe.poste', 'details'])->findOrFail($id);
+            $paie = Paie::with(['employe', 'employe.poste', 'employe.historiquePostes', 'details'])->findOrFail($id);
             $employe = $paie->employe;
+            $posteActif = $employe->posteActifPourDate($paie->mois);
+            if ($posteActif) {
+                // aligne la relation poste avec le poste effectif pour la période
+                $employe->setRelation('poste', $posteActif);
+            }
+
             $param = PaieParametre::first();
 
             // Calculer les données nécessaires
@@ -49,6 +55,7 @@ class PaiePdfController extends Controller
             $pdf = Pdf::loadView('pdf.bulletin_paie', [
                 'paie' => $paie,
                 'employe' => $employe,
+                'posteActif' => $posteActif,
                 'param' => $param,
                 'anciennete' => $anciennete,
                 'taux_journalier' => $taux_journalier,

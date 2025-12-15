@@ -151,11 +151,31 @@ class DemandeCongeController extends Controller
     public function approveByManager(Request $request, $id)
     {
         try {
-            $demande = DemandeConge::findOrFail($id);
+            $demande = DemandeConge::with(['typeConge'])->findOrFail($id);
+
+            // Validation unique : le manager finalise et consomme directement
             $demande->update([
-                'statut' => 'manager_valide',
+                'statut' => 'rh_valide',
                 'approuve_par' => $request->user()->id ?? null,
             ]);
+
+            // Consommer le solde et créer l'événement calendrier (comme la validation RH auparavant)
+            $this->congeService->consommerDemande($demande);
+
+            CalendrierEvenement::create([
+                'type'        => 'conge',
+                'employe_id'  => $demande->employe_id,
+                'date_debut'  => $demande->date_debut,
+                'date_fin'    => $demande->date_fin,
+                'description' => $demande->typeConge?->libelle ?? 'Congé',
+                'meta'        => [
+                    'type_conge_id'      => $demande->type_conge_id,
+                    'type_conge_code'    => $demande->typeConge?->code,
+                    'type_conge_libelle' => $demande->typeConge?->libelle,
+                    'demande_id'         => $demande->id,
+                ],
+            ]);
+
             return response()->json(['message' => 'Validé par manager', 'demande' => $demande]);
         } catch (\Throwable $e) {
             Log::error('Erreur approbation manager demande conge', ['id' => $id, 'error' => $e->getMessage()]);
@@ -165,36 +185,8 @@ class DemandeCongeController extends Controller
 
     public function approveByRH(Request $request, $id)
     {
-        try {
-            $demande = DemandeConge::with(['typeConge'])->findOrFail($id);
-
-            $demande->update([
-                'statut' => 'rh_valide',
-                'approuve_par' => $request->user()->id ?? null,
-            ]);
-
-            $this->congeService->consommerDemande($demande);
-
-            // création événement calendrier
-            CalendrierEvenement::create([
-                'type'        => 'conge',
-                'employe_id'  => $demande->employe_id,
-                'date_debut'  => $demande->date_debut,
-                'date_fin'    => $demande->date_fin,
-                'description' => $demande->typeConge?->libelle ?? 'Congé',
-                'meta'        => [
-                    'type_conge_id'    => $demande->type_conge_id,
-                    'type_conge_code'  => $demande->typeConge?->code,
-                    'type_conge_libelle' => $demande->typeConge?->libelle,
-                    'demande_id'       => $demande->id,
-                ],
-            ]);
-
-            return response()->json(['message' => 'Validé par RH', 'demande' => $demande]);
-        } catch (\Throwable $e) {
-            Log::error('Erreur validation RH demande conge', ['id' => $id, 'error' => $e->getMessage()]);
-            return response()->json(['message' => 'Erreur serveur'], 500);
-        }
+        // Validation RH n'est plus utilisée (validation unique manager)
+        return response()->json(['message' => 'Validation RH désactivée'], 200);
     }
 
     public function reject(Request $request, $id)

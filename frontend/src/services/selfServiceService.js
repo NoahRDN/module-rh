@@ -22,7 +22,13 @@ export default {
   },
 
   changerMotDePasse(data) {
-    return api.post(`${BASE_URL}/changer-mot-de-passe`, data)
+    // Backend attend mot_de_passe_actuel / nouveau_mot_de_passe / nouveau_mot_de_passe_confirmation
+    const payload = {
+      mot_de_passe_actuel: data.current_password || data.mot_de_passe_actuel,
+      nouveau_mot_de_passe: data.new_password || data.nouveau_mot_de_passe,
+      nouveau_mot_de_passe_confirmation: data.new_password_confirmation || data.nouveau_mot_de_passe_confirmation,
+    }
+    return api.post(`${BASE_URL}/changer-mot-de-passe`, payload)
   },
 
   // ========================================
@@ -63,7 +69,8 @@ export default {
   },
 
   getFormations() {
-    return api.get(`${BASE_URL}/formations`)
+    // utilise le catalogue public (lecture seule)
+    return api.get(`/v1/formations`, { params: { actif: true } })
   },
 
   // ========================================

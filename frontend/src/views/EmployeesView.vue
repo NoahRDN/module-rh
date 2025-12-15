@@ -5,18 +5,18 @@
       <p class="text-sm text-slate-500">Annuaire des collaborateurs</p>
     </div>
     <div class="flex w-full gap-2 lg:w-auto">
-      <input class="input flex-1" placeholder="Rechercher (nom, prénom, matricule)" v-model="search" @input="handleSearch" />
       <RouterLink class="btn whitespace-nowrap" to="/employes/nouveau">+ Nouvel employé</RouterLink>
     </div>
   </div>
 
-  <div class="card">
+  <div class="card card-light">
     <div class="flex items-center justify-between gap-2 mb-3">
       <div>
         <h3 class="text-lg font-semibold">Liste des employés</h3>
       </div>
     </div>
     <div class="grid gap-2 md:grid-cols-3 lg:grid-cols-6 mb-3">
+      <input class="input flex-1" placeholder="Rechercher (nom, prénom, matricule)" v-model="search" @input="handleSearch" />
       <input class="input" placeholder="Matricule" v-model="filters.matricule" list="matricules-list" />
       <input class="input" placeholder="Nom / Prénom" v-model="filters.nom" />
       <input class="input" placeholder="Email" v-model="filters.email" />
@@ -39,9 +39,9 @@
     <datalist id="categories-list">
       <option v-for="c in optionsCategories" :key="c" :value="c" />
     </datalist>
-    <div class="overflow-x-auto rounded-xl border border-slate-800/70">
-      <table class="min-w-full text-sm text-left bg-slate-950/40 border border-slate-800 rounded-xl">
-        <thead class="bg-slate-900 text-slate-100">
+    <div class="overflow-x-auto rounded-xl border border-slate-200 shadow-sm">
+      <table class="min-w-full text-sm text-left bg-white rounded-xl">
+        <thead class="bg-slate-50 text-slate-700">
           <tr>
             <th class="px-4 py-3 font-semibold">Photo</th>
             <th class="px-4 py-3 font-semibold cursor-pointer" @click="setSort('matricule')">
@@ -68,7 +68,7 @@
             <th class="px-4 py-3 font-semibold text-right">Fiche</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-slate-800/60">
+        <tbody class="divide-y divide-slate-100">
           <template v-if="loading">
             <tr v-for="n in 5" :key="n" class="animate-pulse">
               <td class="px-4 py-4">
@@ -102,7 +102,7 @@
             <tr
               v-for="emp in filteredEmployes"
               :key="emp.id"
-              class="hover:bg-slate-800/50 transition"
+              class="hover:bg-slate-50 transition"
             >
               <td class="px-4 py-3">
                 <div class="flex items-center gap-3">
@@ -114,7 +114,7 @@
                   />
                 </div>
               </td>
-              <td class="px-4 py-3 font-semibold text-slate-100">{{ emp.matricule }}</td>
+              <td class="px-4 py-3 font-semibold text-slate-800">{{ emp.matricule }}</td>
               <td>
                 <div class="px-4 py-3">
                   <p class="font-semibold">{{ emp.nom }} {{ emp.prenom }}</p>
@@ -131,7 +131,7 @@
               <td class="px-4 py-3">
                 <span class="chip chip-secondary">{{ emp.poste?.categorie || '—' }}</span>
               </td>
-              <td class="px-4 py-3 text-slate-200">{{ emp.departement?.nom || '—' }}</td>
+              <td class="px-4 py-3 text-slate-700">{{ emp.departement?.nom || '—' }}</td>
               <td class="px-4 py-3">
                 <span class="chip" :class="emp.actif ? '' : 'muted'">{{ emp.actif ? 'Actif' : 'Inactif' }}</span>
               </td>
@@ -304,3 +304,43 @@ onMounted(async () => {
   await fetchEmployes()
 })
 </script>
+
+<style scoped>
+.input {
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  border-radius: 10px;
+  padding: 10px 14px;
+  color: #0f172a;
+}
+
+.btn {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+}
+
+.btn-secondary {
+  background: rgba(148, 163, 184, 0.2);
+  color: #0f172a;
+}
+
+.card-light {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.08);
+}
+
+.card-light h3 {
+  color: #0f172a;
+}
+
+.card-light .input::placeholder {
+  color: #94a3b8;
+}
+</style>

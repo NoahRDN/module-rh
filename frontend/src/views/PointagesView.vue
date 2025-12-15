@@ -1,21 +1,22 @@
 <template>
-  <div class="flex items-center justify-between mb-4">
+  <div class="flex flex-col gap-3 mb-4 lg:flex-row lg:items-center lg:justify-between">
     <div>
       <h1 class="text-2xl font-semibold">Pointage & Heures sup</h1>
       <p class="text-sm text-slate-500">Entrées / sorties / pauses · retards · absences justifiées</p>
     </div>
-    <div class="flex gap-2">
+    <div class="flex gap-2 flex-wrap">
       <select class="select" v-model="filters.employe_id" @change="debouncedFetchPointages">
         <option value="">Tous les employés</option>
         <option v-for="emp in employes" :key="emp.id" :value="emp.id">{{ emp.matricule }} - {{ emp.nom }}</option>
       </select>
       <input class="input" type="date" v-model="filters.from" @change="debouncedFetchPointages" />
       <input class="input" type="date" v-model="filters.to" @change="debouncedFetchPointages" />
+      <RouterLink class="btn" to="/pointages/nouveau">+ Ajouter</RouterLink>
     </div>
   </div>
 
-  <div class="grid gap-4 lg:grid-cols-3">
-    <div class="card lg:col-span-2">
+  <div class="grid gap-4">
+    <div class="card">
       <h2 class="text-lg font-semibold mb-2">Liste des pointages</h2>
       <div class="grid gap-2 md:grid-cols-3 lg:grid-cols-6 mb-3">
         <input class="input" placeholder="Matricule" v-model="filtersLocal.matricule" />
@@ -33,27 +34,27 @@
             <tr>
               <th class="cursor-pointer" @click="setSort('employe')">Employé {{ sortLabel('employe') }}</th>
               <th class="cursor-pointer" @click="setSort('type')">Type {{ sortLabel('type') }}</th>
-            <th class="cursor-pointer" @click="setSort('date')">Date/heure {{ sortLabel('date') }}</th>
-            <th class="cursor-pointer" @click="setSort('source')">Source {{ sortLabel('source') }}</th>
-            <th>Absence</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="p in pointagesFiltres" :key="p.id">
-            <td>{{ p.employe?.matricule || '—' }}</td>
-            <td>{{ p.type }}</td>
-            <td>{{ p.pointe_a }}</td>
-            <td>{{ p.source }}</td>
-            <td>
-              <span v-if="p.absence_justifiee" class="chip" style="background: rgba(59,130,246,0.15); color: #93c5fd;">Justifiée</span>
-              <span v-else class="muted">—</span>
-            </td>
-          </tr>
-          <tr v-if="!pointagesFiltres.length">
-            <td colspan="5" class="muted">Aucun pointage</td>
-          </tr>
-        </tbody>
-      </table>
+              <th class="cursor-pointer" @click="setSort('date')">Date/heure {{ sortLabel('date') }}</th>
+              <th class="cursor-pointer" @click="setSort('source')">Source {{ sortLabel('source') }}</th>
+              <th>Absence</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="p in pointagesFiltres" :key="p.id">
+              <td>{{ p.employe?.matricule || '—' }}</td>
+              <td>{{ p.type }}</td>
+              <td>{{ p.pointe_a }}</td>
+              <td>{{ p.source }}</td>
+              <td>
+                <span v-if="p.absence_justifiee" class="chip" style="background: rgba(59,130,246,0.15); color: #93c5fd;">Justifiée</span>
+                <span v-else class="muted">—</span>
+              </td>
+            </tr>
+            <tr v-if="!pointagesFiltres.length">
+              <td colspan="5" class="muted">Aucun pointage</td>
+            </tr>
+          </tbody>
+        </table>
         <div class="flex items-center justify-between mt-3 text-sm text-slate-400">
           <span>Page {{ pagination.page }} / {{ pagination.last_page }} — {{ pagination.total }} lignes</span>
           <div class="flex items-center gap-2">
@@ -63,52 +64,23 @@
         </div>
       </div>
     </div>
-
-    <div class="card">
-      <h2 class="text-lg font-semibold">Ajouter un pointage</h2>
-      <form class="grid" style="gap: 10px; margin-top: 10px;" @submit.prevent="createPointage">
-        <select class="select" v-model="form.employe_id" required>
-          <option value="">Employé</option>
-          <option v-for="emp in employes" :key="emp.id" :value="emp.id">{{ emp.matricule }} - {{ emp.nom }}</option>
-        </select>
-        <select class="select" v-model="form.type" required>
-          <option value="entree">Entrée</option>
-          <option value="sortie">Sortie</option>
-          <option value="pause_debut">Pause début</option>
-          <option value="pause_fin">Pause fin</option>
-        </select>
-        <input class="input" type="datetime-local" v-model="form.pointe_a" required />
-        <input class="input" v-model="form.source" placeholder="Source (badgeuse, manuel...)" />
-        <input class="input" v-model="form.commentaire" placeholder="Commentaire" />
-        <button class="btn" type="submit">Enregistrer</button>
-        <p class="muted" v-if="message">{{ message }}</p>
-      </form>
-    </div>
   </div>
 
 </template>
 
 <script setup>
 import { onMounted, ref, computed } from 'vue'
+import { RouterLink } from 'vue-router'
 import api from '../services/api'
 import { debounce } from '../utils/debounce'
 
 const pointages = ref([])
 const employes = ref([])
-const message = ref('')
 
 const filters = ref({
   employe_id: '',
   from: '',
   to: ''
-})
-
-const form = ref({
-  employe_id: '',
-  type: 'entree',
-  pointe_a: '',
-  source: '',
-  commentaire: ''
 })
 
 const releve = ref({
@@ -157,16 +129,6 @@ const debouncedFetchPointages = debounce(fetchPointages, 300)
 const fetchEmployes = async () => {
   const { data } = await api.get('/v1/employes', { params: { active_only: true } })
   employes.value = data.data || []
-}
-
-const createPointage = async () => {
-  try {
-    await api.post('/v1/pointages', form.value)
-    message.value = 'Pointage enregistré'
-    await fetchPointages()
-  } catch (e) {
-    message.value = 'Erreur lors de l’enregistrement'
-  }
 }
 
 const loadReleve = async () => {

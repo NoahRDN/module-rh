@@ -13,7 +13,8 @@ class CompetenceController extends Controller
     public function index(Request $request)
     {
         try {
-            $query = Competence::with('categorie');
+            $query = Competence::with('categorie')
+                ->withCount(['employes', 'postes']);
 
             if ($request->has('actif')) {
                 $query->where('actif', $request->boolean('actif'));
@@ -132,14 +133,27 @@ class CompetenceController extends Controller
     public function cartographie()
     {
         try {
+            $totalEmployes = \App\Models\Employe::count();
+            $employesAvecCompetences = \DB::table('employe_competences')
+                ->distinct('employe_id')
+                ->count('employe_id');
+            $tauxCouverture = $totalEmployes > 0
+                ? round(($employesAvecCompetences / $totalEmployes) * 100, 1)
+                : 0;
+
             $categories = \App\Models\CategorieCompetence::actif()
                 ->ordered()
                 ->with(['competences' => function($q) {
-                    $q->actif()->ordered()->withCount('employes');
+                    $q->actif()->ordered()->withCount(['employes', 'postes']);
                 }])
                 ->get();
 
-            return response()->json($categories);
+            return response()->json([
+                'categories' => $categories,
+                'employes_avec_competences' => $employesAvecCompetences,
+                'taux_couverture' => $tauxCouverture,
+                'total_employes' => $totalEmployes,
+            ]);
         } catch (\Throwable $e) {
             Log::error('Erreur récupération cartographie', ['error' => $e->getMessage()]);
             return response()->json(['message' => 'Erreur serveur'], 500);

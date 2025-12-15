@@ -59,6 +59,7 @@ use App\Http\Controllers\Api\DocumentGeneratorController;
 use App\Http\Controllers\Api\TurnoverPredictionController;
 use App\Http\Controllers\Api\AnomalyDetectionController;
 use App\Http\Controllers\Api\AIMatchingController;
+use App\Http\Controllers\Api\JourFerieController;
 
 Route::post('/login', [AuthController::class, 'login']);
 
@@ -83,6 +84,10 @@ Route::group(['prefix' => 'employes'], function()
     Route::get('/{id}/fiche_employe', [EmployeController::class, 'fiche_actuelle']);
     Route::get('/{id}/historique_poste', [EmployeController::class, 'historique_poste_employe']);
 });
+
+// Compatibilité : endpoints sans préfixe /v1 (ex: /api/postes, /api/departements)
+Route::apiResource('postes', PosteController::class)->only(['index', 'show']);
+Route::apiResource('departements', DepartementController::class)->only(['index', 'show']);
 
 Route::prefix('v1')->group(function () {
     Route::apiResource('departements', DepartementController::class);
@@ -110,11 +115,12 @@ Route::prefix('v1')->group(function () {
         Route::put('profil', [SelfServiceController::class, 'mettreAJourProfil']);
         Route::post('changer-mot-de-passe', [SelfServiceController::class, 'changerMotDePasse']);
         
-        // Bulletins et congés
-        Route::get('bulletins', [SelfServiceController::class, 'mesBulletins']);
-        Route::get('solde-conges', [SelfServiceController::class, 'monSoldeConges']);
-        Route::get('demandes-conges', [SelfServiceController::class, 'mesDemandesConges']);
-        Route::post('demandes-conges', [SelfServiceController::class, 'creerDemandeConge']);
+    // Bulletins et congés
+    Route::get('bulletins', [SelfServiceController::class, 'mesBulletins']);
+    Route::get('bulletins/{id}/pdf', [SelfServiceController::class, 'telechargerBulletin']);
+    Route::get('solde-conges', [SelfServiceController::class, 'monSoldeConges']);
+    Route::get('demandes-conges', [SelfServiceController::class, 'mesDemandesConges']);
+    Route::post('demandes-conges', [SelfServiceController::class, 'creerDemandeConge']);
         
         // Demandes (attestations, remboursements)
         Route::get('demandes', [SelfServiceController::class, 'mesDemandes']);
@@ -123,6 +129,7 @@ Route::prefix('v1')->group(function () {
         // Compétences et formations
         Route::get('competences', [SelfServiceController::class, 'mesCompetences']);
         Route::get('formations', [SelfServiceController::class, 'mesFormations']);
+        Route::get('documents', [SelfServiceController::class, 'mesDocuments']);
         
         // Conversations/Messagerie
         Route::get('conversations', [SelfServiceController::class, 'mesConversations']);
@@ -159,9 +166,9 @@ Route::prefix('v1')->group(function () {
     Route::apiResource('contrats', ContratController::class);
     Route::apiResource('contrats-historiques', ContratHistoriqueController::class)->only(['index']);
     Route::get('contrats/{id}/pdf', [ContratPdfController::class, 'telecharger']);
-    Route::apiResource('documents', DocumentEmployeController::class);
     Route::get('documents/types', [DocumentUploadController::class, 'types']);
     Route::post('documents/upload', [DocumentUploadController::class, 'store']);
+    Route::apiResource('documents', DocumentEmployeController::class)->whereNumber('document');
     Route::apiResource('soldes-conges', SoldeCongeController::class)->only(['index','show']);
     Route::get('worktime', [WorktimeSettingController::class, 'show']);
     Route::put('worktime', [WorktimeSettingController::class, 'update']);
@@ -180,11 +187,16 @@ Route::prefix('v1')->group(function () {
     Route::put('paie-parametres/{id}', [PaieParametreController::class, 'update']);
     Route::apiResource('irsa-tranches', IrsaTrancheController::class)->only(['index','store','update','destroy']);
     Route::get('paies/{id}/pdf', [PaiePdfController::class, 'telecharger']);
+    Route::apiResource('jours-feries', JourFerieController::class)->only(['index','store','update','destroy']);
     
     // Dashboard et statistiques RH
     Route::get('dashboard/statistiques', [DashboardController::class, 'statistiques']);
     Route::get('dashboard/alertes', [DashboardController::class, 'alertes']);
     Route::get('dashboard/top-performers', [DashboardController::class, 'topPerformers']);
+    Route::prefix('manager')->group(function () {
+        Route::get('dashboard', [DashboardController::class, 'statistiques']);
+        Route::apiResource('demandes-conges', DemandeCongeController::class)->only(['index', 'show', 'update']);
+    });
     
     // Paramètres des alertes
     Route::get('alerte-settings', [AlerteSettingController::class, 'index']);

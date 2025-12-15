@@ -87,6 +87,12 @@ class AlerteController extends Controller
                         'level' => $setting->niveau,
                         'message' => "Demande en attente >{$seuilHeures}h pour {$d->employe?->nom} {$d->employe?->prenom}",
                         'demande_id' => $d->id,
+                        'employe' => $d->employe ? [
+                            'id' => $d->employe->id,
+                            'matricule' => $d->employe->matricule,
+                            'nom' => $d->employe->nom,
+                            'prenom' => $d->employe->prenom,
+                        ] : null,
                     ];
                 }
             }
@@ -108,6 +114,12 @@ class AlerteController extends Controller
                         'level' => $setting->niveau,
                         'message' => "Le congé de {$d->employe?->nom} {$d->employe?->prenom} débute bientôt et n'est pas validé",
                         'demande_id' => $d->id,
+                        'employe' => $d->employe ? [
+                            'id' => $d->employe->id,
+                            'matricule' => $d->employe->matricule,
+                            'nom' => $d->employe->nom,
+                            'prenom' => $d->employe->prenom,
+                        ] : null,
                     ];
                 }
             }
@@ -118,8 +130,8 @@ class AlerteController extends Controller
                 $seuilNombre = $setting->seuil_nombre ?? 4;
                 $periodeJours = $setting->periode_jours ?? 60;
                 
-                $maladieCounts = DemandeConge::with(['employe', 'type'])
-                    ->whereHas('type', function ($q) {
+                $maladieCounts = DemandeConge::with(['employe', 'typeConge'])
+                    ->whereHas('typeConge', function ($q) {
                         $q->where('libelle', 'like', '%malad%')
                           ->orWhere('code', 'like', '%malad%');
                     })
@@ -135,6 +147,12 @@ class AlerteController extends Controller
                             'level' => $setting->niveau,
                             'message' => "{$emp?->nom} {$emp?->prenom} a {$list->count()} congés maladie sur {$periodeJours} jours",
                             'employe_id' => $empId,
+                            'employe' => $emp ? [
+                                'id' => $emp->id,
+                                'matricule' => $emp->matricule,
+                                'nom' => $emp->nom,
+                                'prenom' => $emp->prenom,
+                            ] : null,
                         ];
                     }
                 }
@@ -146,8 +164,8 @@ class AlerteController extends Controller
                 $seuilNombre = $setting->seuil_nombre ?? 3;
                 $periodeJours = $setting->periode_jours ?? 90;
                 
-                $exceptionCounts = DemandeConge::with(['employe', 'type'])
-                    ->whereHas('type', function ($q) {
+                $exceptionCounts = DemandeConge::with(['employe', 'typeConge'])
+                    ->whereHas('typeConge', function ($q) {
                         $q->where('libelle', 'like', '%exception%')
                           ->orWhere('code', 'like', '%exception%');
                     })
@@ -163,6 +181,12 @@ class AlerteController extends Controller
                             'level' => $setting->niveau,
                             'message' => "{$emp?->nom} {$emp?->prenom} a {$list->count()} congés exceptionnels sur {$periodeJours} jours",
                             'employe_id' => $empId,
+                            'employe' => $emp ? [
+                                'id' => $emp->id,
+                                'matricule' => $emp->matricule,
+                                'nom' => $emp->nom,
+                                'prenom' => $emp->prenom,
+                            ] : null,
                         ];
                     }
                 }

@@ -59,7 +59,14 @@
             class="event-pill"
             :class="badgeClass(evt.type)"
           >
-            {{ evt.type }} - {{ evt.employe ? evt.employe.matricule : '' }}<span v-if="evt.meta?.type_conge_libelle"> · {{ evt.meta.type_conge_libelle }}</span>
+            <template v-if="evt.type === 'ferie'">
+              Férié · {{ evt.description || '—' }}
+            </template>
+            <template v-else>
+              {{ evt.type }} - {{ evt.employe ? evt.employe.matricule : '' }}
+              <span v-if="evt.meta?.type_conge_libelle"> · {{ evt.meta.type_conge_libelle }}</span>
+              <span v-if="evt.description && evt.type !== 'ferie'"> · {{ evt.description }}</span>
+            </template>
           </div>
         </div>
       </div>
@@ -79,7 +86,13 @@
             class="event-pill"
             :class="badgeClass(evt.type)"
           >
-            {{ evt.type }} · {{ evt.employe ? evt.employe.matricule : '' }} · {{ evt.description || '—' }}<span v-if="evt.meta?.type_conge_libelle"> · {{ evt.meta.type_conge_libelle }}</span>
+            <template v-if="evt.type === 'ferie'">
+              Férié · {{ evt.description || '—' }}
+            </template>
+            <template v-else>
+              {{ evt.type }} · {{ evt.employe ? evt.employe.matricule : '' }} · {{ evt.description || '—' }}
+              <span v-if="evt.meta?.type_conge_libelle"> · {{ evt.meta.type_conge_libelle }}</span>
+            </template>
           </div>
           <p v-if="!eventsByDate(day.dateStr).length" class="muted text-xs">Aucun événement</p>
         </div>
@@ -99,7 +112,14 @@
           class="event-pill"
           :class="badgeClass(evt.type)"
         >
-          {{ evt.type }} · {{ evt.employe ? evt.employe.matricule : '' }} · {{ evt.description || '—' }}<span v-if="evt.meta?.type_conge_libelle"> · {{ evt.meta.type_conge_libelle }}</span> ({{ evt.date_debut }} → {{ evt.date_fin }})
+          <template v-if="evt.type === 'ferie'">
+            Férié · {{ evt.description || '—' }} ({{ evt.date_debut }} → {{ evt.date_fin }})
+          </template>
+          <template v-else>
+            {{ evt.type }} · {{ evt.employe ? evt.employe.matricule : '' }} · {{ evt.description || '—' }}
+            <span v-if="evt.meta?.type_conge_libelle"> · {{ evt.meta.type_conge_libelle }}</span>
+            ({{ evt.date_debut }} → {{ evt.date_fin }})
+          </template>
         </div>
         <p v-if="!eventsByDate(formatDate(currentDate)).length" class="muted text-xs">Aucun événement</p>
       </div>

@@ -11,6 +11,8 @@ use App\Models\Pointage;
 use App\Models\Contrat;
 use App\Models\Employe;
 use App\Models\IrsaTranche;
+use App\Models\DemandeConge;
+use App\Models\JourFerie;
 use DateInterval;
 use DatePeriod;
 use Carbon\Carbon;
@@ -34,11 +36,12 @@ class PaieController extends Controller
             $salaireBase = $this->recupererSalaireBase($employe->id);
             $tauxHoraire = $salaireBase > 0 ? $salaireBase / 173.33 : 0;
 
-            [$heuresTrav, $details, $absences, $retardsTotal] = $this->calculerHeuresMois($employe->id, $mois);
+            [$heuresTrav, $details, $absences, $retardsTotal, $heuresManquantes] = $this->calculerHeuresMois($employe->id, $mois);
             [$heuresSup, $montantHs, $heuresNuit, $montantNuit] = $this->calculerHsHebdo($details, $tauxHoraire);
 
             $deductionRetards = ($retardsTotal / 60) * $tauxHoraire;
             $deductionAbsences = $absences * ($salaireBase / 30);
+            $deductionPartiel = $heuresManquantes * $tauxHoraire;
 
             $brut = $salaireBase
                 + $param->prime_transport
@@ -51,8 +54,12 @@ class PaieController extends Controller
             $ostie = $brut * (($param->ostie_taux_employe ?? $param->ostie) / 100);
             $revenuImposable = max(0, $brut - $cnaps - $ostie);
             $irsa  = $this->calculerIrsaProgressif($revenuImposable);
-            // $retenues = $cnaps + $ostie + $irsa + $deductionRetards + $deductionAbsences;
+            $settings = $this->loadWorktimeSettings();
+            $appliquerSalaire = (bool) ($settings['deduct_from_salary'] ?? true);
             $retenues = $cnaps + $ostie + $irsa;
+            if ($appliquerSalaire) {
+                $retenues += $deductionRetards + $deductionAbsences + $deductionPartiel;
+            }
 
             Log::info("Calcul paie pour Employe ID: {$employe->id}, Mois: {$mois}");
             Log::info("retenues: CNAPS: {$cnaps}, OSTIE: {$ostie}, IRSA: {$irsa}, Retards: {$deductionRetards}, Absences: {$deductionAbsences}");
@@ -119,6 +126,7 @@ class PaieController extends Controller
     {
         $start = Carbon::createFromFormat('Y-m', $mois)->startOfMonth();
         $end   = (clone $start)->endOfMonth();
+        $settings = $this->loadWorktimeSettings();
 
         $pointages = Pointage::forEmploye($employeId)
             ->between($start->toDateString(), $end->toDateString())
@@ -129,6 +137,7 @@ class PaieController extends Controller
         $totalHeures = 0;
         $totalRetards = 0;
         $absences = 0;
+        $heuresManquantes = 0;
         $details = [];
 
         $period = new DatePeriod($start, new DateInterval('P1D'), $end->copy()->addDay());
@@ -137,10 +146,20 @@ class PaieController extends Controller
             $jour = $day->format('Y-m-d');
             $liste = $pointages[$jour] ?? collect();
             $resume = $this->calculerJournee($liste, $jour);
+            if ($resume['absent'] && $this->isCongeValide($employeId, $jour)) {
+                $resume['absent'] = false;
+                $resume['absence_justifiee'] = true;
+            }
             $totalHeures += $resume['heures_travaillees'];
             $totalRetards += $resume['retard_minutes'];
             if ($resume['absent']) {
                 $absences++;
+            }
+
+            if (!$resume['ferie'] && !$resume['weekend'] && !$resume['absence_justifiee']) {
+                if ($resume['present_partiel'] && ($settings['hours_per_day'] ?? 8) > $resume['heures_travaillees']) {
+                    $heuresManquantes += ($settings['hours_per_day'] ?? 8) - $resume['heures_travaillees'];
+                }
             }
 
             $details[] = [
@@ -149,34 +168,51 @@ class PaieController extends Controller
                 'heures_supplementaires' => $resume['heures_supplementaires'],
                 'retard_minutes' => $resume['retard_minutes'],
                 'absent' => $resume['absent'],
+                'absence_justifiee' => $resume['absence_justifiee'],
+                'ferie' => $resume['ferie'],
+                'weekend' => $resume['weekend'],
+                'present_partiel' => $resume['present_partiel'],
             ];
         }
 
-        return [$totalHeures, $details, $absences, $totalRetards];
+        return [$totalHeures, $details, $absences, $totalRetards, $heuresManquantes];
     }
 
     protected function calculerJournee($pointages, $jour)
     {
-        $dayCode = Carbon::parse($jour)->format('D'); // Mon, Tue...
-        $dayCode = strtolower(substr($dayCode, 0, 3)); // mon, tue, wed...
         $settings = $this->loadWorktimeSettings();
+        $hoursPerDay = (float) ($settings['hours_per_day'] ?? 8);
+        $startHour = (int) ($settings['start_hour'] ?? 8);
+        $startMinute = (int) ($settings['start_minute'] ?? 0);
         $workingDays = $settings['working_days'] ?? ['mon','tue','wed','thu','fri'];
-        $saturdayMode = $settings['saturday_mode'] ?? 'normal'; // normal|hs
-        $isSunday = $dayCode === 'sun';
+        $saturdayMode = $settings['saturday_mode'] ?? 'normal';
+
+        $date = Carbon::parse($jour);
+        $dayCode = strtolower(substr($date->format('D'), 0, 3));
+        $isSunday = $date->isSunday();
         $isSaturday = $dayCode === 'sat';
+        $isHoliday = $this->isHoliday($date);
         $isWorking = in_array($dayCode, $workingDays) || ($isSaturday && $saturdayMode === 'normal');
+        $isWeekend = ($isSaturday || $isSunday) && !$isWorking;
 
         if ($pointages->isEmpty()) {
             return [
                 'heures_travaillees' => 0,
                 'heures_supplementaires' => 0,
                 'retard_minutes' => 0,
-                // absent seulement si c'est un jour travaillé
-                'absent' => $isWorking,
+                'premiere_entree' => null,
+                'derniere_sortie' => null,
+                'absent' => $isWorking && !$isHoliday,
+                'absence_justifiee' => false,
+                'conge' => false,
+                'dimanche' => $isSunday,
+                'ferie' => $isHoliday,
+                'weekend' => $isWeekend,
+                'minutes_pauses' => 0,
+                'present_partiel' => false,
             ];
         }
 
-        $date = Carbon::parse($jour);
         $premiereEntree = $pointages->firstWhere('type', 'entree');
         $derniereSortie = $pointages->where('type', 'sortie')->last();
 
@@ -185,7 +221,16 @@ class PaieController extends Controller
                 'heures_travaillees' => 0,
                 'heures_supplementaires' => 0,
                 'retard_minutes' => 0,
-                'absent' => true,
+                'premiere_entree' => optional($premiereEntree)->pointe_a,
+                'derniere_sortie' => optional($derniereSortie)->pointe_a,
+                'absent' => $isWorking && !$isHoliday,
+                'absence_justifiee' => false,
+                'conge' => false,
+                'dimanche' => $isSunday,
+                'ferie' => $isHoliday,
+                'weekend' => $isWeekend,
+                'minutes_pauses' => 0,
+                'present_partiel' => false,
             ];
         }
 
@@ -195,28 +240,38 @@ class PaieController extends Controller
         $minutesBrut = $debut->diffInMinutes($fin);
         $pauses = $this->calculerDureePauses($pointages);
         $minutesTravail = max(0, $minutesBrut - $pauses);
-
-        $settings = $this->loadWorktimeSettings();
-        $hoursPerDay = (float) ($settings['hours_per_day'] ?? 8);
-        $minutesNormales = $hoursPerDay * 60;
+        $minutesNormales = max(0, ($hoursPerDay * 60) - ($settings['pause_minutes'] ?? 60));
 
         $heuresTravaillees = round($minutesTravail / 60, 2);
         $heuresSupp = max(0, round(($minutesTravail - $minutesNormales) / 60, 2));
 
-        $settings = $this->loadWorktimeSettings();
-        $startHour = (int) ($settings['start_hour'] ?? 8);
-        $startMinute = (int) ($settings['start_minute'] ?? 0);
+        if ($isHoliday || $isWeekend) {
+            $heuresSupp = $heuresTravaillees;
+            $heuresTravaillees = 0;
+        }
+
         $heureTheorique = (clone $date)->setTime($startHour, $startMinute, 0);
         $retardMinutes = 0;
-        if ($debut->greaterThan($heureTheorique)) {
+        if (!$isHoliday && !$isWeekend && $debut->greaterThan($heureTheorique)) {
             $retardMinutes = $heureTheorique->diffInMinutes($debut);
         }
+
+        $presentPartiel = $heuresTravaillees > 0 && $heuresTravaillees < $hoursPerDay && !$isHoliday && !$isWeekend;
 
         return [
             'heures_travaillees'      => $heuresTravaillees,
             'heures_supplementaires'  => $heuresSupp,
             'retard_minutes'          => $retardMinutes,
+            'premiere_entree'         => $debut,
+            'derniere_sortie'         => $fin,
             'absent'                  => false,
+            'absence_justifiee'       => false,
+            'conge'                   => false,
+            'dimanche'                => $isSunday,
+            'ferie'                   => $isHoliday,
+            'weekend'                 => $isWeekend,
+            'minutes_pauses'          => $pauses,
+            'present_partiel'         => $presentPartiel,
         ];
     }
 
@@ -236,6 +291,29 @@ class PaieController extends Controller
             }
         }
         return $total;
+    }
+
+    protected function isCongeValide(int $employeId, string $jour): bool
+    {
+        return DemandeConge::where('employe_id', $employeId)
+            ->where('statut', 'rh_valide')
+            ->whereDate('date_debut', '<=', $jour)
+            ->whereDate('date_fin', '>=', $jour)
+            ->exists();
+    }
+
+    protected function isHoliday(Carbon $date): bool
+    {
+        $dayMonth = $date->format('m-d');
+        return JourFerie::where(function ($q) use ($date) {
+                $q->whereDate('date', $date->toDateString())
+                  ->where('recurrent', false);
+            })
+            ->orWhere(function ($q) use ($dayMonth) {
+                $q->whereRaw("to_char(date, 'MM-DD') = ?", [$dayMonth])
+                  ->where('recurrent', true);
+            })
+            ->exists();
     }
 
     /**
@@ -342,6 +420,8 @@ class PaieController extends Controller
                 'night_start' => $setting->night_start ?? config('worktime.night_start'),
                 'night_end' => $setting->night_end ?? config('worktime.night_end'),
                 'night_rate' => $setting->night_rate ?? config('worktime.night_rate'),
+                'deduct_from_leave_balance' => $setting->deduct_from_leave_balance ?? config('worktime.deduct_from_leave_balance', true),
+                'deduct_from_salary' => $setting->deduct_from_salary ?? config('worktime.deduct_from_salary', true),
             ];
         }
         return config('worktime');

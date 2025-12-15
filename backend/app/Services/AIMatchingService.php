@@ -28,13 +28,23 @@ class AIMatchingService
         // D'abord, calculer le matching classique
         $matchingClassique = $this->matchingService->calculerCompatibilite($employe, $poste);
 
+        // Si aucune clé API, on retourne simplement le matching classique pour éviter les erreurs
+        // if (empty($this->apiKey)) {
+        //     return [
+        //         'matching_classique' => $matchingClassique,
+        //         'analyse_ia' => null,
+        //         'score_combine' => $matchingClassique['score_global'],
+        //         'message' => 'Analyse IA non disponible (clé API manquante)',
+        //     ];
+        // }
+
         // Préparer les données pour l'IA
         $profilEmploye = $this->buildEmployeProfile($employe);
         $profilPoste = $this->buildPosteProfile($poste);
 
         try {
             $analyseIA = $this->callAIAnalysis($profilEmploye, $profilPoste, $matchingClassique);
-            
+
             return [
                 'matching_classique' => $matchingClassique,
                 'analyse_ia' => $analyseIA,
@@ -58,12 +68,12 @@ class AIMatchingService
     {
         $competences = $employe->competences()->with('categorie')->get();
         $formations = $employe->formations()->get();
-        
+
         return [
             'nom' => $employe->nom . ' ' . $employe->prenom,
             'poste_actuel' => $employe->poste?->nom,
             'departement' => $employe->departement?->nom,
-            'anciennete' => $employe->date_embauche 
+            'anciennete' => $employe->date_embauche
                 ? now()->diffInMonths($employe->date_embauche) . ' mois'
                 : 'N/A',
             'competences' => $competences->map(fn($c) => [
@@ -86,7 +96,7 @@ class AIMatchingService
     private function buildPosteProfile(Poste $poste): array
     {
         $competencesRequises = $poste->competences()->get();
-        
+
         return [
             'titre' => $poste->nom,
             'departement' => $poste->departement?->nom,
@@ -143,7 +153,7 @@ PROMPT;
         $response = Http::withHeaders([
             'Authorization' => 'Bearer ' . $this->apiKey,
             'Content-Type' => 'application/json',
-        ])->post($this->apiUrl, [
+        ])->withoutVerifying()->post($this->apiUrl, [
             'model' => $this->model,
             'messages' => [
                 ['role' => 'system', 'content' => $systemPrompt],
@@ -160,7 +170,7 @@ PROMPT;
 
         $data = $response->json();
         $content = $data['choices'][0]['message']['content'] ?? '{}';
-        
+
         return json_decode($content, true) ?? [];
     }
 
@@ -185,6 +195,15 @@ PROMPT;
             return [
                 'success' => false,
                 'error' => 'Clé API non configurée',
+                // 'success' => true,
+                // 'poste' => [
+                //     'id' => $poste->id,
+                //     'titre' => $poste->nom,
+                // ],
+                // 'score' => 0,
+                // 'analyse' => 'Analyse IA non disponible (clé API manquante)',
+                // 'points_forts' => [],
+                // 'points_faibles' => [],
             ];
         }
 
@@ -220,7 +239,7 @@ PROMPT;
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $this->apiKey,
                 'Content-Type' => 'application/json',
-            ])->post($this->apiUrl, [
+            ])->withoutVerifying()->post($this->apiUrl, [
                 'model' => $this->model,
                 'messages' => [
                     ['role' => 'system', 'content' => sprintf($systemPrompt, implode(', ', $listeCompetences))],
@@ -299,7 +318,7 @@ PROMPT;
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $this->apiKey,
                 'Content-Type' => 'application/json',
-            ])->post($this->apiUrl, [
+            ])->withoutVerifying()->post($this->apiUrl, [
                 'model' => $this->model,
                 'messages' => [
                     ['role' => 'system', 'content' => $systemPrompt],
@@ -316,7 +335,7 @@ PROMPT;
 
             $data = $response->json();
             $content = $data['choices'][0]['message']['content'] ?? '{}';
-            
+
             return [
                 'success' => true,
                 'suggestions_ia' => json_decode($content, true),
@@ -339,9 +358,46 @@ PROMPT;
         $historiquePostes = $employe->historiquePostes()->with('poste')->orderBy('date_changement')->get();
 
         if (empty($this->apiKey)) {
+            // Fallback local (sans IA) pour éviter un écran vide
+            $postesCompatibles = $this->matchingService
+                ->trouverPostesCompatibles($employe, 3)
+                ->map(function ($p) {
+                    return [
+                        'poste' => $p['poste']['nom'] ?? 'Poste',
+                        'poste_id' => $p['poste']['id'] ?? null,
+                        'score' => $p['compatibilite']['score_global'] ?? null,
+                    ];
+                })
+                ->toArray();
+
             return [
-                'success' => false,
-                'error' => 'Clé API non configurée',
+                'success' => true,
+                'employe' => [
+                    'id' => $employe->id,
+                    'nom' => $employe->nom . ' ' . $employe->prenom,
+                    'poste' => $employe->poste?->nom,
+                ],
+                'plan_carriere' => [
+                    'analyse_parcours' => 'Plan généré sans IA (clé API manquante)',
+                    'points_forts_carriere' => [],
+                    'axes_amelioration' => [],
+                    'postes_cibles_court_terme' => $postesCompatibles,
+                    'postes_compatibles' => $postesCompatibles,
+                    'postes_cibles_moyen_terme' => [],
+                    'plan_action' => [
+                        [
+                            'action' => 'Identifier les compétences manquantes pour le poste cible',
+                            'delai' => '3 mois',
+                            'objectif' => 'Réduire l’écart de compétences',
+                        ],
+                        [
+                            'action' => 'Suivre 1-2 formations ciblées',
+                            'delai' => '6 mois',
+                            'objectif' => 'Atteindre le niveau requis',
+                        ],
+                    ],
+                    'conseil_personnalise' => 'Ajoutez une clé API pour obtenir un plan détaillé généré par l’IA.',
+                ],
             ];
         }
 
@@ -380,7 +436,7 @@ PROMPT;
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $this->apiKey,
                 'Content-Type' => 'application/json',
-            ])->post($this->apiUrl, [
+            ])->withoutVerifying()->post($this->apiUrl, [
                 'model' => $this->model,
                 'messages' => [
                     ['role' => 'system', 'content' => $systemPrompt],

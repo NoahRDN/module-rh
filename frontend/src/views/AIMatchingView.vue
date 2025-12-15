@@ -39,7 +39,7 @@
             <select v-model="profilForm.poste_id">
               <option value="">Sélectionnez un poste</option>
               <option v-for="poste in postes" :key="poste.id" :value="poste.id">
-                {{ poste.titre }}
+                {{ poste.titre || poste.nom }}
               </option>
             </select>
           </div>
@@ -60,7 +60,7 @@
               <span class="score-label">Compatibilité</span>
             </div>
             <div class="result-info">
-              <h4>{{ profilResult.employe?.nom }} → {{ profilResult.poste?.titre }}</h4>
+              <h4>{{ normalizeEmployeName(profilResult.employe) }} → {{ normalizePosteTitle(profilResult.poste) }}</h4>
               <p class="compatibility-text">{{ getCompatibilityText(profilResult.score_global) }}</p>
             </div>
           </div>
@@ -72,6 +72,7 @@
                 <li v-for="(point, i) in profilResult.analyse_ia?.points_forts || []" :key="i">
                   {{ point }}
                 </li>
+                <li v-if="!(profilResult.analyse_ia?.points_forts || []).length" class="muted">Aucune donnée</li>
               </ul>
             </div>
             <div class="section">
@@ -80,6 +81,7 @@
                 <li v-for="(point, i) in profilResult.analyse_ia?.points_amelioration || []" :key="i">
                   {{ point }}
                 </li>
+                <li v-if="!(profilResult.analyse_ia?.points_amelioration || []).length" class="muted">Aucune donnée</li>
               </ul>
             </div>
             <div class="section full-width">
@@ -92,6 +94,7 @@
                 >
                   🎓 {{ formation }}
                 </div>
+                <div v-if="!(profilResult.analyse_ia?.formations_recommandees || []).length" class="muted">Aucune recommandation</div>
               </div>
             </div>
           </div>
@@ -102,20 +105,20 @@
     <!-- Tab: Analyse CV -->
     <div v-if="activeTab === 'cv'" class="card">
       <div class="card-header">
-        <h3>📄 Analyser un CV</h3>
-      </div>
-      <div class="card-body">
-        <div class="form-group">
-          <label>Poste cible</label>
-          <select v-model="cvForm.poste_id">
-            <option value="">Sélectionnez un poste</option>
-            <option v-for="poste in postes" :key="poste.id" :value="poste.id">
-              {{ poste.titre }}
-            </option>
-          </select>
+          <h3>📄 Analyser un CV</h3>
         </div>
-        
-        <div class="form-group">
+        <div class="card-body">
+          <div class="form-group">
+            <label>Poste cible</label>
+            <select v-model="cvForm.poste_id">
+              <option value="">Sélectionnez un poste</option>
+              <option v-for="poste in postes" :key="poste.id" :value="poste.id">
+                {{ poste.titre || poste.nom }}
+              </option>
+            </select>
+          </div>
+          
+          <div class="form-group">
           <label>Contenu du CV</label>
           <textarea 
             v-model="cvForm.cv_text"
@@ -133,17 +136,17 @@
         </button>
 
         <!-- Résultat analyse CV -->
-        <div v-if="cvResult" class="analysis-result cv-result">
-          <div class="result-header">
-            <div class="score-display" :class="getScoreClass(cvResult.score)">
-              <span class="score-value">{{ cvResult.score }}%</span>
-              <span class="score-label">Match</span>
+          <div v-if="cvResult" class="analysis-result cv-result">
+            <div class="result-header">
+              <div class="score-display" :class="getScoreClass(cvResult.score)">
+                <span class="score-value">{{ cvResult.score }}%</span>
+                <span class="score-label">Match</span>
+              </div>
+              <div class="result-info">
+                <h4>Analyse pour : {{ normalizePosteTitle(cvResult.poste) }}</h4>
+                <p>{{ getCompatibilityText(cvResult.score) }}</p>
+              </div>
             </div>
-            <div class="result-info">
-              <h4>Analyse pour : {{ cvResult.poste?.titre }}</h4>
-              <p>{{ getCompatibilityText(cvResult.score) }}</p>
-            </div>
-          </div>
 
           <div class="ai-analysis">
             <h5>🤖 Analyse IA</h5>
@@ -165,7 +168,7 @@
             <select v-model="candidatsForm.poste_id" @change="loadCandidats">
               <option value="">Sélectionnez un poste</option>
               <option v-for="poste in postes" :key="poste.id" :value="poste.id">
-                {{ poste.titre }}
+                {{ poste.titre || poste.nom }}
               </option>
             </select>
           </div>
@@ -207,7 +210,7 @@
                 {{ comp }}
               </span>
             </div>
-            <button class="btn btn-sm btn-outline" @click="viewEmploye(candidat.employe_id)">
+            <button class="btn btn-sm btn-outline" @click="viewEmploye(candidat.employe.id)">
               Voir profil
             </button>
           </div>
@@ -253,19 +256,45 @@
             </p>
           </div>
 
-          <div class="plan-content" v-html="formatCareerPlan(planCarriere.plan)"></div>
+          <div v-if="planCarriere.parcours?.length" class="plan-section">
+            <h5>📈 Parcours conseillé</h5>
+            <ul>
+              <li v-for="(etape, idx) in planCarriere.parcours" :key="idx">
+                {{ etape.poste || etape.titre || etape.position || 'Étape' }} 
+                <span v-if="etape.horizon"> - {{ etape.horizon }}</span>
+              </li>
+            </ul>
+          </div>
+
+          <div v-if="planCarriere.plan_action?.length" class="plan-section">
+            <h5>🛠️ Plan d'action</h5>
+            <ul>
+              <li v-for="(action, idx) in planCarriere.plan_action" :key="idx">
+                {{ action.action || action.objectif || action.action_plan }} 
+                <span v-if="action.delai"> ({{ action.delai }})</span>
+              </li>
+            </ul>
+          </div>
+
+          <div v-if="planCarriere.conseil" class="plan-section">
+            <h5>💡 Conseil personnalisé</h5>
+            <p>{{ planCarriere.conseil }}</p>
+          </div>
+
+          <div v-if="!planCarriere.parcours?.length && !planCarriere.plan_action?.length && !planCarriere.conseil" class="plan-content" v-html="formatCareerPlan(planCarriere.planText || planCarriere.plan)"></div>
 
           <div v-if="planCarriere.postes_compatibles" class="compatible-positions">
             <h5>📌 Postes compatibles suggérés</h5>
             <div class="positions-grid">
               <div 
                 v-for="poste in planCarriere.postes_compatibles.slice(0, 5)" 
-                :key="poste.poste_id"
+                :key="poste.id || poste.poste_id || poste.titre"
                 class="position-card"
               >
-                <span class="position-title">{{ poste.poste_titre }}</span>
+                <span class="position-title">{{ poste.titre }}</span>
                 <span class="position-score">{{ poste.score }}%</span>
               </div>
+              <div v-if="!planCarriere.postes_compatibles.length" class="muted">Aucun poste compatible proposé</div>
             </div>
           </div>
         </div>
@@ -293,7 +322,7 @@
             <select v-model="formationsForm.poste_id">
               <option value="">Aucun</option>
               <option v-for="poste in postes" :key="poste.id" :value="poste.id">
-                {{ poste.titre }}
+                {{ poste.titre || poste.nom }}
               </option>
             </select>
           </div>
@@ -308,7 +337,34 @@
 
         <div v-if="suggestionsFormations" class="formations-suggestions">
           <h4>Formations recommandées</h4>
-          <div class="suggestions-list" v-html="formatSuggestions(suggestionsFormations.suggestions)"></div>
+          <div class="suggestions-list">
+            <ul v-if="Array.isArray(suggestionsFormations.suggestions) && suggestionsFormations.suggestions.length">
+              <li v-for="(s, idx) in suggestionsFormations.suggestions" :key="idx">{{ s }}</li>
+            </ul>
+            <div v-else-if="suggestionsFormations.formations?.length">
+              <div 
+                v-for="(item, idx) in suggestionsFormations.formations" 
+                :key="item.formation?.id || idx"
+                class="formation-card"
+              >
+                <div class="formation-header">
+                  <div>
+                    <h5>{{ item.formation?.titre || 'Formation' }}</h5>
+                    <p class="muted">{{ item.formation?.code }}</p>
+                  </div>
+                  <span class="badge">{{ item.priorite || 'priorité' }}</span>
+                </div>
+                <p class="muted">{{ item.formation?.description }}</p>
+                <div class="formation-meta">
+                  <span>{{ item.formation?.duree_heures || '?' }}h • {{ item.formation?.type }}</span>
+                  <span v-if="item.pour_competence">Cible : {{ item.pour_competence }}</span>
+                  <span v-if="item.ecart_comble">Écart comblé : {{ item.ecart_comble }}</span>
+                </div>
+                <div v-if="item.raison" class="muted">{{ item.raison }}</div>
+              </div>
+            </div>
+            <div v-else class="muted">Aucune suggestion reçue</div>
+          </div>
           
           <div v-if="suggestionsFormations.ecarts_competences?.length" class="gaps-section">
             <h5>📉 Écarts de compétences identifiés</h5>
@@ -339,7 +395,7 @@ export default {
       activeTab: 'profil',
       tabs: [
         { key: 'profil', icon: '📊', label: 'Analyse Profil' },
-        { key: 'cv', icon: '📄', label: 'Analyse CV' },
+        // { key: 'cv', icon: '📄', label: 'Analyse CV' },
         { key: 'candidats', icon: '👥', label: 'Candidats' },
         { key: 'carriere', icon: '🚀', label: 'Plan Carrière' },
         { key: 'formations', icon: '📚', label: 'Formations' }
@@ -377,10 +433,31 @@ export default {
     this.loadPostes()
   },
   methods: {
+    normalizePosteTitle(poste) {
+      if (!poste) return 'Poste';
+      return poste.titre || poste.nom || poste.poste_titre || 'Poste';
+    },
+    normalizeEmployeName(emp) {
+      if (!emp) return 'Employé';
+      if (typeof emp === 'string') return emp;
+      return `${emp.nom || ''} ${emp.prenom || ''}`.trim() || emp.employe_nom || 'Employé';
+    },
+    normalizeList(val, fallback = []) {
+      if (Array.isArray(val)) {
+        return val.filter(Boolean);
+      }
+      if (typeof val === 'string') {
+        return val
+          .split(/[\n;•-]+/)
+          .map(v => v.trim())
+          .filter(Boolean);
+      }
+      return fallback;
+    },
     async loadEmployes() {
       try {
         const response = await api.get('/employes')
-        this.employes = response.data.data || response.data || []
+        this.employes = response.data?.data || response.data || []
       } catch (error) {
         console.error('Erreur chargement employés:', error)
       }
@@ -388,7 +465,7 @@ export default {
     async loadPostes() {
       try {
         const response = await api.get('/postes')
-        this.postes = response.data.data || response.data || []
+        this.postes = response.data?.data || response.data || []
       } catch (error) {
         console.error('Erreur chargement postes:', error)
       }
@@ -401,7 +478,42 @@ export default {
           this.profilForm.employe_id,
           this.profilForm.poste_id
         )
-        this.profilResult = response.data
+        const res = response.data || {}
+        const analyseIa = res.analyse_ia || {}
+        const matching = res.matching_classique || {}
+        const employeObj = this.employes.find(e => e.id === this.profilForm.employe_id) || res.employe
+        const posteObj = this.postes.find(p => p.id === this.profilForm.poste_id) || res.poste
+        const pointsForts = this.normalizeList(
+          analyseIa.points_forts,
+          matching.competences_ok?.map(c => `${c.nom} (niveau ${c.niveau_employe}/${c.niveau_requis})`) || []
+        )
+        const pointsAmelioration = this.normalizeList(
+          analyseIa.points_amelioration ?? analyseIa.points_faibles ?? analyseIa.points_fort,
+          [
+            ...(matching.competences_manquantes || []).map(c => `${c.nom} à acquérir (niv ${c.niveau_requis})`),
+            ...(matching.competences_insuffisantes || []).map(c => `${c.nom} à renforcer (niv ${c.niveau_employe}/${c.niveau_requis})`)
+          ]
+        )
+        let formationsRec = this.normalizeList(
+          analyseIa.formations_recommandees ?? analyseIa.recommandations,
+          []
+        )
+        if (!formationsRec.length && matching.competences_manquantes?.length) {
+          formationsRec = matching.competences_manquantes.map(c => `Formation sur ${c.nom} (objectif niveau ${c.niveau_requis})`)
+        }
+
+        this.profilResult = {
+          score_global: res.score_combine ?? matching.score_global ?? res.score ?? 0,
+          employe: employeObj,
+          poste: posteObj,
+          analyse_ia: {
+            points_forts: pointsForts,
+            points_amelioration: pointsAmelioration,
+            formations_recommandees: formationsRec,
+            commentaire_global: analyseIa.commentaire_global || analyseIa.commentaire
+          },
+          matching_classique: matching
+        }
       } catch (error) {
         console.error('Erreur analyse profil:', error)
         alert('Erreur lors de l\'analyse')
@@ -417,7 +529,14 @@ export default {
           this.cvForm.cv_text,
           this.cvForm.poste_id
         )
-        this.cvResult = response.data
+        const res = response.data || {}
+        const posteObj = this.postes.find(p => p.id === this.cvForm.poste_id)
+        this.cvResult = {
+          ...res,
+          poste: posteObj || res.poste,
+          score: res.score ?? res.score_compatibilite ?? res.score_global ?? 0,
+          analyse: res.analyse || res.commentaire || res.recommandation || res.analysis
+        }
       } catch (error) {
         console.error('Erreur analyse CV:', error)
         alert('Erreur lors de l\'analyse du CV')
@@ -435,7 +554,21 @@ export default {
           this.candidatsForm.poste_id,
           this.candidatsForm.limit
         )
-        this.candidats = response.data.candidats || []
+        const raw = response.data?.candidats || response.data?.candidats_ia || response.data?.autres_candidats || response.data || []
+        this.candidats = raw.map(c => {
+          const employe = c.employe || {}
+          const compat = c.compatibilite || {}
+          return {
+            ...c,
+            employe_nom: c.employe_nom || this.normalizeEmployeName(employe),
+            poste_actuel: c.poste_actuel || employe.poste_actuel || employe.poste || employe.poste_nom,
+            score: c.score ?? c.score_global ?? compat.score_global ?? 0,
+            competences_matchees: this.normalizeList(
+              c.competences_matchees || compat.competences_ok?.map(cc => cc.nom),
+              []
+            )
+          }
+        })
       } catch (error) {
         console.error('Erreur chargement candidats:', error)
       } finally {
@@ -447,7 +580,24 @@ export default {
       this.planCarriere = null
       try {
         const response = await aiMatchingService.planCarriere(this.carriereForm.employe_id)
-        this.planCarriere = response.data
+        const res = response.data || {}
+        const plan = res.plan_carriere || res.plan || ''
+        const postesCompatibles = plan?.postes_cibles || plan?.postes_compatibles || res.postes_compatibles || []
+        const parcours = Array.isArray(plan?.parcours) ? plan.parcours : []
+        const planAction = Array.isArray(plan?.plan_action) ? plan.plan_action : []
+        const conseil = plan?.conseil_personnalise || plan?.conseil || ''
+        this.planCarriere = {
+          employe: res.employe,
+          planText: typeof plan === 'string' ? plan : JSON.stringify(plan, null, 2),
+          parcours,
+          plan_action: planAction,
+          conseil,
+          postes_compatibles: postesCompatibles.map(p => ({
+            id: p.poste_id || p.id,
+            titre: p.poste || p.titre || p.poste_titre || p.nom || 'Poste',
+            score: p.score || p.score_compatibilite || ''
+          }))
+        }
       } catch (error) {
         console.error('Erreur plan carrière:', error)
         alert('Erreur lors de la génération du plan')
@@ -463,7 +613,16 @@ export default {
           this.formationsForm.employe_id,
           this.formationsForm.poste_id || null
         )
-        this.suggestionsFormations = response.data
+        const res = response.data || {}
+        const formationsArray = Array.isArray(res) ? res : (Array.isArray(res.suggestions_classiques) ? res.suggestions_classiques : [])
+        const suggestionsText = res.suggestions || res.recommandations || res.recommandation || res.analysis || []
+        const suggestionsList = Array.isArray(suggestionsText) ? suggestionsText : this.normalizeList(suggestionsText, [])
+        const formationsList = formationsArray
+        this.suggestionsFormations = {
+          suggestions: suggestionsList,
+          formations: formationsList,
+          ecarts_competences: this.normalizeList(res.ecarts_competences || res.gaps, [])
+        }
       } catch (error) {
         console.error('Erreur suggestions formations:', error)
         alert('Erreur lors de la génération des suggestions')
@@ -488,15 +647,18 @@ export default {
     },
     formatAnalysis(text) {
       if (!text) return ''
-      return text.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      const value = typeof text === 'string' ? text : JSON.stringify(text, null, 2)
+      return value.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     },
     formatCareerPlan(plan) {
       if (!plan) return ''
-      return plan.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      const value = typeof plan === 'string' ? plan : JSON.stringify(plan, null, 2)
+      return value.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     },
     formatSuggestions(suggestions) {
       if (!suggestions) return ''
-      return suggestions.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      const value = typeof suggestions === 'string' ? suggestions : JSON.stringify(suggestions, null, 2)
+      return value.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     }
   }
 }
@@ -758,6 +920,47 @@ export default {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
+.muted {
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.formation-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  background: #f8fafc;
+}
+
+.formation-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.formation-header h5 {
+  margin: 0;
+  font-size: 15px;
+  color: #1e293b;
+}
+
+.badge {
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: #e0e7ff;
+  color: #4f46e5;
+  font-size: 12px;
+  text-transform: capitalize;
+}
+
+.formation-meta {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: #475569;
+}
 /* AI Analysis */
 .ai-analysis {
   background: #f0f9ff;

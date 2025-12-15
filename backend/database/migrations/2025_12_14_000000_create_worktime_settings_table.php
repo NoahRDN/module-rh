@@ -20,6 +20,8 @@ return new class extends Migration
             $table->string('night_start')->default('22:00');
             $table->string('night_end')->default('05:00');
             $table->decimal('night_rate', 5, 2)->default(20); // en %
+            $table->boolean('deduct_from_leave_balance')->default(false);
+            $table->boolean('deduct_from_salary')->default(false);
             $table->timestamps();
         });
     }

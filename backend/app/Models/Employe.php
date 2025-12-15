@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 
 class Employe extends Model
 {
@@ -21,6 +22,7 @@ class Employe extends Model
         'date_naissance',
         'poste_id',
         'departement_id',
+        'num_cnaps',
         'photo',
         'date_embauche'
     ];
@@ -118,5 +120,29 @@ class Employe extends Model
                 $q->whereNull('date_fin')->orWhereDate('date_fin', '>=', $now);
             })
             ->exists();
+    }
+
+    /**
+     * Poste en vigueur à une date donnée en se basant sur l'historique.
+     */
+    public function posteActifPourDate($date): ?Poste
+    {
+        $cible = $date instanceof Carbon
+            ? $date
+            : (is_string($date) && strlen($date) === 7
+                ? Carbon::createFromFormat('Y-m', $date)->endOfMonth()
+                : Carbon::parse($date));
+
+        $historique = $this->historiquePostes()
+            ->with('poste')
+            ->whereDate('date_changement', '<=', $cible->toDateString())
+            ->orderByDesc('date_changement')
+            ->first();
+
+        if ($historique?->poste) {
+            return $historique->poste;
+        }
+
+        return $this->relationLoaded('poste') ? $this->poste : $this->poste()->first();
     }
 }

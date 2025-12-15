@@ -31,6 +31,12 @@ class EmployeRequest extends FormRequest
             'date_naissance' => 'nullable|date',
             'poste_id'       => 'required|exists:postes,id',
             'departement_id' => 'nullable|exists:departements,id',
+            'num_cnaps'      => [
+                'nullable',
+                'string',
+                'max:50',
+                Rule::unique('employes', 'num_cnaps')->ignore($employeId),
+            ],
             'photo'          => 'nullable|string',
             'date_embauche'  => 'required|date'
         ];

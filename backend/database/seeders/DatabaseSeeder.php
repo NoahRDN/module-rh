@@ -31,6 +31,7 @@ class DatabaseSeeder extends Seeder
             WorktimeSettingsSeeder::class,
             JourFerieSeeder::class,
             DemandeCongeSampleSeeder::class,
+            CompetenceSeeder::class,
             // TestCongeExpirationSeeder::class,
         ]);
     }

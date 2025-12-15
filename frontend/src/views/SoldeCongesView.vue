@@ -4,17 +4,30 @@
       <h1>Soldes de congés</h1>
       <span>Suivi par employé et par type</span>
     </div>
-    <div class="flex items-center gap-2">
-      <select class="select" v-model="filterEmploye" @change="debouncedFetchSoldes">
-        <option value="">Tous les employés</option>
-        <option v-for="emp in employes" :key="emp.id" :value="emp.id">{{ emp.matricule }} - {{ emp.nom }} {{ emp.prenom }}</option>
-      </select>
-    </div>
   </div>
 
   <div class="grid">
     <div class="card">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-3">
+        <div class="flex flex-wrap items-center gap-2 text-sm">
+          <span class="chip" :class="deductionClasses.leave">
+            Prélèvement solde congé : {{ deductionText(deductionSettings.deduct_from_leave_balance) }}
+          </span>
+          <span class="chip" :class="deductionClasses.salary">
+            Prélèvement salaire : {{ deductionText(deductionSettings.deduct_from_salary) }}
+          </span>
+        </div>
+        <p class="text-xs text-slate-500 max-w-xl">
+          Les absences/retards sont imputées selon ces réglages (configurés dans la page Horaires).
+        </p>
+      </div>
       <div class="grid gap-2 md:grid-cols-6 mb-3">
+        <div class="grid gap-1">
+          <select class="select" v-model="filterEmploye" @change="debouncedFetchSoldes">
+            <option value="">Tous les employés</option>
+            <option v-for="emp in employes" :key="emp.id" :value="emp.id">{{ emp.matricule }} - {{ emp.nom }} {{ emp.prenom }}</option>
+          </select>
+        </div>
         <div class="grid gap-1">
           <label class="text-xs text-slate-400">Matricule</label>
           <input class="input" placeholder="Matricule" v-model="filters.matricule" />
@@ -43,6 +56,7 @@
       <div class="flex justify-end mb-2">
         <button class="btn btn-secondary btn-xs" @click="resetFilters">Réinitialiser</button>
       </div>
+      <p v-if="message" class="text-sm text-red-400 mb-2">{{ message }}</p>
       <table class="table">
         <thead>
           <tr>
@@ -94,6 +108,12 @@ import { debounce } from '../utils/debounce'
 const soldes = ref([])
 const employes = ref([])
 const types = ref([])
+const deductionSettings = ref({ deduct_from_leave_balance: true, deduct_from_salary: true })
+const deductionClasses = computed(() => ({
+  leave: deductionSettings.value.deduct_from_leave_balance ? 'chip-on' : 'chip-off',
+  salary: deductionSettings.value.deduct_from_salary ? 'chip-on' : 'chip-off'
+}))
+const deductionText = (val) => (val ? 'Activé' : 'Désactivé')
 const filterEmploye = ref('')
 const message = ref('')
 const loading = ref(false)
@@ -126,6 +146,20 @@ const showDetail = ref(false)
 
 const fetchSoldes = async () => {
   loading.value = true
+  message.value = ''
+
+  // Interdire le futur
+  if (filters.value.simulation_date) {
+    const sim = new Date(filters.value.simulation_date)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    if (sim > today) {
+      message.value = 'Simulation interdite dans le futur. Choisissez une date au passé ou aujourd\'hui.'
+      loading.value = false
+      return
+    }
+  }
+
   const params = {
     page: pagination.value.page,
     employe_id: filterEmploye.value || undefined,
@@ -158,12 +192,19 @@ const fetchSoldes = async () => {
 const debouncedFetchSoldes = debounce(fetchSoldes, 300)
 
 const fetchRefs = async () => {
-  const [emps, tps] = await Promise.all([
+  const [emps, tps, worktime] = await Promise.all([
     api.get('/v1/employes', { params: { active_only: true } }),
-    api.get('/v1/types-conges')
+    api.get('/v1/types-conges'),
+    api.get('/v1/worktime').catch(() => ({ data: {} }))
   ])
   employes.value = emps.data.data || []
   types.value = tps.data.data || []
+  if (worktime?.data) {
+    deductionSettings.value = {
+      deduct_from_leave_balance: worktime.data.deduct_from_leave_balance ?? true,
+      deduct_from_salary: worktime.data.deduct_from_salary ?? true
+    }
+  }
 }
 
 const saveSolde = async () => {
@@ -276,3 +317,17 @@ const fetchCongesRange = async () => {
   }
 }
 </script>
+
+<style scoped>
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+.chip-on { background: rgba(34,197,94,0.12); color: #166534; }
+.chip-off { background: rgba(248,113,113,0.15); color: #b91c1c; }
+</style>

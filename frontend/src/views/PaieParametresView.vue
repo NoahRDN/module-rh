@@ -1,84 +1,95 @@
 <template>
-  <div class="flex items-center justify-between mb-4">
-    <div>
-      <h1 class="text-2xl font-semibold">Paramètres Paie</h1>
-      <p class="text-sm text-slate-500">Taux légaux & primes</p>
+  <div class="paie-settings">
+    <div class="card">
+      <div class="page-header">
+        <div class="page-title">
+          <h1>Paramètres paie</h1>
+          <span>Taux légaux, plafonds et tranches IRSA</span>
+        </div>
+        <div class="actions">
+          <button class="btn btn-secondary" @click="load">↻ Recharger</button>
+          <button class="btn" @click="save">💾 Enregistrer</button>
+        </div>
+      </div>
+
+      <div class="panel-grid">
+        <div class="setting-card">
+          <div class="setting-header">
+            <h3>Cotisations sociales</h3>
+            <p>Plafonds et taux appliqués aux salaires bruts</p>
+          </div>
+          <div class="fields-grid">
+            <div class="field">
+              <label>Plafond CNAPS</label>
+              <input class="input" v-model="form.cnaps_plafond" type="number" step="0.01" required />
+            </div>
+            <div class="field">
+              <label>CNAPS employé (%)</label>
+              <input class="input" v-model="form.cnaps_taux_employe" type="number" step="0.01" required />
+            </div>
+            <div class="field">
+              <label>CNAPS employeur (%)</label>
+              <input class="input" v-model="form.cnaps_taux_employeur" type="number" step="0.01" required />
+            </div>
+            <div class="field">
+              <label>OSTIE employé (%)</label>
+              <input class="input" v-model="form.ostie_taux_employe" type="number" step="0.01" required />
+            </div>
+            <div class="field">
+              <label>OSTIE employeur (%)</label>
+              <input class="input" v-model="form.ostie_taux_employeur" type="number" step="0.01" required />
+            </div>
+          </div>
+          <p v-if="message" class="hint">{{ message }}</p>
+        </div>
+
+        <div class="setting-card">
+          <div class="setting-header">
+            <h3>Tranches IRSA</h3>
+            <p>Barème progressif appliqué sur la base imposable</p>
+          </div>
+          <div class="table-wrapper">
+            <table class="table mb-3">
+              <thead>
+                <tr>
+                  <th>Min</th>
+                  <th>Max</th>
+                  <th>Taux (%)</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="t in tranches" :key="t.id">
+                  <td>{{ t.min_base }}</td>
+                  <td>{{ t.max_base ?? '∞' }}</td>
+                  <td>{{ t.taux }}</td>
+                  <td class="text-right">
+                    <button class="btn btn-secondary btn-xs" @click="removeTranche(t.id)">Supprimer</button>
+                  </td>
+                </tr>
+                <tr v-if="!tranches.length"><td colspan="4" class="muted text-sm">Aucune tranche</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="add-tranche">
+            <div class="field">
+              <label>Min</label>
+              <input class="input" v-model="newTranche.min_base" type="number" step="0.01" />
+            </div>
+            <div class="field">
+              <label>Max</label>
+              <input class="input" v-model="newTranche.max_base" type="number" step="0.01" />
+            </div>
+            <div class="field">
+              <label>Taux (%)</label>
+              <input class="input" v-model="newTranche.taux" type="number" step="0.01" />
+            </div>
+            <button class="btn btn-secondary" @click="addTranche">Ajouter tranche</button>
+          </div>
+        </div>
+      </div>
     </div>
-  </div>
-
-  <div class="bg-white shadow rounded-2xl p-4 border border-slate-100">
-    <form class="grid gap-3" @submit.prevent="save">
-      <div class="grid grid-cols-2 gap-3">
-        <div>
-          <label class="text-sm text-slate-600">Plafond CNAPS</label>
-          <input class="input" v-model="form.cnaps_plafond" type="number" step="0.01" required />
-        </div>
-        <div>
-          <label class="text-sm text-slate-600">CNAPS employé (%)</label>
-          <input class="input" v-model="form.cnaps_taux_employe" type="number" step="0.01" required />
-        </div>
-      </div>
-      <div class="grid grid-cols-2 gap-3">
-        <div>
-          <label class="text-sm text-slate-600">CNAPS employeur (%)</label>
-          <input class="input" v-model="form.cnaps_taux_employeur" type="number" step="0.01" required />
-        </div>
-        <div>
-          <label class="text-sm text-slate-600">OSTIE employé (%)</label>
-          <input class="input" v-model="form.ostie_taux_employe" type="number" step="0.01" required />
-        </div>
-      </div>
-      <div class="grid grid-cols-2 gap-3">
-        <div>
-          <label class="text-sm text-slate-600">OSTIE employeur (%)</label>
-          <input class="input" v-model="form.ostie_taux_employeur" type="number" step="0.01" required />
-        </div>
-      </div>
-      <!-- IRSA géré via tranches ci-dessous -->
-      <button class="btn w-fit" type="submit">Enregistrer</button>
-      <p class="text-sm text-slate-500" v-if="message">{{ message }}</p>
-
-      <div class="mt-4">
-        <h3 class="text-sm font-semibold text-slate-700 mb-2">Tranches IRSA</h3>
-        <table class="table mb-3">
-          <thead>
-            <tr>
-              <th>Min</th>
-              <th>Max</th>
-              <th>Taux (%)</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="t in tranches" :key="t.id">
-              <td>{{ t.min_base }}</td>
-              <td>{{ t.max_base ?? '∞' }}</td>
-              <td>{{ t.taux }}</td>
-              <td class="text-right">
-                <button class="btn btn-secondary btn-xs" @click="removeTranche(t.id)">Supprimer</button>
-              </td>
-            </tr>
-            <tr v-if="!tranches.length"><td colspan="4" class="text-slate-400 text-sm">Aucune tranche</td></tr>
-          </tbody>
-        </table>
-
-        <div class="grid grid-cols-4 gap-2 items-end">
-          <div>
-            <label class="text-sm text-slate-600">Min</label>
-            <input class="input" v-model="newTranche.min_base" type="number" step="0.01" />
-          </div>
-          <div>
-            <label class="text-sm text-slate-600">Max</label>
-            <input class="input" v-model="newTranche.max_base" type="number" step="0.01" />
-          </div>
-          <div>
-            <label class="text-sm text-slate-600">Taux (%)</label>
-            <input class="input" v-model="newTranche.taux" type="number" step="0.01" />
-          </div>
-          <button class="btn btn-secondary" @click="addTranche">Ajouter tranche</button>
-        </div>
-      </div>
-    </form>
   </div>
 </template>
 
@@ -150,3 +161,74 @@ const removeTranche = async (idTranche) => {
 
 onMounted(load)
 </script>
+
+<style scoped>
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.page-title h1 { margin: 0; font-size: 20px; }
+.page-title span { color: var(--muted); }
+.actions { display: flex; gap: 8px; }
+.panel-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+}
+.setting-card {
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--card, #fff);
+  box-shadow: var(--shadow, 0 10px 30px rgba(15, 23, 42, 0.06));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.setting-header h3 { margin: 0 0 4px; font-size: 16px; }
+.setting-header p { margin: 0; color: var(--muted); font-size: 13px; }
+.field { display: grid; gap: 6px; }
+.field label { font-size: 12px; color: var(--muted); }
+.input {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  width: 100%;
+  background: var(--card, #fff);
+  color: var(--text);
+}
+.btn {
+  border: none;
+  background: linear-gradient(135deg, #0ea5e9, #2563eb);
+  color: #fff;
+  padding: 9px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  box-shadow: 0 10px 25px rgba(37, 99, 235, 0.25);
+}
+.btn-secondary { background: rgba(148, 163, 184, 0.2); color: var(--text); box-shadow: none; }
+.btn.btn-xs { padding: 6px 8px; font-size: 12px; }
+.muted { color: #94a3b8; }
+.table-wrapper { max-height: 260px; overflow: auto; }
+.table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.table th, .table td { border-bottom: 1px solid var(--border); padding: 8px; text-align: left; }
+.add-tranche {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  align-items: end;
+}
+.hint { color: #0ea5e9; font-size: 13px; margin-top: 4px; }
+.card {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--card, #fff);
+  padding: 16px;
+  box-shadow: var(--shadow, 0 10px 30px rgba(15, 23, 42, 0.06));
+}
+</style>

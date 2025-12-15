@@ -25,9 +25,10 @@ class ChatbotService
 
     public function __construct()
     {
-        $this->apiKey = config('services.gemini.api_key', '');
-        $this->apiUrl = config('services.gemini.api_url', 'https://generativelanguage.googleapis.com/v1beta/models/');
-        $this->model = config('services.gemini.model', 'gemini-1.5-flash');
+        // Cast en string pour éviter toute assignation null sur propriétés typées
+        $this->apiKey = (string) (config('services.gemini.api_key') ?? '');
+        $this->apiUrl = (string) (config('services.gemini.api_url') ?? 'https://generativelanguage.googleapis.com/v1/models/');
+        $this->model = (string) (config('services.gemini.model') ?? 'gemini-1.5-pro');
     }
 
     /**
@@ -413,7 +414,7 @@ PROMPT;
         $response = Http::timeout(30)->withHeaders([
             'Content-Type' => 'application/json',
             'x-goog-api-key' => $this->apiKey,
-        ])->post($url, [
+        ])->withoutVerifying()->post($url, [
             'contents' => [
                 [
                     'parts' => [

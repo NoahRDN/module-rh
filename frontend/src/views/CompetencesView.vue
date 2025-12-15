@@ -262,6 +262,10 @@ const loadData = async () => {
     categories.value = catRes.data.data || catRes.data
     competences.value = compRes.data.data || compRes.data
     cartographie.value = cartoRes.data
+    // si l'API renvoie {categories:[], ...}, récupérer les stats
+    if (cartographie.value?.categories) {
+      categories.value = cartographie.value.categories
+    }
   } catch (error) {
     console.error('Erreur chargement:', error)
   } finally {
@@ -652,5 +656,19 @@ onMounted(loadData)
   background: white;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.stat-card {
+  background: linear-gradient(135deg, #e0f2fe 0%, #bfdbfe 50%, #eff6ff 100%) !important;
+  color: #0f172a !important;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 10px 25px rgba(59, 130, 246, 0.18);
+}
+
+:deep(body.dark) .stat-card {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0b1324 100%) !important;
+  color: #e2e8f0 !important;
+  border: 1px solid rgba(226, 232, 240, 0.12);
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.6);
 }
 </style>

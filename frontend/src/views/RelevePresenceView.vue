@@ -36,7 +36,7 @@
           <th class="py-2 text-left text-slate-400 text-xs">HS férié</th>
           <th class="py-2 text-left text-slate-400 text-xs">Retard (min)</th>
           <th class="py-2 text-left text-slate-400 text-xs">Pauses (min)</th>
-          <th class="py-2 text-left text-slate-400 text-xs">Absence</th>
+          <th class="py-2 text-left text-slate-400 text-xs">Statut</th>
         </tr>
       </thead>
       <tbody>
@@ -48,9 +48,12 @@
           <td class="py-2">{{ jourResume.retard_minutes }}</td>
           <td class="py-2">{{ jourResume.minutes_pauses }}</td>
           <td class="py-2">
-            <span class="chip" v-if="jourResume.absence_justifiee" style="background: rgba(59,130,246,0.15); color: #93c5fd;">Absence justifiée</span>
-            <span class="chip" v-else-if="jourResume.absent" style="background: rgba(248,113,113,0.15); color: #fca5a5;">Absent</span>
-            <span class="chip" v-else style="background: rgba(34,197,94,0.15); color: #86efac;">Présent</span>
+            <span
+              v-for="chip in chips(jourResume)"
+              :key="chip.label"
+              class="chip"
+              :style="chip.style"
+            >{{ chip.label }}</span>
           </td>
         </tr>
       </tbody>
@@ -198,7 +201,7 @@
           <th class="py-2 text-left text-slate-400 text-xs">HS week-end</th>
           <th class="py-2 text-left text-slate-400 text-xs">HS férié</th>
               <th class="py-2 text-left text-slate-400 text-xs">Retard (min)</th>
-              <th class="py-2 text-left text-slate-400 text-xs">Absent</th>
+              <th class="py-2 text-left text-slate-400 text-xs">Statut</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-800/60">
@@ -209,13 +212,13 @@
               <td class="py-2">{{ d.ferie ? d.heures_supplementaires : 0 }}</td>
               <td class="py-2">{{ d.retard_minutes }}</td>
             <td class="py-2">
-            <span class="chip" v-if="d.ferie" style="background: rgba(56,189,248,0.15); color: #67e8f9;">Férié</span>
-            <span class="chip" v-else-if="d.weekend" style="background: rgba(148,163,184,0.15); color: #cbd5e1;">Week-end</span>
-            <span class="chip" v-else-if="d.absence_justifiee" style="background: rgba(59,130,246,0.15); color: #93c5fd;">Absence justifiée</span>
-            <span class="chip" v-else-if="!d.absent && d.present_partiel" style="background: rgba(251,191,36,0.15); color: #facc15;">Présence partielle</span>
-            <span class="chip" v-else-if="!d.absent" style="background: rgba(34,197,94,0.12); color: #86efac;">Présent</span>
-            <span class="chip" style="background: rgba(248,113,113,0.15); color: #fca5a5;" v-else>Absent</span>
-          </td>
+              <span
+                v-for="chip in chips(d)"
+                :key="chip.label"
+                class="chip"
+                :style="chip.style"
+              >{{ chip.label }}</span>
+            </td>
           </tr>
           <tr v-if="!weekDetails.length">
             <td colspan="6" class="py-3 text-center text-slate-500">Aucune donnée</td>
@@ -251,6 +254,21 @@ const isSundayDay = computed(() => new Date(dateJour.value).getDay() === 0)
 const monthsData = ref([])
 const selectedMonth = ref('')
 const selectedMonthWeeks = ref([])
+const chips = (row = {}) => {
+  const list = []
+  const add = (label, bg, color) => list.push({ label, style: `background:${bg};color:${color};` })
+  if (row.ferie) add('Férié', 'rgba(56,189,248,0.15)', '#67e8f9')
+  else if (row.weekend) add('Week-end', 'rgba(148,163,184,0.15)', '#cbd5e1')
+  else if (row.absence_justifiee) add('Absence justifiée', 'rgba(59,130,246,0.15)', '#93c5fd')
+  else if (row.absent) add('Absent', 'rgba(248,113,113,0.15)', '#fca5a5')
+  else if (row.present_partiel) add('Présence partielle', 'rgba(251,191,36,0.15)', '#facc15')
+  else add('Présent', 'rgba(34,197,94,0.12)', '#86efac')
+
+  if (!row.ferie && !row.weekend && row.retard_minutes > 0) {
+    add('Retard', 'rgba(249,115,22,0.15)', '#fb923c')
+  }
+  return list
+}
 
 const fetchEmployes = async () => {
   const { data } = await api.get('/v1/employes', { params: { all: 1 } })
@@ -283,12 +301,13 @@ const fetchReleve = async () => {
 
   // month or week -> on s'appuie sur releve-paie qui applique les règles (40h/sem, dimanche)
   let det = []
+  let totauxWeek = {}
   if (mode.value === 'week') {
     const { data } = await api.get('/v1/pointages/releve-paie', {
       params: { employe_id: employeId.value, mois: mois.value }
     })
     det = data.details || []
-    totaux.value = data.totaux || {}
+    totauxWeek = data.totaux || {}
   } else {
     // mode month : synthèse par mois pour l'année sélectionnée
     const year = yearOnly.value
@@ -331,7 +350,7 @@ const fetchReleve = async () => {
     details.value = []
     weekDetails.value = []
     selectedWeekLabel.value = ''
-    totaux.value = data.totaux || {}
+    totaux.value = totauxWeek
   } else {
     // mode month : recalcul des totaux sur le mois affiché
     semaines.value = []

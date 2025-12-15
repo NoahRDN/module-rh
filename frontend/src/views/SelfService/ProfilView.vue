@@ -59,7 +59,7 @@
             <div class="detail-grid">
               <div class="detail-item">
                 <span class="label">Matricule</span>
-                <span class="value">{{ profil.matricule }}</span>
+                <span class="value">{{ profil.matricule || '—' }}</span>
               </div>
               <div class="detail-item">
                 <span class="label">Date d'embauche</span>
@@ -72,6 +72,14 @@
               <div class="detail-item">
                 <span class="label">Type de contrat</span>
                 <span class="value">{{ profil.contrat_actuel?.type || '-' }}</span>
+              </div>
+              <div class="detail-item" v-if="profil.contrat_actuel?.date_debut">
+                <span class="label">Début contrat</span>
+                <span class="value">{{ formatDate(profil.contrat_actuel?.date_debut) }}</span>
+              </div>
+              <div class="detail-item" v-if="profil.contrat_actuel?.date_fin">
+                <span class="label">Fin contrat</span>
+                <span class="value">{{ formatDate(profil.contrat_actuel?.date_fin) }}</span>
               </div>
             </div>
           </div>
@@ -199,11 +207,8 @@ const showEditModal = ref(false)
 
 const editForm = ref({
   telephone: '',
-  email_personnel: '',
   adresse: '',
-  contact_urgence_nom: '',
-  contact_urgence_telephone: '',
-  contact_urgence_relation: ''
+  photo: ''
 })
 
 const passwordForm = ref({
@@ -241,16 +246,21 @@ const loadProfil = async () => {
   loading.value = true
   try {
     const res = await selfServiceService.getProfil()
-    profil.value = res.data.data || res.data
+    const payload = res.data?.data || res.data || {}
+    const employe = payload.employe || payload
+    const user = payload.user || {}
+    // enrichir avec email utilisateur
+    profil.value = {
+      ...employe,
+      email: user.email || employe.email,
+      contrat_actuel: employe.contrats?.[0] || employe.contrat_actuel || {}
+    }
     
     // Préremplir le formulaire d'édition
     editForm.value = {
       telephone: profil.value.telephone || '',
-      email_personnel: profil.value.email_personnel || '',
       adresse: profil.value.adresse || '',
-      contact_urgence_nom: profil.value.contact_urgence_nom || '',
-      contact_urgence_telephone: profil.value.contact_urgence_telephone || '',
-      contact_urgence_relation: profil.value.contact_urgence_relation || ''
+      photo: profil.value.photo || ''
     }
   } catch (error) {
     console.error('Erreur:', error)
@@ -283,7 +293,11 @@ const changerMotDePasse = async () => {
   
   savingPassword.value = true
   try {
-    await selfServiceService.changerMotDePasse(passwordForm.value)
+    await selfServiceService.changerMotDePasse({
+      mot_de_passe_actuel: passwordForm.value.current_password,
+      nouveau_mot_de_passe: passwordForm.value.new_password,
+      nouveau_mot_de_passe_confirmation: passwordForm.value.new_password_confirmation
+    })
     passwordForm.value = { current_password: '', new_password: '', new_password_confirmation: '' }
     alert('Mot de passe modifié avec succès!')
   } catch (error) {

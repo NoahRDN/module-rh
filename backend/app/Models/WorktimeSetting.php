@@ -17,6 +17,8 @@ class WorktimeSetting extends Model
         'night_start',
         'night_end',
         'night_rate',
+        'deduct_from_leave_balance',
+        'deduct_from_salary',
     ];
 
     protected $casts = [
@@ -24,5 +26,7 @@ class WorktimeSetting extends Model
         'multipliers' => 'array',
         'night_start' => 'string',
         'night_end' => 'string',
+        'deduct_from_leave_balance' => 'boolean',
+        'deduct_from_salary' => 'boolean',
     ];
 }

@@ -9,66 +9,127 @@
     </div>
 
     <nav class="menu">
-      <RouterLink
-        v-for="item in items"
-        :key="item.to"
-        :to="item.to"
-        class="menu-item"
-        :class="{ active: route.path === item.to || route.path.startsWith(item.to + '/') }"
-      >
-        <span class="icon">{{ item.icon }}</span>
-        <div>
-          <p class="label">{{ item.label }}</p>
-          <p class="hint" v-if="item.hint">{{ item.hint }}</p>
+      <div v-for="group in groups" :key="group.label" class="menu-group">
+        <button class="group-toggle" @click="toggle(group.label)">
+          <span class="icon">{{ group.icon }}</span>
+          <span class="label">{{ group.label }}</span>
+          <span class="chevron" :class="{ open: openGroups[group.label] }">▾</span>
+        </button>
+        <div v-show="openGroups[group.label]" class="group-items">
+          <RouterLink
+            v-for="item in group.items"
+            :key="item.to"
+            :to="item.to"
+            class="menu-item"
+            :class="{ active: route.path === item.to || route.path.startsWith(item.to + '/') }"
+          >
+            <span class="icon">{{ item.icon }}</span>
+            <div>
+              <p class="label">{{ item.label }}</p>
+              <p class="hint" v-if="item.hint">{{ item.hint }}</p>
+            </div>
+          </RouterLink>
         </div>
-      </RouterLink>
+      </div>
     </nav>
   </aside>
 </template>
 
 <script setup>
+import { reactive } from 'vue'
 import { useRoute } from 'vue-router'
 
 const route = useRoute()
 
-const items = [
-  { to: '/dashboard', label: 'Tableau de bord', hint: 'Vue d’ensemble', icon: '📊' },
-  { to: '/employes', label: 'Employés', hint: 'Annuaire & contrats', icon: '👤' },
-  { to: '/departements', label: 'Départements', hint: 'Structure', icon: '🏢' },
-  { to: '/postes', label: 'Postes', hint: 'Fonctions', icon: '🪜' },
-  { to: '/contrats', label: 'Contrats', hint: 'CDD / CDI / Stage', icon: '📄' },
-  { to: '/contrats-historiques', label: 'Hist. contrats', hint: 'Versions & renouvellements', icon: '🗂️' },
-  { to: '/competences', label: 'Compétences', hint: 'Cartographie', icon: '🎯' },
-  { to: '/formations', label: 'Formations', hint: 'Catalogue', icon: '🎓' },
-  { to: '/matching', label: 'Matching', hint: 'Profil / Poste', icon: '🔄' },
-  // IA et Automatisation
-  { to: '/turnover', label: 'Prédiction Turnover', hint: 'Analyse IA', icon: '📈' },
-  { to: '/anomalies', label: 'Détection Anomalies', hint: 'Surveillance IA', icon: '🔍' },
-  { to: '/matching-ia', label: 'Matching IA', hint: 'Recommandations', icon: '🤖' },
-  // Congés et Absences
-  { to: '/absences-types', label: 'Types de congé', hint: 'Congés / absences', icon: '🏷️' },
-  { to: '/soldes-conges', label: 'Soldes congés', hint: 'Payés / maladie / exceptionnels', icon: '🧮' },
-  { to: '/demandes-conges', label: 'Demandes de congés', hint: 'Workflow', icon: '🗓️' },
-  { to: '/calendrier', label: 'Calendrier', hint: 'Vue globale', icon: '📆' },
-  { to: '/alertes', label: 'Alertes', hint: 'Congés / absences', icon: '🔔' },
-  { to: '/alerte-settings', label: 'Config. Alertes', hint: 'Seuils & paramètres', icon: '⚙️' },
-  { to: '/performances', label: 'Performances', hint: 'Évaluations', icon: '⭐' },
-  { to: '/pointages', label: 'Pointage & HS', hint: 'Entrées / sorties', icon: '⏱️' },
-  { to: '/releve-presence', label: 'Relevé présence', hint: 'Heures & absences', icon: '📄' },
-  { to: '/paie-parametres', label: 'Paramètres paie', hint: 'CNAPS/OSTIE/IRSA', icon: '⚙️' },
-  { to: '/paie-generation', label: 'Génération paie', hint: 'Brut/Net', icon: '💰' },
-  { to: '/worktime-config', label: 'Worktime', hint: 'configuration', icon: '⚙️' },
-  { to: '/documents', label: 'Documents', hint: 'RH & pièces', icon: '📁' },
-  { to: '/historiques', label: 'Historique postes', hint: 'Mobilités', icon: '⏱️' },
-  // Portail Manager
-  { to: '/manager', label: 'Portail Manager', hint: 'Mon équipe', icon: '👔' },
-  // Audit & Conformité
-  { to: '/audit', label: 'Journal d\'audit', hint: 'Traçabilité', icon: '🔍' },
-  { to: '/archives', label: 'Archives', hint: 'Documents légaux', icon: '🗄️' },
-  { to: '/permissions', label: 'Permissions', hint: 'Contrôle d\'accès', icon: '🔐' },
-  // Self-Service
-  { to: '/self-service', label: 'Mon Espace', hint: 'Self-Service', icon: '🏠' }
+const groups = [
+  {
+    label: 'Vue globale',
+    icon: '📊',
+    items: [{ to: '/dashboard', label: 'Tableau de bord', hint: 'Vue d’ensemble', icon: '📈' }]
+  },
+  {
+    label: 'Ressources humaines',
+    icon: '👥',
+    items: [
+      { to: '/employes', label: 'Employés', hint: 'Annuaire & contrats', icon: '👤' },
+      { to: '/departements', label: 'Départements', hint: 'Structure', icon: '🏢' },
+      { to: '/postes', label: 'Postes', hint: 'Fonctions', icon: '🪜' },
+      { to: '/historiques', label: 'Historique postes', hint: 'Mobilités', icon: '⏱️' },
+      { to: '/documents', label: 'Documents', hint: 'RH & pièces', icon: '📁' }
+    ]
+  },
+  {
+    label: 'Compétences & formations',
+    icon: '🎯',
+    items: [
+      { to: '/competences', label: 'Compétences', hint: 'Cartographie', icon: '🎯' },
+      { to: '/competences-employes', label: 'Compétences employés', hint: 'Attribuer/voir', icon: '👥' },
+      { to: '/competences-postes', label: 'Compétences postes', hint: 'Requis', icon: '💼' },
+      { to: '/formations', label: 'Formations', hint: 'Catalogue', icon: '🎓' },
+      { to: '/matching', label: 'Matching', hint: 'Profil / Poste', icon: '🔄' },
+      { to: '/matching-ia', label: 'Matching IA', hint: 'Recommandations', icon: '🤖' }
+    ]
+  },
+  {
+    label: 'Congés & absences',
+    icon: '🗓️',
+    items: [
+      { to: '/absences-types', label: 'Types de congé', hint: 'Congés / absences', icon: '🏷️' },
+      { to: '/soldes-conges', label: 'Soldes congés', hint: 'Payés / maladie / exceptionnels', icon: '🧮' },
+      { to: '/demandes-conges', label: 'Demandes de congés', hint: 'Workflow', icon: '🗓️' },
+      { to: '/calendrier', label: 'Calendrier', hint: 'Vue globale', icon: '📆' },
+      { to: '/alertes', label: 'Alertes', hint: 'Congés / absences', icon: '🔔' },
+      { to: '/alerte-settings', label: 'Config. Alertes', hint: 'Seuils & paramètres', icon: '⚙️' },
+      { to: '/jours-feries', label: 'Jours fériés', hint: 'Liste & ajout', icon: '🎉' },
+      { to: '/pointages', label: 'Pointage & HS', hint: 'Entrées / sorties', icon: '⏱️' },
+      { to: '/releve-presence', label: 'Relevé présence', hint: 'Heures & absences', icon: '📄' }
+    ]
+  },
+  {
+    label: 'Paie',
+    icon: '💰',
+    items: [
+      { to: '/paie-parametres', label: 'Paramètres paie', hint: 'CNAPS/OSTIE/IRSA', icon: '⚙️' },
+      { to: '/paie-generation', label: 'Génération paie', hint: 'Brut/Net', icon: '💰' },
+      { to: '/worktime-config', label: 'Worktime', hint: 'configuration', icon: '⚙️' }
+    ]
+  },
+  {
+    label: 'IA & Analytics',
+    icon: '📈',
+    items: [
+      { to: '/turnover', label: 'Prédiction Turnover', hint: 'Analyse IA', icon: '📈' },
+      { to: '/anomalies', label: 'Détection Anomalies', hint: 'Surveillance IA', icon: '🔍' }
+    ]
+  },
+  {
+    label: 'Manager',
+    icon: '👔',
+    items: [{ to: '/manager', label: 'Portail Manager', hint: 'Mon équipe', icon: '👥' }]
+  },
+  {
+    label: 'Audit & Conformité',
+    icon: '🔐',
+    items: [
+      { to: '/audit', label: 'Journal d\'audit', hint: 'Traçabilité', icon: '🔍' },
+      // { to: '/archives', label: 'Archives', hint: 'Documents légaux', icon: '🗄️' },
+      { to: '/permissions', label: 'Permissions', hint: 'Contrôle d\'accès', icon: '🔐' }
+    ]
+  },
+  {
+    label: 'Self-Service',
+    icon: '🏠',
+    items: [{ to: '/self-service', label: 'Mon Espace', hint: 'Self-Service', icon: '🏠' }]
+  }
 ]
+
+const openGroups = reactive(
+  Object.fromEntries(groups.map((g) => [g.label, true]))
+)
+
+const toggle = (label) => {
+  openGroups[label] = !openGroups[label]
+}
 </script>
 
 <style scoped>
@@ -111,6 +172,43 @@ const items = [
 .menu {
   display: grid;
   gap: 8px;
+}
+
+.menu-group {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.group-toggle {
+  width: 100%;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.group-toggle .label {
+  margin: 0;
+  font-weight: 700;
+}
+
+.group-toggle .chevron {
+  margin-left: auto;
+  transition: transform 120ms ease;
+}
+.group-toggle .chevron.open {
+  transform: rotate(180deg);
+}
+
+.group-items {
+  display: grid;
+  gap: 4px;
+  padding: 6px;
 }
 
 .menu-item {

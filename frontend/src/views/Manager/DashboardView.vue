@@ -116,51 +116,56 @@
             <h3>📋 Congés en attente de validation</h3>
             <button class="btn btn-sm" @click="loadDemandesConges">🔄</button>
           </div>
-          <div class="requests-list" v-if="demandesConges.length">
-            <div 
-              class="request-item" 
-              v-for="demande in demandesConges.slice(0, 5)" 
-              :key="demande.id"
-            >
-              <div class="request-info">
-                <span class="request-employee">
-                  {{ demande.employe?.prenom }} {{ demande.employe?.nom }}
-                </span>
-                <span class="request-details">
-                  {{ demande.typeConge?.libelle || 'Congé' }} - 
-                  {{ demande.jours_demandes }} jour(s)
-                </span>
-                <span class="request-dates">
-                  Du {{ formatDate(demande.date_debut) }} au {{ formatDate(demande.date_fin) }}
-                </span>
-              </div>
-              <div class="request-actions">
-                <button 
-                  class="btn btn-success btn-sm" 
-                  @click="openValidateModal(demande)"
-                  title="Valider"
-                >
-                  ✓
-                </button>
-                <button 
-                  class="btn btn-danger btn-sm" 
-                  @click="openRejectModal(demande)"
-                  title="Rejeter"
-                >
-                  ✗
-                </button>
-              </div>
-            </div>
-          </div>
+          <table class="table" v-if="demandesConges.length">
+            <thead>
+              <tr>
+                <th>Employé</th>
+                <th>Type</th>
+                <th>Période</th>
+                <th>Statut</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="demande in demandesConges" :key="demande.id">
+                <td>
+                  <div class="request-employee">{{ demande.employe?.prenom }} {{ demande.employe?.nom }}</div>
+                  <div class="muted">{{ demande.employe?.matricule || '—' }}</div>
+                </td>
+                <td>{{ demande.typeConge?.libelle || 'Congé' }}</td>
+                <td class="muted">{{ formatDate(demande.date_debut) }} → {{ formatDate(demande.date_fin) }} ({{ demande.jours_demandes }} j)</td>
+                <td><span class="statut-badge" :class="'statut-' + (demande.statut || 'en_attente')">{{ demande.statut || 'en_attente' }}</span></td>
+                <td class="request-actions">
+                  <template v-if="isPending(demande)">
+                  <button 
+                    class="btn btn-success btn-sm" 
+                    @click="openValidateModal(demande)"
+                    title="Valider"
+                  >
+                    ✓
+                  </button>
+                  <button 
+                    class="btn btn-danger btn-sm" 
+                    @click="openRejectModal(demande)"
+                    title="Rejeter"
+                  >
+                    ✗
+                  </button>
+                  </template>
+                  <span v-else class="muted">—</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
           <div class="empty-state" v-else>
             <p>✅ Aucune demande en attente</p>
           </div>
           <router-link 
-            v-if="demandesConges.length > 5" 
+            v-if="demandesConges.length"
             to="/manager/demandes-conges" 
             class="see-all-link"
           >
-            Voir toutes les demandes ({{ demandesConges.length }})
+            Voir toutes les demandes
           </router-link>
         </div>
 
@@ -344,8 +349,15 @@ export default {
     },
     async loadDemandesConges() {
       try {
-        const response = await managerService.getDemandesConges('en_attente')
-        this.demandesConges = response.data.data || []
+        // même logique que la page /demandes-conges : filtre en_attente + tri
+        const response = await managerService.getDemandesConges({ statut: 'en_attente' })
+        const data = response.data?.data || response.data || []
+        // normaliser quelques champs pour l'affichage
+        this.demandesConges = data.map(d => ({
+          ...d,
+          employe: d.employe || d.user || d.employee,
+          typeConge: d.typeConge || d.type_conge || d.type,
+        }))
       } catch (err) {
         console.error('Erreur chargement demandes congés:', err)
       }
@@ -357,6 +369,9 @@ export default {
         month: '2-digit',
         year: 'numeric'
       })
+    },
+    isPending(demande) {
+      return (demande.statut || 'en_attente') === 'en_attente'
     },
     openValidateModal(demande) {
       this.validateModal = {
@@ -603,46 +618,7 @@ export default {
   color: #64748b;
 }
 
-.requests-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.request-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px;
-  background: #f8fafc;
-  border-radius: 8px;
-}
-
-.request-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.request-employee {
-  font-weight: 500;
-  color: #1e293b;
-}
-
-.request-details {
-  font-size: 13px;
-  color: #3b82f6;
-}
-
-.request-dates {
-  font-size: 12px;
-  color: #64748b;
-}
-
-.request-actions {
-  display: flex;
-  gap: 8px;
-}
+.request-actions { display: flex; gap: 8px; align-items: center; }
 
 .btn {
   padding: 8px 16px;
@@ -671,6 +647,26 @@ export default {
 .btn-danger {
   background: #ef4444;
   color: white;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: 10px 8px;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: left;
+}
+
+.statut-badge {
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+  text-transform: capitalize;
+  background: #f1f5f9;
 }
 
 .btn-secondary {

@@ -89,7 +89,7 @@ const loadData = async () => {
   loading.value = true
   try {
     const res = await selfServiceService.getBulletins({ annee: annee.value })
-    bulletins.value = res.data.data || res.data || []
+    bulletins.value = res.data?.data || res.data || []
   } catch (error) {
     console.error('Erreur chargement bulletins:', error)
   } finally {
@@ -99,7 +99,7 @@ const loadData = async () => {
 
 const telechargerPdf = async (id) => {
   try {
-    const response = await api.get(`/v1/paies/${id}/pdf`, { responseType: 'blob' })
+    const response = await api.get(`/v1/self-service/bulletins/${id}/pdf`, { responseType: 'blob' })
     const url = window.URL.createObjectURL(new Blob([response.data]))
     const link = document.createElement('a')
     link.href = url

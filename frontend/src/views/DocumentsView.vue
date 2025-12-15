@@ -4,86 +4,55 @@
       <h1>Documents RH</h1>
       <span>Pièces jointes des employés</span>
     </div>
-    <select class="select" v-model="filterEmploye" @change="debouncedFetchDocs">
-      <option value="">Tous les employés</option>
-      <option v-for="emp in employes" :key="emp.id" :value="emp.id">{{ emp.matricule }} - {{ emp.nom }}</option>
-    </select>
+    <div class="flex gap-2 items-center">
+      <select class="select" v-model="filterEmploye" @change="debouncedFetchDocs">
+        <option value="">Tous les employés</option>
+        <option v-for="emp in employes" :key="emp.id" :value="emp.id">{{ emp.matricule }} - {{ emp.nom }}</option>
+      </select>
+      <RouterLink class="btn btn-secondary btn-sm" to="/documents/nouveau">+ Uploader</RouterLink>
+    </div>
   </div>
 
-  <div class="grid" style="grid-template-columns: 2fr 1fr; gap: 18px;">
-    <div class="card">
-      <div class="grid gap-2 md:grid-cols-3 lg:grid-cols-6 mb-3">
-        <input class="input" placeholder="Matricule" v-model="filters.matricule" />
-        <input class="input" placeholder="Nom" v-model="filters.nom" />
-        <input class="input" placeholder="Type" v-model="filters.type" />
-        <input class="input" placeholder="Fichier" v-model="filters.fichier" />
-        <input class="input" placeholder="Expiration" v-model="filters.date_expiration" />
-      </div>
-      <div class="flex justify-end mb-2">
-        <button class="btn btn-secondary btn-xs" @click="resetFilters">Réinitialiser</button>
-      </div>
-      <table class="table">
-        <thead>
-          <tr>
-            <th class="cursor-pointer" @click="setSort('employe')">Employé {{ sortLabel('employe') }}</th>
-            <th class="cursor-pointer" @click="setSort('type')">Type {{ sortLabel('type') }}</th>
-            <th class="cursor-pointer" @click="setSort('fichier')">Nom de fichier {{ sortLabel('fichier') }}</th>
-            <th class="cursor-pointer" @click="setSort('expiration')">Date d'expiration {{ sortLabel('expiration') }}</th>
-            <th>Fichier</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="d in docsFiltres" :key="d.id">
-            <td>{{ d.employe?.matricule || '—' }}</td>
-            <td>{{ d.type_document }}</td>
-            <td>{{ fileName(d.fichier) }}</td>
-            <td>{{ formatDate(d.date_expiration) || '—' }}</td>
-            <td><a :href="d.url" target="_blank" rel="noopener">Ouvrir</a></td>
-          </tr>
-          <tr v-if="!docsFiltres.length">
-            <td colspan="5" class="muted">Aucun document</td>
-          </tr>
-        </tbody>
-      </table>
-      <div class="flex items-center justify-between mt-3 text-sm text-slate-400">
-        <span>Page {{ pagination.page }} / {{ pagination.last_page }} — {{ pagination.total }} lignes</span>
-        <div class="flex items-center gap-2">
-          <button class="btn btn-secondary text-xs" :disabled="pagination.page <= 1" @click="prevPage">Précédent</button>
-          <button class="btn btn-secondary text-xs" :disabled="pagination.page >= pagination.last_page" @click="nextPage">Suivant</button>
-        </div>
-      </div>
+  <div class="card">
+    <div class="grid gap-2 md:grid-cols-3 lg:grid-cols-6 mb-3">
+      <input class="input" placeholder="Matricule" v-model="filters.matricule" />
+      <input class="input" placeholder="Nom" v-model="filters.nom" />
+      <input class="input" placeholder="Type" v-model="filters.type" />
+      <input class="input" placeholder="Fichier" v-model="filters.fichier" />
+      <input class="input" placeholder="Expiration" v-model="filters.date_expiration" />
     </div>
-
-    <div class="card">
-      <div class="page-title">
-        <h1>Uploader</h1>
-        <span>Nouveau document</span>
+    <div class="flex justify-end mb-2">
+      <button class="btn btn-secondary btn-xs" @click="resetFilters">Réinitialiser</button>
+    </div>
+    <table class="table">
+      <thead>
+        <tr>
+          <th class="cursor-pointer" @click="setSort('employe')">Employé {{ sortLabel('employe') }}</th>
+          <th class="cursor-pointer" @click="setSort('type')">Type {{ sortLabel('type') }}</th>
+          <th class="cursor-pointer" @click="setSort('fichier')">Nom de fichier {{ sortLabel('fichier') }}</th>
+          <th class="cursor-pointer" @click="setSort('expiration')">Date d'expiration {{ sortLabel('expiration') }}</th>
+          <th>Fichier</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="d in docsFiltres" :key="d.id">
+          <td>{{ d.employe?.matricule || '—' }}</td>
+          <td>{{ d.type_document }}</td>
+          <td>{{ fileName(d.fichier) }}</td>
+          <td>{{ formatDate(d.date_expiration) || '—' }}</td>
+          <td><a :href="d.url" target="_blank" rel="noopener">Ouvrir</a></td>
+        </tr>
+        <tr v-if="!docsFiltres.length">
+          <td colspan="5" class="muted">Aucun document</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="flex items-center justify-between mt-3 text-sm text-slate-400">
+      <span>Page {{ pagination.page }} / {{ pagination.last_page }} — {{ pagination.total }} lignes</span>
+      <div class="flex items-center gap-2">
+        <button class="btn btn-secondary text-xs" :disabled="pagination.page <= 1" @click="prevPage">Précédent</button>
+        <button class="btn btn-secondary text-xs" :disabled="pagination.page >= pagination.last_page" @click="nextPage">Suivant</button>
       </div>
-      <form class="grid" style="margin-top: 10px; gap: 10px;" @submit.prevent="uploadDoc" enctype="multipart/form-data">
-        <div class="grid gap-1">
-          <label class="text-sm text-slate-400">Employé</label>
-          <select class="select" v-model="form.employe_id" required>
-            <option value="">Employé</option>
-            <option v-for="emp in employes" :key="emp.id" :value="emp.id">{{ emp.matricule }} - {{ emp.nom }}</option>
-          </select>
-        </div>
-        <div class="grid gap-1">
-          <label class="text-sm text-slate-400">Type de document</label>
-          <select class="select" v-model="form.type_document" required>
-            <option v-for="t in typeDocuments" :key="t" :value="t">{{ t }}</option>
-          </select>
-        </div>
-        <div class="grid gap-1">
-          <label class="text-sm text-slate-400">Date d'expiration (optionnel)</label>
-          <input class="input" type="date" v-model="form.date_expiration" />
-        </div>
-        <div class="grid gap-1">
-          <label class="text-sm text-slate-400">Fichier</label>
-          <input class="input" type="file" @change="onFile" required />
-        </div>
-        <button class="btn" type="submit">Uploader</button>
-        <p class="muted" v-if="message">{{ message }}</p>
-      </form>
     </div>
   </div>
 </template>
@@ -92,27 +61,20 @@
 import { onMounted, ref, computed } from 'vue'
 import api from '../services/api'
 import { debounce } from '../utils/debounce'
+import { RouterLink } from 'vue-router'
 
 const docs = ref([])
 const employes = ref([])
 const filterEmploye = ref('')
-const message = ref('')
-const fileRef = ref(null)
-const typeDocuments = ref(['CIN', 'Diplome', 'CV', 'Contrat', 'Attestation', 'Autre'])
 const filters = ref({ matricule: '', nom: '', type: '', fichier: '', date_expiration: '' })
 const sortKey = ref('employe')
 const sortDir = ref('asc')
 const pagination = ref({ page: 1, last_page: 1, total: 0 })
-const form = ref({
-  employe_id: '',
-  type_document: 'CIN',
-  date_expiration: ''
-})
 
 const fetchDocs = async () => {
   const params = filterEmploye.value ? { employe_id: filterEmploye.value, page: pagination.value.page } : { page: pagination.value.page }
   const { data } = await api.get('/v1/documents', { params })
-  docs.value = data.data || []
+  docs.value = data.data || data || []
   if (data.meta) {
     pagination.value = {
       page: data.meta.current_page,
@@ -135,44 +97,8 @@ const fetchEmployes = async () => {
   employes.value = data.data || []
 }
 
-const fetchTypes = async () => {
-  try {
-    const { data } = await api.get('/v1/documents/types')
-    if (Array.isArray(data.data) && data.data.length) {
-      typeDocuments.value = data.data
-      form.value.type_document = data.data[0]
-    }
-  } catch (e) {
-    // fallback to defaults
-  }
-}
-
-const onFile = (e) => {
-  fileRef.value = e.target.files?.[0] || null
-}
-
-const uploadDoc = async () => {
-  if (!fileRef.value) {
-    message.value = 'Choisis un fichier'
-    return
-  }
-  const fd = new FormData()
-  fd.append('employe_id', form.value.employe_id)
-  fd.append('type_document', form.value.type_document)
-  fd.append('date_expiration', form.value.date_expiration || '')
-  fd.append('fichier', fileRef.value)
-  try {
-    await api.post('/v1/documents/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
-    message.value = 'Document uploadé'
-    fileRef.value = null
-    await fetchDocs()
-  } catch (e) {
-    message.value = 'Erreur upload'
-  }
-}
-
 onMounted(async () => {
-  await Promise.all([fetchEmployes(), fetchDocs(), fetchTypes()])
+  await Promise.all([fetchEmployes(), fetchDocs()])
 })
 
 const fileName = (path) => {

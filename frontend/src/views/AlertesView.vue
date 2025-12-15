@@ -19,7 +19,10 @@
           class="alert-card"
           :class="levelClass(a.level)"
         >
-          <p class="font-semibold">{{ a.message }}</p>
+          <p class="font-semibold">
+            <span v-if="a.employe?.matricule" class="badge">{{ a.employe.matricule }}</span>
+            {{ a.message }}
+          </p>
           <p class="text-xs text-slate-400" v-if="a.demande_id">Demande #{{ a.demande_id }}</p>
           <RouterLink
             v-if="a.demande_id"
@@ -42,8 +45,11 @@
           class="alert-card"
           :class="levelClass(a.level)"
         >
-          <p class="font-semibold">{{ a.message }}</p>
-          <p class="text-xs text-slate-400" v-if="a.employe_id">Employé ID {{ a.employe_id }}</p>
+          <p class="font-semibold">
+            <span v-if="a.employe?.matricule" class="badge">{{ a.employe.matricule }}</span>
+            {{ a.message }}
+          </p>
+          <p class="text-xs text-slate-400" v-if="a.employe_id && !a.employe?.matricule">Employé ID {{ a.employe_id }}</p>
         </div>
         <p v-if="!alertesFiltrees(['absences_maladie', 'absences_exceptionnelles']).length" class="muted text-sm">Aucune alerte</p>
       </div>

@@ -8,24 +8,24 @@
     </div>
 
     <!-- Solde de congés -->
-    <div class="solde-section" v-if="soldeConges">
-      <div class="card solde-card">
-        <div class="solde-content">
-          <span class="solde-value">{{ soldeConges.solde_jours || 0 }}</span>
-          <span class="solde-label">Jours restants</span>
-        </div>
-        <div class="solde-details">
-          <div class="detail-item">
-            <span class="label">Acquis</span>
-            <span class="value">{{ soldeConges.acquis || 0 }} jours</span>
-          </div>
-          <div class="detail-item">
-            <span class="label">Pris</span>
-            <span class="value">{{ soldeConges.pris || 0 }} jours</span>
-          </div>
-        </div>
+<div class="solde-section" v-if="soldeConges">
+  <div class="card solde-card">
+    <div class="solde-content">
+      <span class="solde-value">{{ soldeAffichage.solde }}</span>
+      <span class="solde-label">Jours restants</span>
+    </div>
+    <div class="solde-details">
+      <div class="detail-item">
+        <span class="label">Acquis</span>
+        <span class="value">{{ soldeAffichage.acquis }} jours</span>
+      </div>
+      <div class="detail-item">
+        <span class="label">Pris</span>
+        <span class="value">{{ soldeAffichage.pris }} jours</span>
       </div>
     </div>
+  </div>
+</div>
 
     <!-- Historique des demandes -->
     <div class="card">
@@ -89,26 +89,41 @@
                 {{ type.libelle }}
               </option>
             </select>
+            <p class="hint" v-if="selectedType">
+              <span v-if="selectedType.jours_forfait">Durée fixe : {{ selectedType.jours_forfait }} jour(s)</span>
+              <span v-else>Durée libre</span>
+            </p>
           </div>
           <div class="form-row">
             <div class="form-group">
               <label>Date de début *</label>
               <input type="date" v-model="form.date_debut" required />
             </div>
-            <div class="form-group">
+            <div class="form-group" v-if="showDateFin">
               <label>Date de fin *</label>
               <input type="date" v-model="form.date_fin" required />
             </div>
           </div>
+          <p class="hint" v-if="form.date_debut && form.date_fin">
+            Durée estimée : <strong>{{ daysCount }}</strong> jour(s)
+          </p>
           <div class="form-group">
             <label>Motif</label>
             <textarea v-model="form.motif" rows="3" placeholder="Motif de la demande..."></textarea>
+          </div>
+          <div class="form-group">
+            <label>Type de document (optionnel)</label>
+            <input type="text" v-model="form.type_document" placeholder="Ex: justificatif médical" />
+          </div>
+          <div class="form-group">
+            <label>Justificatif (PDF/IMG, 4 Mo max)</label>
+            <input type="file" accept=".pdf,image/*" @change="onFileChange" />
           </div>
           <div class="modal-actions">
             <button type="button" class="btn btn-secondary" @click="showNewDemande = false">
               Annuler
             </button>
-            <button type="submit" class="btn btn-primary" :disabled="loading">
+            <button type="submit" class="btn btn-primary" :disabled="loading || !isFormValid">
               {{ loading ? 'Envoi...' : 'Soumettre' }}
             </button>
           </div>
@@ -119,7 +134,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import selfServiceService from '../../services/selfServiceService'
 import api from '../../services/api'
 
@@ -136,6 +151,58 @@ const form = ref({
   date_fin: '',
   motif: ''
 })
+
+const soldeAffichage = computed(() => {
+  if (!soldeConges.value) return { solde: 0, acquis: 0, pris: 0 }
+  const s = soldeConges.value
+  return {
+    solde: s.solde_periode ?? s.solde_actuel ?? s.solde_jours ?? 0,
+    acquis: s.acquis_periode ?? s.total_acquis ?? s.acquis ?? 0,
+    pris: s.utilise_periode ?? s.total_utilise ?? s.pris ?? 0
+  }
+})
+
+const daysCount = computed(() => {
+  const t = selectedType.value
+  if (t?.jours_forfait && form.value.date_debut) {
+    return Number(t.jours_forfait)
+  }
+  if (!form.value.date_debut || !form.value.date_fin) return 0
+  const start = new Date(form.value.date_debut)
+  const end = new Date(form.value.date_fin)
+  const diff = (end - start) / (1000 * 60 * 60 * 24)
+  return diff >= 0 ? diff + 1 : 0
+})
+
+const isFormValid = computed(() =>
+  form.value.type_conge_id &&
+  form.value.date_debut &&
+  form.value.date_fin &&
+  new Date(form.value.date_fin) >= new Date(form.value.date_debut)
+)
+
+const selectedType = computed(() => typesConges.value.find(t => t.id === form.value.type_conge_id))
+const showDateFin = computed(() => {
+  const t = selectedType.value
+  if (!t) return true
+  const utiliseSolde = !!t.utilise_solde
+  const flexible = t.jours_forfait === null || t.jours_forfait === undefined
+  return utiliseSolde || flexible
+})
+
+// Auto-calc date_fin for forfait types
+watch(
+  () => [form.value.type_conge_id, form.value.date_debut],
+  () => {
+    const t = selectedType.value
+    if (t?.jours_forfait && form.value.date_debut) {
+      const start = new Date(form.value.date_debut)
+      const end = new Date(start)
+      end.setDate(start.getDate() + Number(t.jours_forfait) - 1)
+      form.value.date_fin = end.toISOString().slice(0, 10)
+    }
+  }
+)
 
 const formatDate = (date) => {
   if (!date) return '—'
@@ -161,9 +228,16 @@ const loadData = async () => {
       selfServiceService.getSoldeConges(),
       api.get('/v1/types-conges')
     ])
-    demandes.value = demandesRes.data.data || demandesRes.data || []
-    soldeConges.value = soldeRes.data[0] || soldeRes.data || null
-    typesConges.value = typesRes.data.data || typesRes.data || []
+    demandes.value = demandesRes.data?.data || demandesRes.data || []
+    // solde peut arriver sous forme d'array, d'objet ou vide
+    if (Array.isArray(soldeRes.data)) {
+      soldeConges.value = soldeRes.data[0] || null
+    } else if (soldeRes.data?.data) {
+      soldeConges.value = Array.isArray(soldeRes.data.data) ? soldeRes.data.data[0] : soldeRes.data.data
+    } else {
+      soldeConges.value = soldeRes.data || null
+    }
+    typesConges.value = typesRes.data?.data || typesRes.data || []
   } catch (error) {
     console.error('Erreur chargement:', error)
   } finally {
@@ -172,11 +246,21 @@ const loadData = async () => {
 }
 
 const submitDemande = async () => {
+  if (!isFormValid.value) {
+    alert('Veuillez renseigner un type et des dates cohérentes')
+    return
+  }
   loading.value = true
   try {
-    await selfServiceService.creerDemandeConge(form.value)
+    const payload = {
+      type_conge_id: form.value.type_conge_id,
+      date_debut: form.value.date_debut,
+      date_fin: showDateFin.value ? form.value.date_fin : form.value.date_debut,
+      motif: form.value.motif
+    }
+    await selfServiceService.creerDemandeConge(payload)
     showNewDemande.value = false
-    form.value = { type_conge_id: '', date_debut: '', date_fin: '', motif: '' }
+    form.value = { type_conge_id: '', date_debut: '', date_fin: '', motif: '', type_document: '', justificatif: null }
     await loadData()
     alert('Demande soumise avec succès!')
   } catch (error) {
@@ -184,6 +268,10 @@ const submitDemande = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const onFileChange = (e) => {
+  // Les justificatifs ne sont pas gérés côté self-service actuellement
 }
 
 onMounted(loadData)

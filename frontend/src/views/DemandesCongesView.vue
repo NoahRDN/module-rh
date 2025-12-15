@@ -10,11 +10,11 @@
         <option v-for="emp in employes" :key="emp.id" :value="emp.id">{{ emp.matricule }} - {{ emp.nom }}</option>
       </select>
       <button class="btn btn-secondary" @click="fetchDemandes">Actualiser</button>
+      <RouterLink class="btn" to="/demandes-conges/nouveau">+ Nouvelle</RouterLink>
     </div>
   </div>
 
-  <div class="grid gap-4 lg:grid-cols-3">
-    <div class="card lg:col-span-2">
+  <div class="card">
       <div class="flex items-center justify-between mb-2">
         <h3 class="text-lg font-semibold">Demandes en cours</h3>
         <span class="muted text-sm">Manager → RH</span>
@@ -54,9 +54,11 @@
               </span>
             </td>
             <td class="py-2 flex flex-wrap gap-2">
-              <button class="btn btn-secondary text-xs" @click="approveManager(d.id)">Manager ✓</button>
-              <button class="btn text-xs" style="padding: 6px 10px;" @click="approveRH(d.id)">RH ✓</button>
+              <template v-if="canAct(d)">
+              <button class="btn btn-secondary text-xs" @click="approveManager(d.id)">Valider ✓</button>
               <button class="btn btn-secondary text-xs" style="padding: 6px 10px; background: rgba(239,68,68,0.12); color: #fca5a5;" @click="reject(d.id)">Refuser</button>
+              </template>
+              <span v-else class="text-xs text-slate-500">—</span>
             </td>
           </tr>
           <tr v-if="!demandesFiltrees.length">
@@ -71,90 +73,30 @@
           <button class="btn btn-secondary text-xs" :disabled="pagination.page >= pagination.last_page" @click="nextPage">Suivant</button>
         </div>
       </div>
-    </div>
-
-    <div class="card">
-      <h2 class="text-lg font-semibold">Nouvelle demande</h2>
-      <p class="text-sm text-slate-500 mb-3">Création employé</p>
-      <form class="space-y-3" @submit.prevent="createDemande">
-        <div class="grid gap-1">
-          <label class="text-sm text-slate-400">Employé</label>
-          <select class="select" v-model="form.employe_id" required>
-            <option value="">Employé</option>
-            <option v-for="emp in employes" :key="emp.id" :value="emp.id">{{ emp.matricule }} - {{ emp.nom }}</option>
-          </select>
-        </div>
-        <div class="grid gap-1">
-          <label class="text-sm text-slate-400">Type de congé</label>
-          <select class="select" v-model="form.type_conge_id" required>
-            <option value="">Type</option>
-            <option v-for="t in types" :key="t.id" :value="t.id">{{ t.libelle }}</option>
-          </select>
-        </div>
-        <div class="grid gap-1">
-          <label class="text-sm text-slate-400">Date début</label>
-          <input class="input" type="date" v-model="form.date_debut" required />
-        </div>
-        <div class="grid gap-1" v-if="showDateFin">
-          <label class="text-sm text-slate-400">Date fin</label>
-          <input class="input" type="date" v-model="form.date_fin" />
-        </div>
-        <div class="grid gap-1">
-          <label class="text-sm text-slate-400">Motif (optionnel)</label>
-          <textarea class="input" rows="3" v-model="form.motif" placeholder="Motif (optionnel)"></textarea>
-        </div>
-        <div class="grid gap-1">
-          <label class="text-sm text-slate-400">Type de document (optionnel)</label>
-          <input class="input" placeholder="Justificatif congé" v-model="form.type_document" />
-        </div>
-        <div class="grid gap-1">
-          <label class="text-sm text-slate-400">Justificatif (PDF/IMG, 4 Mo max)</label>
-          <input class="input" type="file" accept=".pdf,image/*" @change="onFileChange" />
-        </div>
-        <button class="btn w-full" type="submit">Créer</button>
-        <p class="text-sm text-slate-500" v-if="message">{{ message }}</p>
-      </form>
-    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, computed } from 'vue'
+import { RouterLink } from 'vue-router'
 import api from '../services/api'
 import { debounce } from '../utils/debounce'
 
 const demandes = ref([])
-const types = ref([])
 const employes = ref([])
 const filterEmploye = ref('')
-const message = ref('')
 const pagination = ref({ page: 1, last_page: 1, total: 0 })
 const filters = ref({ matricule: '', nom: '', type: '', statut: '', date_debut: '', date_fin: '' })
 const sortKey = ref('employe')
 const sortDir = ref('asc')
-const form = ref({
-  employe_id: '',
-  type_conge_id: '',
-  date_debut: '',
-  date_fin: '',
-  motif: '',
-  type_document: '',
-  justificatif: null
-})
-const showDateFin = computed(() => {
-  const t = types.value.find((x) => x.id === form.value.type_conge_id)
-  if (!t) return false
-  const utiliseSolde = !!t.utilise_solde
-  const flexible = t.jours_forfait === null || t.jours_forfait === undefined
-  return utiliseSolde || flexible
-})
 
 const badgeClass = (statut) => {
   switch (statut) {
-    case 'manager_valide':
-      return 'bg-blue-50 text-blue-600'
     case 'rh_valide':
       return 'bg-green-50 text-green-600'
+    case 'manager_valide':
+    case 'en_attente':
+      return 'bg-blue-50 text-blue-600'
     case 'rejete':
       return 'bg-red-50 text-red-600'
     default:
@@ -176,56 +118,12 @@ const fetchDemandes = async () => {
 const debouncedFetchDemandes = debounce(fetchDemandes, 300)
 
 const fetchRefs = async () => {
-  const [t, e] = await Promise.all([
-    api.get('/v1/types-conges'),
-    api.get('/v1/employes', { params: { active_only: true } })
-  ])
-  types.value = t.data.data || []
-  employes.value = e.data.data || []
-}
-
-const createDemande = async () => {
-  try {
-    const fd = new FormData()
-    Object.entries(form.value).forEach(([key, val]) => {
-      if (key === 'date_fin' && !showDateFin.value) {
-        return
-      }
-      if (val !== null && val !== '' && key !== 'justificatif') {
-        fd.append(key, val)
-      }
-    })
-    if (form.value.justificatif) {
-      fd.append('justificatif', form.value.justificatif)
-    }
-    await api.post('/v1/demandes-conges', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
-    message.value = 'Demande créée'
-    await fetchDemandes()
-  } catch (e) {
-    const errMsg = e.response?.data?.message || e.message || 'Erreur lors de la création'
-    // concaténer les erreurs de validation si présentes
-    const valErrors = e.response?.data?.errors
-    if (valErrors) {
-      const flat = Object.values(valErrors).flat().join(' | ')
-      message.value = `${errMsg} : ${flat}`
-    } else {
-      message.value = errMsg
-    }
-  }
-}
-
-const onFileChange = (e) => {
-  const file = e.target.files?.[0]
-  form.value.justificatif = file || null
+  const { data } = await api.get('/v1/employes', { params: { active_only: true } })
+  employes.value = data.data || []
 }
 
 const approveManager = async (id) => {
   await api.post(`/v1/demandes-conges/${id}/manager-approve`)
-  await fetchDemandes()
-}
-
-const approveRH = async (id) => {
-  await api.post(`/v1/demandes-conges/${id}/rh-approve`)
   await fetchDemandes()
 }
 
@@ -275,6 +173,8 @@ const setSort = (key) => {
 }
 const sortLabel = (key) => (sortKey.value === key ? (sortDir.value === 'asc' ? '▲' : '▼') : '')
 const resetFilters = () => { filters.value = { matricule: '', nom: '', type: '', statut: '', date_debut: '', date_fin: '' } }
+
+const canAct = (demande) => demande.statut === 'en_attente' || demande.statut === 'manager_valide'
 
 const nextPage = () => {
   if (pagination.value.page < pagination.value.last_page) {

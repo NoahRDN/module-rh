@@ -27,14 +27,14 @@
         <router-link to="/self-service/conges" class="kpi-link">Voir mes congés →</router-link>
       </div>
 
-      <div class="card kpi-card demandes">
+      <!-- <div class="card kpi-card demandes">
         <div class="kpi-icon">📋</div>
         <div class="kpi-content">
           <span class="kpi-value">{{ demandesEnAttente }}</span>
           <span class="kpi-label">Demandes en attente</span>
         </div>
         <router-link to="/self-service/demandes" class="kpi-link">Voir mes demandes →</router-link>
-      </div>
+      </div> -->
 
       <div class="card kpi-card messages">
         <div class="kpi-icon">💬</div>
@@ -158,18 +158,18 @@
           <span class="icon">👤</span>
           <span>Mon profil</span>
         </router-link>
-        <router-link to="/self-service/bulletins" class="access-item">
+        <!-- <router-link to="/self-service/bulletins" class="access-item">
           <span class="icon">📄</span>
           <span>Mes bulletins</span>
-        </router-link>
+        </router-link> -->
         <router-link to="/self-service/conges" class="access-item">
           <span class="icon">🏖️</span>
           <span>Mes congés</span>
         </router-link>
-        <router-link to="/self-service/demandes" class="access-item">
+        <!-- <router-link to="/self-service/demandes" class="access-item">
           <span class="icon">📝</span>
           <span>Mes demandes</span>
-        </router-link>
+        </router-link> -->
         <router-link to="/self-service/competences" class="access-item">
           <span class="icon">🎯</span>
           <span>Compétences</span>

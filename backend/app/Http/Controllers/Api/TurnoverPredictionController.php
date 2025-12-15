@@ -83,7 +83,9 @@ class TurnoverPredictionController extends Controller
     {
         $analyse = $this->turnoverService->analyserTousEmployes();
         
+        // On réinjecte le nom du département (clé du tableau d'origine) pour l'affichage front
         $parDepartement = collect($analyse['statistiques']['par_departement'])
+            ->map(fn($data, $nom) => array_merge(['nom' => $nom], $data))
             ->sortByDesc('score_moyen')
             ->values()
             ->toArray();

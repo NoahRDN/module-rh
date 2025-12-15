@@ -4,75 +4,55 @@
       <h1>Postes</h1>
       <span>Fonctions et rattachements</span>
     </div>
-    <select class="select" v-model="filterDep" @change="debouncedFetchPostes">
-      <option value="">Tous les départements</option>
-      <option v-for="dep in departements" :key="dep.id" :value="dep.id">{{ dep.nom }}</option>
-    </select>
+    <div class="flex gap-2 items-center">
+      <select class="select" v-model="filterDep" @change="debouncedFetchPostes">
+        <option value="">Tous les départements</option>
+        <option v-for="dep in departements" :key="dep.id" :value="dep.id">{{ dep.nom }}</option>
+      </select>
+      <RouterLink class="btn btn-secondary btn-sm" to="/postes/nouveau">+ Ajouter</RouterLink>
+    </div>
   </div>
 
-  <div class="grid" style="grid-template-columns: 2fr 1fr; gap: 18px;">
-    <div class="card">
-      <div class="grid gap-2 md:grid-cols-3 mb-2">
-        <input class="input" placeholder="Nom" v-model="filters.nom" />
-        <input class="input" placeholder="Département" v-model="filters.departement" list="deps-list" />
-        <input class="input" placeholder="Catégorie" v-model="filters.categorie" list="cat-list" />
-      </div>
-      <div class="flex justify-end mb-2">
-        <button class="btn btn-secondary btn-xs" @click="resetFilters">Réinitialiser</button>
-      </div>
-      <datalist id="deps-list">
-        <option v-for="d in departements" :key="d.id" :value="d.nom" />
-      </datalist>
-      <datalist id="cat-list">
-        <option v-for="c in categories" :key="c" :value="c" />
-      </datalist>
-      <table class="table">
-        <thead>
-          <tr>
-            <th class="cursor-pointer" @click="setSort('nom')">Nom {{ sortLabel('nom') }}</th>
-            <th class="cursor-pointer" @click="setSort('departement')">Département {{ sortLabel('departement') }}</th>
-            <th class="cursor-pointer" @click="setSort('categorie')">Catégorie {{ sortLabel('categorie') }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="p in postesFiltrees" :key="p.id">
-            <td>{{ p.nom }}</td>
-            <td class="muted">{{ p.departement?.nom || '—' }}</td>
-            <td><span class="chip">{{ p.categorie || '—' }}</span></td>
-          </tr>
-          <tr v-if="!postesFiltrees.length">
-            <td colspan="3" class="muted">Aucun poste</td>
-          </tr>
-        </tbody>
-      </table>
-      <div class="flex items-center justify-between mt-3 text-sm text-slate-400">
-        <span>Page {{ pagination.page }} / {{ pagination.last_page }} — {{ pagination.total }} lignes</span>
-        <div class="flex items-center gap-2">
-          <button class="btn btn-secondary text-xs" :disabled="pagination.page <= 1" @click="prevPage">Précédent</button>
-          <button class="btn btn-secondary text-xs" :disabled="pagination.page >= pagination.last_page" @click="nextPage">Suivant</button>
-        </div>
-      </div>
+  <div class="card">
+    <div class="grid gap-2 md:grid-cols-3 mb-2">
+      <input class="input" placeholder="Nom" v-model="filters.nom" />
+      <input class="input" placeholder="Département" v-model="filters.departement" list="deps-list" />
+      <input class="input" placeholder="Catégorie" v-model="filters.categorie" list="cat-list" />
     </div>
-
-    <div class="card">
-      <div class="page-title">
-        <h1>Ajouter</h1>
-        <span>Nouveau poste</span>
+    <div class="flex justify-end mb-2">
+      <button class="btn btn-secondary btn-xs" @click="resetFilters">Réinitialiser</button>
+    </div>
+    <datalist id="deps-list">
+      <option v-for="d in departements" :key="d.id" :value="d.nom" />
+    </datalist>
+    <datalist id="cat-list">
+      <option v-for="c in categories" :key="c" :value="c" />
+    </datalist>
+    <table class="table">
+      <thead>
+        <tr>
+          <th class="cursor-pointer" @click="setSort('nom')">Nom {{ sortLabel('nom') }}</th>
+          <th class="cursor-pointer" @click="setSort('departement')">Département {{ sortLabel('departement') }}</th>
+          <th class="cursor-pointer" @click="setSort('categorie')">Catégorie {{ sortLabel('categorie') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="p in postesFiltrees" :key="p.id">
+          <td>{{ p.nom }}</td>
+          <td class="muted">{{ p.departement?.nom || '—' }}</td>
+          <td><span class="chip">{{ p.categorie || '—' }}</span></td>
+        </tr>
+        <tr v-if="!postesFiltrees.length">
+          <td colspan="3" class="muted">Aucun poste</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="flex items-center justify-between mt-3 text-sm text-slate-400">
+      <span>Page {{ pagination.page }} / {{ pagination.last_page }} — {{ pagination.total }} lignes</span>
+      <div class="flex items-center gap-2">
+        <button class="btn btn-secondary text-xs" :disabled="pagination.page <= 1" @click="prevPage">Précédent</button>
+        <button class="btn btn-secondary text-xs" :disabled="pagination.page >= pagination.last_page" @click="nextPage">Suivant</button>
       </div>
-      <form class="grid" style="margin-top: 10px; gap: 10px;" @submit.prevent="createPoste">
-        <input class="input" v-model="form.nom" placeholder="Nom" required />
-        <textarea class="input" rows="3" v-model="form.description" placeholder="Description"></textarea>
-        <select class="select" v-model="form.departement_id" required>
-          <option value="">Département</option>
-          <option v-for="dep in departements" :key="dep.id" :value="dep.id">{{ dep.nom }}</option>
-        </select>
-        <select class="select" v-model="form.categorie">
-          <option value="">Catégorie (optionnel)</option>
-          <option v-for="c in categories" :key="c" :value="c">{{ c }}</option>
-        </select>
-        <button class="btn" type="submit">Enregistrer</button>
-        <p class="muted" v-if="message">{{ message }}</p>
-      </form>
     </div>
   </div>
 </template>
@@ -87,7 +67,6 @@ const postes = ref([])
 const filterDep = ref('')
 const message = ref('')
 const categories = ['Ouvriers', 'Employés', 'TAM', 'Cadres', 'Dirigeants']
-const form = ref({ nom: '', description: '', departement_id: '', categorie: '' })
 const filters = ref({ nom: '', departement: '', categorie: '' })
 const sortKey = ref('nom')
 const sortDir = ref('asc')

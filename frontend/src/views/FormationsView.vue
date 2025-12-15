@@ -70,10 +70,10 @@
             <span class="icon">⏱️</span>
             <span>{{ formation.duree_heures || 0 }}h</span>
           </div>
-          <div class="detail" v-if="formation.cout">
+          <!-- <div class="detail" v-if="formation.cout">
             <span class="icon">💰</span>
             <span>{{ formatMontant(formation.cout) }}</span>
-          </div>
+          </div> -->
           <div class="detail" v-if="formation.formateur">
             <span class="icon">👤</span>
             <span>{{ formation.formateur }}</span>

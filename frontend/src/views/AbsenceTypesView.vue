@@ -7,165 +7,83 @@
     <div class="flex w-full gap-2 lg:w-auto">
       <input class="input flex-1" placeholder="Rechercher un type" v-model="search" @input="fetchTypes" />
       <button class="btn btn-secondary" @click="fetchTypes">Actualiser</button>
+      <RouterLink class="btn" to="/absences-types/nouveau">+ Ajouter</RouterLink>
     </div>
   </div>
 
-  <div class="grid gap-4 lg:grid-cols-3">
-    <div class="card lg:col-span-2">
-      <h3 class="text-lg font-semibold mb-2">Catalogue des types</h3>
-      <div class="grid gap-2 md:grid-cols-3 mb-3">
-        <input class="input" placeholder="Nom" v-model="filters.nom" />
-        <input class="input" placeholder="Payant (oui/non)" v-model="filters.payant" />
-        <input class="input" placeholder="Jours annuels" v-model="filters.jours" />
-      </div>
-      <div class="flex justify-end mb-2">
-        <button class="btn btn-secondary btn-xs" @click="resetFilters">Réinitialiser</button>
-      </div>
-      <table class="min-w-full text-sm">
-        <thead>
-          <tr class="border-b border-slate-800/60">
-            <th class="py-2 text-left text-slate-400 text-xs cursor-pointer" @click="setSort('nom')">Nom {{ sortLabel('nom') }}</th>
-            <th class="py-2 text-left text-slate-400 text-xs cursor-pointer" @click="setSort('payant')">Payant {{ sortLabel('payant') }}</th>
-            <th class="py-2 text-left text-slate-400 text-xs cursor-pointer" @click="setSort('jours')">Jours {{ sortLabel('jours') }}</th>
-            <th class="py-2 text-left text-slate-400 text-xs">Fréquence</th>
-            <th class="py-2 text-left text-slate-400 text-xs">Limite</th>
-            <th class="py-2 text-left text-slate-400 text-xs">Cumulable</th>
-            <th class="py-2 text-left text-slate-400 text-xs">Description</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-800/60">
-          <tr v-for="t in typesFiltres" :key="t.id" class="hover:bg-slate-800/30 transition">
-            <td class="py-2 font-semibold text-slate-100">{{ t.libelle }}</td>
-            <td class="py-2">
-              <span v-if="t.paye" class="chip">Payant</span>
-              <span v-else class="chip" style="background: rgba(255,255,255,0.04); color: #cbd5e1;">Non payant</span>
-            </td>
-            <td class="py-2">{{ t.jours_forfait ?? '—' }}</td>
-            <td class="py-2">{{ frequence(t) }}</td>
-            <td class="py-2">
-              <div class="text-xs text-slate-300">
-                <div v-if="t.limite">
-                  Max {{ t.limite }} <span v-if="t.limite_frequence">/ {{ t.limite_frequence.libelle || t.limite_frequence.code }}</span>
-                </div>
-                <div v-else>—</div>
-              </div>
-            </td>
-            <td class="py-2">
-              <div class="text-xs text-slate-300">
-                <div>{{ t.cumulable ? 'Oui' : 'Non' }}</div>
-                <div v-if="t.cumulable_duree">Durée: {{ t.cumulable_duree }} ({{ cumulableFreq(t) }})</div>
-              </div>
-            </td>
-            <td class="py-2 text-slate-400 text-xs">{{ t.description || '—' }}</td>
-          </tr>
-          <tr v-if="!typesFiltres.length">
-            <td colspan="7" class="py-3 text-center text-slate-500">Aucun type</td>
-          </tr>
-        </tbody>
-      </table>
-      <div class="flex items-center justify-between mt-3 text-sm text-slate-400">
-        <span>Page {{ pagination.page }} / {{ pagination.last_page }} — {{ pagination.total }} lignes</span>
-        <div class="flex items-center gap-2">
-          <button class="btn btn-secondary text-xs" :disabled="pagination.page <= 1" @click="prevPage">Précédent</button>
-          <button class="btn btn-secondary text-xs" :disabled="pagination.page >= pagination.last_page" @click="nextPage">Suivant</button>
-        </div>
-      </div>
+  <div class="card">
+    <h3 class="text-lg font-semibold mb-2">Catalogue des types</h3>
+    <div class="grid gap-2 md:grid-cols-3 mb-3">
+      <input class="input" placeholder="Nom" v-model="filters.nom" />
+      <input class="input" placeholder="Payant (oui/non)" v-model="filters.payant" />
+      <input class="input" placeholder="Jours annuels" v-model="filters.jours" />
     </div>
-
-    <div class="card">
-      <h2 class="text-lg font-semibold">Nouveau type</h2>
-      <p class="text-sm text-slate-500 mb-3">Ajoute un type de congé / absence</p>
-      <form class="space-y-3" @submit.prevent="createType">
-        <div class="grid gap-1">
-          <label class="text-sm text-slate-400">Libellé</label>
-          <input class="input" v-model="form.libelle" placeholder="Congé payé, Maladie, Exceptionnel..." required />
-        </div>
-        <div class="grid gap-1">
-          <label class="text-sm text-slate-400">Code</label>
-          <input class="input" v-model="form.code" placeholder="PAYE, MALADIE..." required />
-        </div>
-        <div class="grid gap-1">
-          <label class="text-sm text-slate-400">Fréquence (table)</label>
-          <select class="select" v-model="form.frequence_id">
-            <option value="">(optionnel)</option>
-            <option v-for="f in frequences" :key="f.id" :value="f.id">{{ f.code }} - {{ f.libelle }}</option>
-          </select>
-        </div>
-        <div class="grid gap-1">
-          <label class="text-sm text-slate-400">Description</label>
-          <textarea class="input" rows="3" v-model="form.description" placeholder="Règles, justificatifs, etc."></textarea>
-        </div>
-        <label class="text-sm text-slate-400 flex items-center gap-2">
-          <input type="checkbox" v-model="form.paye" />
-          Payant
-        </label>
-        <label class="text-sm text-slate-400 flex items-center gap-2">
-          <input type="checkbox" v-model="form.utilise_solde" />
-          Utilise un solde
-        </label>
-        <label class="text-sm text-slate-400 flex items-center gap-2">
-          <input type="checkbox" v-model="form.cumulable" />
-          Cumulable
-        </label>
-        <div class="grid gap-1">
-          <label class="text-sm text-slate-400">Jours forfait (optionnel)</label>
-          <input class="input" v-model="form.jours_forfait" placeholder="Ex: 3" type="number" min="0" />
-        </div>
-        <div class="grid gap-1">
-          <label class="text-sm text-slate-400">Limite (nombre)</label>
-          <input class="input" v-model="form.limite" placeholder="Ex: 1" type="number" min="0" />
-        </div>
-        <div class="grid gap-1">
-          <label class="text-sm text-slate-400">Fréquence de limite</label>
-          <select class="select" v-model="form.limite_frequence_id">
-            <option value="">(optionnel)</option>
-            <option v-for="f in frequences" :key="f.id" :value="f.id">{{ f.code }} - {{ f.libelle }}</option>
-          </select>
-        </div>
-        <div class="grid gap-1" v-if="form.cumulable">
-          <label class="text-sm text-slate-400">Durée de cumul</label>
-          <input class="input" v-model="form.cumulable_duree" placeholder="Ex: 36" type="number" min="0" />
-        </div>
-        <div class="grid gap-1" v-if="form.cumulable">
-          <label class="text-sm text-slate-400">Fréquence de cumul</label>
-          <select class="select" v-model="form.cumulable_frequence_id">
-            <option value="">(optionnel)</option>
-            <option v-for="f in frequences" :key="f.id" :value="f.id">{{ f.code }} - {{ f.libelle }}</option>
-          </select>
-        </div>
-        <button class="btn w-full" type="submit">Enregistrer</button>
-        <p class="text-sm text-slate-500" v-if="message">{{ message }}</p>
-      </form>
+    <div class="flex justify-end mb-2">
+      <button class="btn btn-secondary btn-xs" @click="resetFilters">Réinitialiser</button>
+    </div>
+    <table class="min-w-full text-sm">
+      <thead>
+        <tr class="border-b border-slate-800/60">
+          <th class="py-2 text-left text-slate-400 text-xs cursor-pointer" @click="setSort('nom')">Nom {{ sortLabel('nom') }}</th>
+          <th class="py-2 text-left text-slate-400 text-xs cursor-pointer" @click="setSort('payant')">Payant {{ sortLabel('payant') }}</th>
+          <th class="py-2 text-left text-slate-400 text-xs cursor-pointer" @click="setSort('jours')">Jours {{ sortLabel('jours') }}</th>
+          <th class="py-2 text-left text-slate-400 text-xs">Fréquence</th>
+          <th class="py-2 text-left text-slate-400 text-xs">Limite</th>
+          <th class="py-2 text-left text-slate-400 text-xs">Cumulable</th>
+          <th class="py-2 text-left text-slate-400 text-xs">Description</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-800/60">
+        <tr v-for="t in typesFiltres" :key="t.id" class="hover:bg-slate-800/30 transition">
+          <td class="py-2 font-semibold text-slate-100">{{ t.libelle }}</td>
+          <td class="py-2">
+            <span v-if="t.paye" class="chip">Payant</span>
+            <span v-else class="chip" style="background: rgba(255,255,255,0.04); color: #cbd5e1;">Non payant</span>
+          </td>
+          <td class="py-2">{{ t.jours_forfait ?? '—' }}</td>
+          <td class="py-2">{{ frequence(t) }}</td>
+          <td class="py-2">
+            <div class="text-xs text-slate-300">
+              <div v-if="t.limite">
+                Max {{ t.limite }} <span v-if="t.limite_frequence">/ {{ t.limite_frequence.libelle || t.limite_frequence.code }}</span>
+              </div>
+              <div v-else>—</div>
+            </div>
+          </td>
+          <td class="py-2">
+            <div class="text-xs text-slate-300">
+              <div>{{ t.cumulable ? 'Oui' : 'Non' }}</div>
+              <div v-if="t.cumulable_duree">Durée: {{ t.cumulable_duree }} ({{ cumulableFreq(t) }})</div>
+            </div>
+          </td>
+          <td class="py-2 text-slate-400 text-xs">{{ t.description || '—' }}</td>
+        </tr>
+        <tr v-if="!typesFiltres.length">
+          <td colspan="7" class="py-3 text-center text-slate-500">Aucun type</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="flex items-center justify-between mt-3 text-sm text-slate-400">
+      <span>Page {{ pagination.page }} / {{ pagination.last_page }} — {{ pagination.total }} lignes</span>
+      <div class="flex items-center gap-2">
+        <button class="btn btn-secondary text-xs" :disabled="pagination.page <= 1" @click="prevPage">Précédent</button>
+        <button class="btn btn-secondary text-xs" :disabled="pagination.page >= pagination.last_page" @click="nextPage">Suivant</button>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, computed } from 'vue'
+import { RouterLink } from 'vue-router'
 import api from '../services/api'
 
 const types = ref([])
-const frequences = ref([])
 const search = ref('')
-const message = ref('')
 const filters = ref({ nom: '', payant: '', jours: '' })
 const sortKey = ref('libelle')
 const sortDir = ref('asc')
 const pagination = ref({ page: 1, last_page: 1, total: 0 })
-const form = ref({
-  libelle: '',
-  code: '',
-  description: '',
-  paye: true,
-  utilise_solde: true,
-  jours_forfait: '',
-  limite: '',
-  limite_frequence_id: '',
-  frequence_id: '',
-  cumulable: true,
-  cumulable_duree: '',
-  cumulable_frequence_id: ''
-})
 
 const fetchTypes = async () => {
   const { data } = await api.get('/v1/types-conges', { params: { search: search.value, page: pagination.value.page }, paramsSerializer: { indexes: null } })
@@ -177,30 +95,8 @@ const fetchTypes = async () => {
   }
 }
 
-const fetchFrequences = async () => {
-  const { data } = await api.get('/v1/frequences-conges')
-  frequences.value = data || []
-}
-
-const createType = async () => {
-  try {
-    const payload = { ...form.value }
-    payload.jours_forfait = payload.jours_forfait || null
-    payload.limite = payload.limite || null
-    payload.limite_frequence_id = payload.limite_frequence_id || null
-    payload.frequence_id = payload.frequence_id || null
-    payload.cumulable_duree = payload.cumulable ? (payload.cumulable_duree || null) : null
-    payload.cumulable_frequence_id = payload.cumulable ? (payload.cumulable_frequence_id || null) : null
-    await api.post('/v1/types-conges', payload)
-    message.value = 'Type ajouté'
-    await fetchTypes()
-  } catch (e) {
-    message.value = 'Erreur'
-  }
-}
-
 onMounted(async () => {
-  await Promise.all([fetchTypes(), fetchFrequences()])
+  await fetchTypes()
 })
 
 const typesFiltres = computed(() => {

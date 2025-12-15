@@ -41,7 +41,12 @@ const onLogin = async () => {
     }
     localStorage.setItem('token', token)
     localStorage.setItem('role', data?.user?.role ?? '')
-    router.push('/dashboard')
+    const role = data?.user?.role
+    if (role === 'employe') {
+      router.push('/self-service/profil')
+    } else {
+      router.push('/dashboard')
+    }
   } catch (e) {
     error.value = 'Identifiants invalides'
   }

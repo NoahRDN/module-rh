@@ -397,7 +397,7 @@ export default {
         { key: 'profil', icon: '📊', label: 'Analyse Profil' },
         // { key: 'cv', icon: '📄', label: 'Analyse CV' },
         { key: 'candidats', icon: '👥', label: 'Candidats' },
-        { key: 'carriere', icon: '🚀', label: 'Plan Carrière' },
+        // { key: 'carriere', icon: '🚀', label: 'Plan Carrière' },
         { key: 'formations', icon: '📚', label: 'Formations' }
       ],
       employes: [],

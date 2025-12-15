@@ -231,9 +231,50 @@ class CongeService
                     'acquis_conge_id' => $acquis->id,
                     'jours_utilises' => $aPrendre,
                 ]);
-                $restant -= $aPrendre;
-            }
+            $restant -= $aPrendre;
+        }
         });
+    }
+
+    /**
+     * Consommer automatiquement des jours d'absence (retards/absences) sur le solde PAYE.
+     * Crée une demande synthétique "Régularisation paie {mois}" pour tracer la consommation.
+     */
+    public function consommerAbsenceAuto(int $employeId, float $jours, Carbon $dateRef, string $moisLabel = ''): void
+    {
+        if ($jours <= 0) {
+            return;
+        }
+        $type = TypeConge::where('code', self::CODE_CONGE_PAYE)->first();
+        if (!$type) {
+            return;
+        }
+
+        $motif = $moisLabel ? "Régularisation paie {$moisLabel}" : 'Régularisation paie';
+
+        // Nettoyer une éventuelle régularisation précédente sur le même mois
+        $ancienne = DemandeConge::where('employe_id', $employeId)
+            ->where('statut', 'rh_valide')
+            ->where('motif', 'like', $motif . '%')
+            ->first();
+        if ($ancienne) {
+            ConsommationConge::where('demande_conge_id', $ancienne->id)->delete();
+            $ancienne->delete();
+        }
+
+        $dateFin = (clone $dateRef)->addDays(max(0, (int) ceil($jours) - 1));
+
+        $demande = DemandeConge::create([
+            'employe_id'     => $employeId,
+            'type_conge_id'  => $type->id,
+            'jours_demandes' => $jours,
+            'date_debut'     => $dateRef->toDateString(),
+            'date_fin'       => $dateFin->toDateString(),
+            'statut'         => 'rh_valide',
+            'motif'          => $motif,
+        ]);
+
+        $this->consommerDemande($demande);
     }
 
     protected function calculJoursDemandes(DemandeConge $demande): float

@@ -13,6 +13,7 @@ use App\Models\Employe;
 use App\Models\IrsaTranche;
 use App\Models\DemandeConge;
 use App\Models\JourFerie;
+use App\Services\CongeService;
 use DateInterval;
 use DatePeriod;
 use Carbon\Carbon;
@@ -21,6 +22,13 @@ use Illuminate\Support\Facades\Log;
 
 class PaieController extends Controller
 {
+    protected CongeService $congeService;
+
+    public function __construct(CongeService $congeService)
+    {
+        $this->congeService = $congeService;
+    }
+
     public function genererPaie(Request $request)
     {
         $request->validate([
@@ -56,9 +64,21 @@ class PaieController extends Controller
             $irsa  = $this->calculerIrsaProgressif($revenuImposable);
             $settings = $this->loadWorktimeSettings();
             $appliquerSalaire = (bool) ($settings['deduct_from_salary'] ?? true);
+            $appliquerSolde = (bool) ($settings['deduct_from_leave_balance'] ?? false);
             $retenues = $cnaps + $ostie + $irsa;
             if ($appliquerSalaire) {
                 $retenues += $deductionRetards + $deductionAbsences + $deductionPartiel;
+            }
+
+            // Consommer le solde congé pour absences/retards si activé
+            if ($appliquerSolde) {
+                $hoursPerDay = (float) ($settings['hours_per_day'] ?? 8);
+                $joursRetards = ($retardsTotal > 0 && $hoursPerDay > 0) ? ($retardsTotal / 60) / $hoursPerDay : 0;
+                $joursPartiels = ($heuresManquantes > 0 && $hoursPerDay > 0) ? ($heuresManquantes / $hoursPerDay) : 0;
+                $joursTotal = round($absences + $joursRetards + $joursPartiels, 4);
+                if ($joursTotal > 0) {
+                    $this->congeService->consommerAbsenceAuto($employe->id, $joursTotal, $start->copy(), $mois);
+                }
             }
 
             Log::info("Calcul paie pour Employe ID: {$employe->id}, Mois: {$mois}");

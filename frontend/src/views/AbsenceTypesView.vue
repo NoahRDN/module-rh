@@ -5,7 +5,6 @@
       <p class="text-sm text-slate-500">Congés payés, maladie, exceptionnels</p>
     </div>
     <div class="flex w-full gap-2 lg:w-auto">
-      <input class="input flex-1" placeholder="Rechercher un type" v-model="search" @input="fetchTypes" />
       <button class="btn btn-secondary" @click="fetchTypes">Actualiser</button>
       <RouterLink class="btn" to="/absences-types/nouveau">+ Ajouter</RouterLink>
     </div>
@@ -14,6 +13,7 @@
   <div class="card">
     <h3 class="text-lg font-semibold mb-2">Catalogue des types</h3>
     <div class="grid gap-2 md:grid-cols-3 mb-3">
+      <input class="input flex-1" placeholder="Rechercher un type" v-model="search" @input="fetchTypes" />
       <input class="input" placeholder="Nom" v-model="filters.nom" />
       <input class="input" placeholder="Payant (oui/non)" v-model="filters.payant" />
       <input class="input" placeholder="Jours annuels" v-model="filters.jours" />

@@ -9,7 +9,7 @@
     </div>
 
     <nav class="menu">
-      <div v-for="group in groups" :key="group.label" class="menu-group">
+      <div v-for="group in filteredGroups" :key="group.label" class="menu-group">
         <button class="group-toggle" @click="toggle(group.label)">
           <span class="icon">{{ group.icon }}</span>
           <span class="label">{{ group.label }}</span>
@@ -39,7 +39,9 @@
 import { reactive } from 'vue'
 import { useRoute } from 'vue-router'
 
+import { computed } from 'vue'
 const route = useRoute()
+const role = localStorage.getItem('role') || ''
 
 const groups = [
   {
@@ -126,6 +128,13 @@ const groups = [
 const openGroups = reactive(
   Object.fromEntries(groups.map((g) => [g.label, true]))
 )
+
+const filteredGroups = computed(() => {
+  return groups.filter((g) => {
+    if (role === 'employe' && (g.label === 'Vue globale' || g.label === 'Ressources humaines')) return false
+    return true
+  })
+})
 
 const toggle = (label) => {
   openGroups[label] = !openGroups[label]

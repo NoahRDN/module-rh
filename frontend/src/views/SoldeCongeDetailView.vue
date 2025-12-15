@@ -16,10 +16,12 @@
         <div class="font-semibold">{{ employeLabel }}</div>
         <div class="muted">Type de congé</div>
         <div class="font-semibold">{{ solde.type_conge?.libelle || solde.type_conge_libelle || '—' }}</div>
+        <div class="muted">Contrat</div>
+        <div class="font-semibold">{{ contratLabel }}</div>
       </div>
       <div class="grid gap-1">
         <div class="flex justify-between"><span class="muted">Premier acquis</span><span>{{ solde.premier_acquis || solde.acquis_first || '—' }}</span></div>
-        <div class="flex justify-between"><span class="muted">Expiration max</span><span>{{ solde.expire_first || '—' }}</span></div>
+        <div class="flex justify-between"><span class="muted">Expiration max</span><span>{{ expirationMax }}</span></div>
         <div class="flex justify-between"><span class="muted">Solde actuel</span><span class="font-semibold">{{ solde.solde_actuel }}</span></div>
       </div>
     </div>
@@ -77,6 +79,42 @@ const employeLabel = computed(() => {
   if (!solde.value) return ''
   const s = solde.value
   return s.employe ? `${s.employe.matricule} - ${s.employe.nom} ${s.employe.prenom}` : `${s.employe_matricule || ''} ${s.employe_nom || ''} ${s.employe_prenom || ''}`
+})
+
+const contratLabel = computed(() => {
+  const s = solde.value
+  if (!s) return '—'
+  const type = s.contrat_type || s.contratType
+  const fin = s.contrat_fin || s.contratFin
+  if (type && fin) return `${type} — fin ${fin}`
+  if (type) return type
+  if (fin) return fin
+  return '—'
+})
+
+const expirationMax = computed(() => {
+  const s = solde.value
+  if (!s) return '—'
+  const defaultVal = s.expire_first || s.expire_le || '—'
+  const contratType = (s.contrat_type || s.contratType || '').toLowerCase()
+  const contratFin = s.contrat_fin || s.contratFin
+  const acquisFirst = s.acquis_first || s.acquisFirst
+
+  if (contratType !== 'cdd' || !contratFin || !acquisFirst) {
+    return defaultVal
+  }
+
+  const contratFinDate = new Date(contratFin)
+  const acquisDate = new Date(acquisFirst)
+  if (isNaN(contratFinDate.getTime()) || isNaN(acquisDate.getTime())) {
+    return defaultVal
+  }
+
+  const diffYears = Math.abs(contratFinDate - acquisDate) / (365.25 * 24 * 60 * 60 * 1000)
+  if (diffYears <= 3) {
+    return contratFin
+  }
+  return defaultVal
 })
 
 const fetchSolde = async () => {

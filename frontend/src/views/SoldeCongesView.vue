@@ -62,6 +62,7 @@
           <tr>
             <th class="cursor-pointer" @click="setSort('employe')">Employé {{ sortLabel('employe') }}</th>
             <th class="cursor-pointer" @click="setSort('type')">Type {{ sortLabel('type') }}</th>
+            <th>Contrat</th>
             <th>Premier acquis</th>
             <th>Expiration max</th>
             <th>Acquis période</th>
@@ -74,13 +75,14 @@
           <tr v-for="s in soldesFiltres" :key="s.id">
             <td>{{ s.employe ? `${s.employe.matricule} - ${s.employe.nom} ${s.employe.prenom}` : `${s.employe_matricule || ''} ${s.employe_nom || ''} ${s.employe_prenom || ''}` }}</td>
             <td>{{ s.type_conge?.libelle || s.type_conge_libelle || '—' }}</td>
+            <td>{{ contratLabel(s) }}</td>
             <td>{{ s.premier_acquis || '—' }}</td>
-            <td>{{ s.expire_first || '—' }}</td>
+            <td>{{ expirationMax(s) }}</td>
             <td>{{ s.acquis_periode ?? s.total_acquis ?? '—' }}</td>
             <td>{{ s.utilise_periode ?? s.total_utilise ?? '—' }}</td>
             <td>{{ s.solde_periode ?? s.solde_actuel }}</td>
             <td>
-              <button class="btn btn-secondary btn-xs" @click="openDetail(s)">Détails</button>
+              <RouterLink class="btn btn-secondary btn-xs" :to="`/soldes-conges/${s.id}`">Détails</RouterLink>
             </td>
           </tr>
           <tr v-if="!soldesFiltres.length">
@@ -101,7 +103,7 @@
 
 <script setup>
 import { onMounted, ref, computed, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, RouterLink } from 'vue-router'
 import api from '../services/api'
 import { debounce } from '../utils/debounce'
 
@@ -140,9 +142,6 @@ const messagePeriode = ref('')
 
 const congesRange = ref({ from: '', to: '', employe_id: '' })
 const demandesRange = ref([])
-
-const selected = ref(null)
-const showDetail = ref(false)
 
 const fetchSoldes = async () => {
   loading.value = true
@@ -231,6 +230,7 @@ const prevPage = () => {
 
 const soldesFiltres = computed(() => {
   let list = soldes.value
+  console.log(soldes)
   const key = sortKey.value
   const dir = sortDir.value
   list = [...list].sort((a, b) => {
@@ -259,6 +259,39 @@ const setSort = (key) => {
   if (sortKey.value === key) sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
   else { sortKey.value = key; sortDir.value = 'asc' }
 }
+
+const expirationMax = (s) => {
+  const defaultVal = s.expire_first || s.expire_le || '—'
+  const contratType = (s.contrat_type || s.contratType || '').toLowerCase()
+  const contratFin = s.contrat_fin || s.contratFin
+  const acquisFirst = s.acquis_first || s.acquisFirst
+  console.log("contrat type")
+  console.log(contratType);
+  if (contratType !== 'cdd' || !contratFin || !acquisFirst) {
+    return defaultVal
+  }
+
+  const contratFinDate = new Date(contratFin)
+  const acquisDate = new Date(acquisFirst)
+  if (isNaN(contratFinDate.getTime()) || isNaN(acquisDate.getTime())) {
+    return defaultVal
+  }
+
+  const diffYears = Math.abs(contratFinDate - acquisDate) / (365.25 * 24 * 60 * 60 * 1000)
+  if (diffYears <= 3) {
+    return contratFin
+  }
+  return defaultVal
+}
+
+const contratLabel = (s) => {
+  const type = s.contrat_type || s.contratType
+  const fin = s.contrat_fin || s.contratFin
+  if (!type && !fin) return '—'
+  if (type && fin) return `${type} — fin ${fin}`
+  if (type) return type
+  return fin
+}
 const sortLabel = (key) => (sortKey.value === key ? (sortDir.value === 'asc' ? '▲' : '▼') : '')
 const resetFilters = () => {
   filters.value = { matricule: '', nom: '', type: '', departement: '', from: '', to: '', simulation_date: '' }
@@ -270,16 +303,6 @@ const router = useRouter()
 const goToDetail = (s) => {
   if (!s?.id) return
   router.push(`/soldes-conges/${s.id}`)
-}
-
-const openDetail = (s) => {
-  selected.value = s
-  showDetail.value = true
-}
-
-const closeDetail = () => {
-  showDetail.value = false
-  selected.value = null
 }
 
 // Rafraîchir quand la plage de dates change

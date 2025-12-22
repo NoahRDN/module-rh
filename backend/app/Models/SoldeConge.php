@@ -6,17 +6,17 @@ use Illuminate\Database\Eloquent\Model;
 
 class SoldeConge extends Model
 {
-    protected $table = 'solde_conge';
-    protected $primaryKey = 'id_solde';
+    protected $table = 'view_solde_conges';
     public $timestamps = false;
-
-    protected $fillable = [
-        'id_employe', 'annee', 'total_acquis', 'total_pris'
-        // Total_Restant est généré automatiquement par la DB (GENERATED ALWAYS), ne pas l'ajouter ici
-    ];
+    protected $fillable = [];
 
     public function employe()
     {
-        return $this->belongsTo(Employe::class, 'id_employe');
+        return $this->belongsTo(Employe::class);
+    }
+
+    public function typeConge()
+    {
+        return $this->belongsTo(TypeConge::class, 'type_conge_id');
     }
 }

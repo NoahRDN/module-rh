@@ -1,0 +1,174 @@
+<template>
+  <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between mb-4">
+    <div>
+      <h1 class="text-2xl font-semibold">Types d'absence</h1>
+      <p class="text-sm text-slate-500">Congés payés, maladie, exceptionnels</p>
+    </div>
+    <div class="flex w-full gap-2 lg:w-auto">
+      <button class="btn btn-secondary" @click="fetchTypes">Actualiser</button>
+      <RouterLink class="btn" to="/absences-types/nouveau">+ Ajouter</RouterLink>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 class="text-lg font-semibold mb-2">Catalogue des types</h3>
+    <div class="grid gap-2 md:grid-cols-3 mb-3">
+      <input class="input flex-1" placeholder="Rechercher un type" v-model="search" @input="fetchTypes" />
+      <input class="input" placeholder="Nom" v-model="filters.nom" />
+      <input class="input" placeholder="Payant (oui/non)" v-model="filters.payant" />
+      <input class="input" placeholder="Jours annuels" v-model="filters.jours" />
+    </div>
+    <div class="flex justify-end mb-2">
+      <button class="btn btn-secondary btn-xs" @click="resetFilters">Réinitialiser</button>
+    </div>
+    <table class="min-w-full text-sm">
+      <thead>
+        <tr class="border-b border-slate-800/60">
+          <th class="py-2 text-left text-slate-400 text-xs cursor-pointer" @click="setSort('nom')">Nom {{ sortLabel('nom') }}</th>
+          <th class="py-2 text-left text-slate-400 text-xs cursor-pointer" @click="setSort('payant')">Payant {{ sortLabel('payant') }}</th>
+          <th class="py-2 text-left text-slate-400 text-xs cursor-pointer" @click="setSort('jours')">Jours {{ sortLabel('jours') }}</th>
+          <th class="py-2 text-left text-slate-400 text-xs">Fréquence</th>
+          <th class="py-2 text-left text-slate-400 text-xs">Limite</th>
+          <th class="py-2 text-left text-slate-400 text-xs">Cumulable</th>
+          <th class="py-2 text-left text-slate-400 text-xs">Description</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-800/60">
+        <tr v-for="t in typesFiltres" :key="t.id" class="hover:bg-slate-800/30 transition">
+          <td class="py-2 font-semibold text-slate-100">{{ t.libelle }}</td>
+          <td class="py-2">
+            <span v-if="t.paye" class="chip">Payant</span>
+            <span v-else class="chip" style="background: rgba(255,255,255,0.04); color: #cbd5e1;">Non payant</span>
+          </td>
+          <td class="py-2">{{ t.jours_forfait ?? '—' }}</td>
+          <td class="py-2">{{ frequence(t) }}</td>
+          <td class="py-2">
+            <div class="text-xs text-slate-300">
+              <div v-if="t.limite">
+                Max {{ t.limite }} <span v-if="t.limite_frequence">/ {{ t.limite_frequence.libelle || t.limite_frequence.code }}</span>
+              </div>
+              <div v-else>—</div>
+            </div>
+          </td>
+          <td class="py-2">
+            <div class="text-xs text-slate-300">
+              <div>{{ t.cumulable ? 'Oui' : 'Non' }}</div>
+              <div v-if="t.cumulable_duree">Durée: {{ t.cumulable_duree }} ({{ cumulableFreq(t) }})</div>
+            </div>
+          </td>
+          <td class="py-2 text-slate-400 text-xs">{{ t.description || '—' }}</td>
+        </tr>
+        <tr v-if="!typesFiltres.length">
+          <td colspan="7" class="py-3 text-center text-slate-500">Aucun type</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="flex items-center justify-between mt-3 text-sm text-slate-400">
+      <span>Page {{ pagination.page }} / {{ pagination.last_page }} — {{ pagination.total }} lignes</span>
+      <div class="flex items-center gap-2">
+        <button class="btn btn-secondary text-xs" :disabled="pagination.page <= 1" @click="prevPage">Précédent</button>
+        <button class="btn btn-secondary text-xs" :disabled="pagination.page >= pagination.last_page" @click="nextPage">Suivant</button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted, computed } from 'vue'
+import { RouterLink } from 'vue-router'
+import api from '../services/api'
+
+const types = ref([])
+const search = ref('')
+const filters = ref({ nom: '', payant: '', jours: '' })
+const sortKey = ref('libelle')
+const sortDir = ref('asc')
+const pagination = ref({ page: 1, last_page: 1, total: 0 })
+
+const fetchTypes = async () => {
+  const { data } = await api.get('/v1/types-conges', { params: { search: search.value, page: pagination.value.page }, paramsSerializer: { indexes: null } })
+  types.value = data.data || []
+  if (data.meta) {
+    pagination.value = { page: data.meta.current_page, last_page: data.meta.last_page, total: data.meta.total }
+  } else if (data.current_page !== undefined) {
+    pagination.value = { page: data.current_page, last_page: data.last_page, total: data.total }
+  }
+}
+
+onMounted(async () => {
+  await fetchTypes()
+})
+
+const typesFiltres = computed(() => {
+  const f = filters.value
+  const toStr = (v) => String(v || '').toLowerCase()
+  let list = types.value.filter((t) =>
+    toStr(t.libelle).includes(toStr(f.nom)) &&
+    (toStr(t.paye ? 'oui' : 'non').includes(toStr(f.payant))) &&
+    (toStr(t.jours_forfait).includes(toStr(f.jours)) || toStr(frequence(t)).includes(toStr(f.jours)))
+  )
+  const key = sortKey.value
+  const dir = sortDir.value
+  list = [...list].sort((a, b) => {
+    const va = getVal(a, key)
+    const vb = getVal(b, key)
+    if (va < vb) return dir === 'asc' ? -1 : 1
+    if (va > vb) return dir === 'asc' ? 1 : -1
+    return 0
+  })
+  return list
+})
+
+const getVal = (t, key) => {
+  const toStr = (v) => String(v || '').toLowerCase()
+  switch (key) {
+    case 'payant': return toStr(t.paye ? 'oui' : 'non')
+    case 'jours': return Number(t.jours_forfait) || 0
+    case 'nom':
+    default:
+      return toStr(t.libelle)
+  }
+}
+
+const setSort = (key) => {
+  if (sortKey.value === key) sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
+  else { sortKey.value = key; sortDir.value = 'asc' }
+}
+const sortLabel = (key) => (sortKey.value === key ? (sortDir.value === 'asc' ? '▲' : '▼') : '')
+const resetFilters = () => { filters.value = { nom: '', payant: '', jours: '' } }
+
+const frequence = (t) => {
+  if (t.frequence?.libelle) return `${t.frequence.libelle} (${t.frequence.code})`
+  const nom = (t.libelle || '').toLowerCase()
+  if (nom.includes('mariage')) return '3 j — 1 fois/événement'
+  if (nom.includes('décès') || nom.includes('deces')) return '3 j — par décès'
+  if (nom.includes('naissance')) return '2-5 j — par naissance'
+  if (nom.includes('matern')) return '12-16 sem — grossesse'
+  if (nom.includes('patern')) return '2-5 j — par naissance'
+  if (nom.includes('sabbatique')) return 'Longue durée, manager'
+  if (nom.includes('sans solde')) return 'Selon validation'
+  if (t.jours_forfait) return `${t.jours_forfait} j`
+  return 'Selon politique (mois/événement)'
+}
+const cumulableFreq = (t) => {
+  if (t.cumulable_frequence_id && t.cumulable_frequence) return `${t.cumulable_frequence.libelle || ''}`.trim() || '—'
+  if (t.cumulable_frequence_id && t.frequences) {
+    const found = (t.frequences || []).find((f) => f.id === t.cumulable_frequence_id)
+    if (found) return found.libelle
+  }
+  if (t.frequence?.libelle) return t.frequence.libelle
+  return '—'
+}
+const nextPage = () => {
+  if (pagination.value.page < pagination.value.last_page) {
+    pagination.value.page++
+    fetchTypes()
+  }
+}
+const prevPage = () => {
+  if (pagination.value.page > 1) {
+    pagination.value.page--
+    fetchTypes()
+  }
+}
+</script>

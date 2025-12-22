@@ -35,4 +35,19 @@ return [
         ],
     ],
 
+    'gemini' => [
+        // API_KEY reste compatible, mais privilégier GEMINI_API_KEY
+        'api_key' => env('GEMINI_API_KEY', env('API_KEY')),
+        // Utiliser l'API Gemini (v1beta par défaut pour generateContent)
+        'api_url' => env('GEMINI_API_URL', 'https://generativelanguage.googleapis.com/v1beta/models/'),
+        'model' => env('GEMINI_MODEL', 'gemini-1.5-flash-latest'),
+    ],
+
+    'openai' => [
+        'api_key' => env('OPENAI_API_KEY'),
+        'api_url' => env('OPENAI_API_URL'),
+        'model' => env('OPENAI_MODEL', 'gpt-4o-mini'),
+    ],
+
+
 ];

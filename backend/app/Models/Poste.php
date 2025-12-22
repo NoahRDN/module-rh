@@ -6,36 +6,40 @@ use Illuminate\Database\Eloquent\Model;
 
 class Poste extends Model
 {
-    protected $table = 'poste';
-    protected $primaryKey = 'id_poste';
-    public $timestamps = false;
+    protected $table = 'postes';
 
     protected $fillable = [
-        'id_profil', 'id_departement', 'id_unite', 'fonction', 'description', 'nombre'
+        'nom',
+        'description',
+        'departement_id',
+        'categorie',
+        'categorie_level'
     ];
-
-    public function unite()
-    {
-        return $this->belongsTo(Unite::class, 'id_unite');
-    }
-
-    public function profil()
-    {
-        return $this->belongsTo(Profil::class, 'id_profil');
-    }
 
     public function departement()
     {
-        return $this->belongsTo(Departement::class, 'id_departement');
+        return $this->belongsTo(Departement::class);
     }
 
-    public function details()
-    {
-        return $this->hasMany(PosteDetail::class, 'id_poste');
-    }
-    
     public function employes()
     {
-        return $this->hasMany(Employe::class, 'id_poste');
+        return $this->hasMany(Employe::class);
+    }
+
+    public function competences()
+    {
+        return $this->belongsToMany(Competence::class, 'poste_competences')
+            ->withPivot('niveau_requis', 'obligatoire', 'poids')
+            ->withTimestamps();
+    }
+
+    public function competencesObligatoires()
+    {
+        return $this->competences()->wherePivot('obligatoire', true);
+    }
+
+    public function competencesSouhaitees()
+    {
+        return $this->competences()->wherePivot('obligatoire', false);
     }
 }

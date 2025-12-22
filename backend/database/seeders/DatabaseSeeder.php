@@ -14,7 +14,25 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // Les donnees applicatives sont chargees via backend/database/*.sql
-        // et ne sont donc pas reinseres par les seeders Laravel.
+        $this->call([
+            DepartementSeeder::class,
+            PosteSeeder::class,
+            EmployeSeeder::class,
+            DocumentSeeder::class,
+            ContratSeeder::class,
+            ContratHistoriqueSeeder::class,
+            UserSeeder::class,
+        PaieParametreSeeder::class,
+        IrsaTrancheSeeder::class,
+            FrequenceCongeSeeder::class,
+            TypeCongeSeeder::class,
+            RegleCongeSeeder::class,
+            CongeAccrualSeeder::class,
+            WorktimeSettingsSeeder::class,
+            JourFerieSeeder::class,
+            DemandeCongeSampleSeeder::class,
+            CompetenceSeeder::class,
+            // TestCongeExpirationSeeder::class,
+        ]);
     }
 }

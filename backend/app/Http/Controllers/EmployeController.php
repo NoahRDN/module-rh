@@ -20,7 +20,7 @@ class EmployeController extends Controller
     public function liste_employe()
     {
         try {
-            $employes = Employe::with(['personne', 'poste'])->get();
+            $employes = Employe::with(['poste', 'departement'])->get();
             
             return response()->json([
                 'status' => 'success',

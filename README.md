@@ -28,23 +28,6 @@ php artisan key:generate
 ```
 Dans `.env`, vérifiez au minimum :
 - `APP_URL` (URL du backend) et `FRONTEND_URL` (ex: `http://localhost:5173`) pour que CORS autorise votre interface.
-- Les identifiants `DB_*` correspondant à votre instance PostgreSQL.
-
-Configurez ensuite PostgreSQL (les commandes ci-dessous supposent que vous vous trouvez dans `backend/database/`) :
-
-```bash
-# Linux / macOS
-psql -h localhost -U postgres -p 5432 -f create_db.sql           # crée la base + le schéma
-psql -h localhost -U postgres -p 5432 -d rh -f donnee.sql         # insère les données de référence
-psql -h localhost -U postgres -p 5432 -d rh -f view.sql           # crée les vues analytiques
-psql -h localhost -U postgres -p 5432 -d rh -f idx.sql            # ajoute les index
-psql -h localhost -U postgres -p 5432 -d rh -f mise_a_jour_sequence.sql
-```
-
-> Sous PowerShell/Windows, remplacez le chemin par `.\create_db.sql`, `.\donnee.sql`, etc. après vous être placé dans `backend\database`. Le script `create_db.sql` active automatiquement l'extension `pgcrypto` requise pour hacher les mots de passe d'exemple.
-
-Adaptez `DB_USERNAME` et `DB_PASSWORD` dans `.env` si votre instance Postgres n'utilise pas `postgres/postgres`.  
-Si vous aviez déjà importé les utilisateurs avant cette mise à jour et que le login renvoie « This password does not use the Bcrypt algorithm », réexécutez `donnee.sql` pour réinsérer les comptes avec des hachages `$2y$` compatibles Laravel.
 
 Finalisez l'initialisation :
 ```bash

@@ -137,20 +137,20 @@
                 <td><span class="statut-badge" :class="'statut-' + (demande.statut || 'en_attente')">{{ demande.statut || 'en_attente' }}</span></td>
                 <td class="request-actions">
                   <template v-if="isPending(demande)">
-                  <button 
-                    class="btn btn-success btn-sm" 
-                    @click="openValidateModal(demande)"
-                    title="Valider"
-                  >
-                    ✓
-                  </button>
-                  <button 
-                    class="btn btn-danger btn-sm" 
-                    @click="openRejectModal(demande)"
-                    title="Rejeter"
-                  >
-                    ✗
-                  </button>
+                    <button 
+                      class="btn btn-success btn-sm" 
+                      @click="validerDirect(demande.id)"
+                      title="Valider"
+                    >
+                      ✓
+                    </button>
+                    <button 
+                      class="btn btn-danger btn-sm" 
+                      @click="rejeterDirect(demande.id)"
+                      title="Rejeter"
+                    >
+                      ✗
+                    </button>
                   </template>
                   <span v-else class="muted">—</span>
                 </td>
@@ -421,6 +421,32 @@ export default {
         await this.loadDemandesConges()
         await this.loadDashboard()
         alert('Demande rejetée')
+      } catch (err) {
+        alert(err.response?.data?.message || 'Erreur lors du rejet')
+      } finally {
+        this.validating = false
+      }
+    },
+    async validerDirect(id) {
+      this.validating = true
+      try {
+        await managerService.validerDemandeConge(id, '')
+        await this.loadDemandesConges()
+        await this.loadDashboard()
+      } catch (err) {
+        alert(err.response?.data?.message || 'Erreur lors de la validation')
+      } finally {
+        this.validating = false
+      }
+    },
+    async rejeterDirect(id) {
+      const commentaire = prompt('Motif du refus ?') || ''
+      if (!commentaire) return
+      this.validating = true
+      try {
+        await managerService.rejeterDemandeConge(id, commentaire)
+        await this.loadDemandesConges()
+        await this.loadDashboard()
       } catch (err) {
         alert(err.response?.data?.message || 'Erreur lors du rejet')
       } finally {

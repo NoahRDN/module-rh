@@ -117,11 +117,6 @@ const groups = [
       // { to: '/archives', label: 'Archives', hint: 'Documents légaux', icon: '🗄️' },
       { to: '/permissions', label: 'Permissions', hint: 'Contrôle d\'accès', icon: '🔐' }
     ]
-  },
-  {
-    label: 'Self-Service',
-    icon: '🏠',
-    items: [{ to: '/self-service', label: 'Mon Espace', hint: 'Self-Service', icon: '🏠' }]
   }
 ]
 
@@ -130,10 +125,14 @@ const openGroups = reactive(
 )
 
 const filteredGroups = computed(() => {
-  return groups.filter((g) => {
-    if (role === 'employe' && (g.label === 'Vue globale' || g.label === 'Ressources humaines')) return false
-    return true
-  })
+  if (role === 'employe') {
+    return [{
+      label: 'Self-Service',
+      icon: '🏠',
+      items: [{ to: '/self-service', label: 'Mon Espace', hint: 'Self-Service', icon: '🏠' }]
+    }]
+  }
+  return groups.filter((g) => g.label !== 'Self-Service')
 })
 
 const toggle = (label) => {

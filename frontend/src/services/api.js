@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
+  baseURL: import.meta.env.VITE_API_URL || 'http://192.168.88.15:8000/api' || 'http://localhost:8000/api'
 })
 // injecter le token s’il existe
 api.interceptors.request.use(config => {

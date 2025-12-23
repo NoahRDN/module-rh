@@ -10,4 +10,10 @@ export default defineConfig({
         }),
         tailwindcss(),
     ],
+    server: {
+        host: '0.0.0.0',
+        // Port déporté pour éviter les collisions avec le Vite frontend
+        port: 5174,
+        strictPort: true,
+    },
 });

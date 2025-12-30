@@ -16,7 +16,39 @@
       </div>
     </div>
     <div class="grid gap-2 md:grid-cols-3 lg:grid-cols-6 mb-3">
-      <input class="input flex-1" placeholder="Rechercher (nom, prénom, matricule)" v-model="search" @input="handleSearch" />
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input
+          class="input flex-1"
+          placeholder="Rechercher (nom, prénom, matricule)"
+          v-model="search"
+          @input="handleSearch"
+          @focus="searchFocus = true"
+          @blur="() => setTimeout(() => searchFocus = false, 150)"
+        />
+        <div
+          v-if="searchFocus && searchSuggestions.length"
+          class="search-suggestions"
+        >
+          <div class="suggestion-header">
+            Suggestions
+            <span class="badge">{{ searchSuggestions.length }}</span>
+          </div>
+          <div
+            v-for="emp in searchSuggestions"
+            :key="emp.id"
+            class="suggestion-row"
+            @mousedown.prevent="applySuggestion(emp)"
+          >
+            <div class="avatar">{{ emp.nom?.[0] || '' }}{{ emp.prenom?.[0] || '' }}</div>
+            <div class="suggestion-text">
+              <div class="name">{{ emp.nom }} {{ emp.prenom }}</div>
+              <div class="meta">{{ emp.matricule }} · {{ emp.poste?.nom || 'Poste N/A' }}</div>
+            </div>
+            <span class="pill">{{ emp.departement?.nom || 'Département' }}</span>
+          </div>
+        </div>
+      </div>
       <input class="input" placeholder="Matricule" v-model="filters.matricule" list="matricules-list" />
       <input class="input" placeholder="Nom / Prénom" v-model="filters.nom" />
       <input class="input" placeholder="Email" v-model="filters.email" />
@@ -167,6 +199,7 @@ const placeholder = ref('https://via.placeholder.com/80?text=EMP')
 const loading = ref(false)
 const pagination = ref({ page: 1, last_page: 1, total: 0 })
 let searchTimer = null
+const searchFocus = ref(false)
 const filters = ref({
   matricule: '',
   nom: '',
@@ -181,6 +214,17 @@ const optionsMatricules = computed(() => [...new Set(employes.value.map((e) => e
 const optionsPostes = computed(() => [...new Set(employes.value.map((e) => e.poste?.nom).filter(Boolean))])
 const optionsDepartements = computed(() => [...new Set(employes.value.map((e) => e.departement?.nom).filter(Boolean))])
 const optionsCategories = computed(() => [...new Set(employes.value.map((e) => e.poste?.categorie).filter(Boolean))])
+const searchSuggestions = computed(() => {
+  if (!search.value) return []
+  const term = search.value.toLowerCase()
+  return employes.value
+    .filter(e =>
+      (`${e.nom} ${e.prenom}`.toLowerCase().includes(term)) ||
+      (e.matricule || '').toLowerCase().includes(term) ||
+      (e.poste?.nom || '').toLowerCase().includes(term)
+    )
+    .slice(0, 6)
+})
 
 const fetchEmployes = async () => {
   loading.value = true
@@ -208,6 +252,12 @@ const fetchEmployes = async () => {
 const handleSearch = () => {
   clearTimeout(searchTimer)
   searchTimer = setTimeout(fetchEmployes, 300)
+}
+
+const applySuggestion = (emp) => {
+  search.value = emp.matricule || `${emp.nom} ${emp.prenom}`.trim()
+  searchFocus.value = false
+  fetchEmployes()
 }
 
 const photoUrl = (emp) => {
@@ -312,6 +362,97 @@ onMounted(async () => {
   border-radius: 10px;
   padding: 10px 14px;
   color: #0f172a;
+}
+
+.search-wrap {
+  position: relative;
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  opacity: 0.6;
+}
+
+.search-wrap .input {
+  padding-left: 34px;
+}
+
+.search-suggestions {
+  position: absolute;
+  top: 46px;
+  left: 0;
+  right: 0;
+  background: linear-gradient(145deg, #0f172a, #111827);
+  color: white;
+  border-radius: 14px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  z-index: 10;
+  overflow: hidden;
+  backdrop-filter: blur(6px);
+}
+
+.suggestion-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.suggestion-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.suggestion-row:hover {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(37, 99, 235, 0.15));
+}
+
+.suggestion-row .avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.suggestion-text .name {
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.suggestion-text .meta {
+  font-size: 12px;
+  color: #cbd5e1;
+}
+
+.pill {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e2e8f0;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  white-space: nowrap;
 }
 
 .btn {

@@ -40,6 +40,7 @@ import DemandeCongeCreateView from '../views/DemandeCongeCreateView.vue'
 import CompetencesView from '../views/CompetencesView.vue'
 import CompetencesEmployesView from '../views/CompetencesEmployesView.vue'
 import CompetencesPostesView from '../views/CompetencesPostesView.vue'
+import CategoriePostesView from '../views/CategoriePostesView.vue'
 import FormationsView from '../views/FormationsView.vue'
 import MatchingView from '../views/MatchingView.vue'
 import AbsenceTypeCreateView from '../views/AbsenceTypeCreateView.vue'
@@ -87,6 +88,7 @@ const routes = [
       { path: 'departements/nouveau', name: 'departement-create', component: DepartementCreateView, meta: { subtitle: 'Nouveau département' } },
       { path: 'postes', name: 'postes', component: PostesView, meta: { subtitle: 'Fonctions' } },
       { path: 'postes/nouveau', name: 'poste-create', component: PosteCreateView, meta: { subtitle: 'Nouveau poste' } },
+      { path: 'categories-postes', name: 'categories-postes', component: CategoriePostesView, meta: { subtitle: 'Catégories de postes' } },
       { path: 'documents/nouveau', name: 'document-create', component: DocumentCreateView, meta: { subtitle: 'Nouveau document' } },
       { path: 'contrats', name: 'contrats', component: ContratsView, meta: { subtitle: 'Contrats' } },
       { path: 'contrats/nouveau', name: 'contrats-create', component: ContratCreateView, meta: { subtitle: 'Nouveau contrat' } },

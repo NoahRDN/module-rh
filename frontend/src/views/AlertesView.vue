@@ -17,7 +17,7 @@
   </div>
 
   <div class="grid gap-4 lg:grid-cols-2">
-    <div class="card glass">
+    <div class="card card-solid">
       <div class="section-header">
         <div>
           <p class="eyebrow">Congés</p>
@@ -53,7 +53,7 @@
       </div>
     </div>
 
-    <div class="card glass">
+    <div class="card card-solid">
       <div class="section-header">
         <div>
           <p class="eyebrow">Absences</p>
@@ -148,10 +148,17 @@ onMounted(fetchAlertes)
 .pill-red { background: rgba(248, 113, 113, 0.18); color: #fecdd3; }
 .hero-actions .btn { background: #22c55e; color: #0b172a; border: none; }
 
-.card.glass {
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
-  backdrop-filter: blur(6px);
+.card.card-solid {
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  border-radius: 14px;
+}
+:deep(body.dark) .card.card-solid {
+  background: rgba(255,255,255,0.04);
+  border-color: rgba(255,255,255,0.08);
+  color: #e2e8f0;
 }
 .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
 .section-header h3 { margin: 0; font-size: 18px; }
@@ -161,7 +168,8 @@ onMounted(fetchAlertes)
 .bullet { width: 12px; height: 12px; border-radius: 50%; margin-top: 4px; background: rgba(234,179,8,0.9); box-shadow: 0 0 0 6px rgba(234,179,8,0.18); }
 .bullet.danger { background: rgba(248,113,113,0.95); box-shadow: 0 0 0 6px rgba(248,113,113,0.16); }
 .bullet.warning { background: rgba(234,179,8,0.95); box-shadow: 0 0 0 6px rgba(234,179,8,0.16); }
-.content .title { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.content .title { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; color: #0f172a; }
+:deep(body.dark) .content .title { color: #e2e8f0; }
 .message { font-weight: 600; color: #0f172a; }
 :deep(body.dark) .message { color: #e2e8f0; }
 .meta { display: flex; gap: 10px; color: #94a3b8; font-size: 12px; margin-top: 4px; }
@@ -182,10 +190,11 @@ onMounted(fetchAlertes)
   border-radius: 10px;
   border: 1px solid rgba(148, 163, 184, 0.4);
   background: rgba(255,255,255,0.08);
-  color: #e2e8f0;
+  color: #0f172a;
   cursor: pointer;
 }
-.btn:hover { border-color: rgba(255,255,255,0.5); }
+.btn:hover { border-color: rgba(15, 23, 42, 0.4); }
+:deep(body.dark) .btn { color: #e2e8f0; border-color: rgba(255,255,255,0.2); }
 .muted, .subtitle, .meta, .type-tag, .pill { transition: color 0.2s ease, background 0.2s ease; }
 
 @media (max-width: 1024px) {

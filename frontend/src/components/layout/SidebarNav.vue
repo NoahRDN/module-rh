@@ -56,7 +56,9 @@ const groups = [
       { to: '/employes', label: 'Employés', hint: 'Annuaire & contrats', icon: '👤' },
       { to: '/departements', label: 'Départements', hint: 'Structure', icon: '🏢' },
       { to: '/postes', label: 'Postes', hint: 'Fonctions', icon: '🪜' },
+      { to: '/categories-postes', label: 'Catégories de postes', hint: 'Niveaux / familles', icon: '🏷️' },
       { to: '/historiques', label: 'Historique postes', hint: 'Mobilités', icon: '⏱️' },
+      { to: '/contrats', label: 'Contrats', hint: 'Contrats actifs', icon: '📄' },
       { to: '/documents', label: 'Documents', hint: 'RH & pièces', icon: '📁' }
     ]
   },

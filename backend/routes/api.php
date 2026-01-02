@@ -25,6 +25,7 @@ use App\Http\Controllers\Api\EmployePdfController;
 use App\Http\Controllers\Api\CalendrierEvenementController;
 use App\Http\Controllers\Api\AlerteController;
 use App\Http\Controllers\Api\AlerteSettingController;
+use App\Http\Controllers\Api\CategoriePosteController;
 use App\Http\Controllers\Api\ContratHistoriqueController;
 use App\Http\Controllers\Api\ContratPdfController;
 use App\Http\Controllers\Api\FrequenceCongeController;
@@ -92,6 +93,7 @@ Route::apiResource('departements', DepartementController::class)->only(['index',
 Route::prefix('v1')->group(function () {
     Route::apiResource('departements', DepartementController::class);
     Route::apiResource('postes', PosteController::class);
+    Route::apiResource('categories-postes', CategoriePosteController::class);
     // Types de congés accessibles en lecture sans auth stricte
     Route::get('types-conges', [TypeCongeController::class, 'index']);
     Route::get('frequences-conges', [FrequenceCongeController::class, 'index']);

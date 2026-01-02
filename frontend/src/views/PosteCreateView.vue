@@ -34,12 +34,23 @@ const router = useRouter()
 const loading = ref(false)
 const message = ref('')
 const departements = ref([])
-const categories = ['Ouvriers', 'Employés', 'TAM', 'Cadres', 'Dirigeants']
+const categories = ref([])
+const defaultCategories = ['Ouvriers', 'Employés', 'TAM', 'Cadres', 'Dirigeants']
 const form = ref({ nom: '', description: '', departement_id: '', categorie: '' })
 
 const loadDeps = async () => {
   const { data } = await api.get('/v1/departements')
   departements.value = data.data || data || []
+}
+
+const loadCategories = async () => {
+  try {
+    const { data } = await api.get('/v1/categories-postes')
+    const payload = data || []
+    categories.value = payload.length ? payload.map((c) => c.nom) : defaultCategories
+  } catch (e) {
+    categories.value = defaultCategories
+  }
 }
 
 const submit = async () => {
@@ -55,7 +66,10 @@ const submit = async () => {
   }
 }
 
-onMounted(loadDeps)
+onMounted(async () => {
+  await loadDeps()
+  await loadCategories()
+})
 </script>
 
 <style scoped>

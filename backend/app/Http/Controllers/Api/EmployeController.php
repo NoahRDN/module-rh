@@ -22,6 +22,11 @@ class EmployeController extends Controller
             $activeOnly = $request->boolean('active_only', false);
             $all = $request->boolean('all', false);
             $perPage = max(1, (int) $request->query('per_page', 10));
+            $sort = $request->query('sort', 'nom');
+
+            // Tri : par défaut alphabétique, ou par date de création si sort=recent
+            $orderColumn = $sort === 'recent' ? 'created_at' : 'nom';
+            $orderDirection = $sort === 'recent' ? 'desc' : 'asc';
 
             $query = Employe::with(['poste', 'departement'])
                 ->search($search)
@@ -34,7 +39,7 @@ class EmployeController extends Controller
                           });
                     });
                 })
-                ->orderBy('nom');
+                ->orderBy($orderColumn, $orderDirection);
 
             $employes = $all ? $query->get() : $query->paginate($perPage);
 

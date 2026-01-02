@@ -122,8 +122,8 @@
           <h3>Pyramide des âges</h3>
         </div>
         <div class="chart-container">
+          <canvas ref="chartAges" :class="{'chart-hidden': !hasAges}"></canvas>
           <div v-if="!hasAges" class="chart-empty">Aucune donnée d'âge disponible</div>
-          <canvas v-else ref="chartAges"></canvas>
         </div>
       </div>
 
@@ -263,13 +263,14 @@ const loadData = async () => {
       }),
       api.get('/v1/alertes'),
       api.get('/v1/dashboard/top-performers', { params: { limite: 5 } }),
-      api.get('/v1/employes')
+      api.get('/v1/employes', { params: { per_page: 5, sort: 'recent' } })
     ])
 
     statsData.value = statsRes.data
     alertes.value = alertesRes.data.data || []
     topPerformers.value = perfRes.data.data || []
-    derniersEmployes.value = (empRes.data.data || []).slice(0, 5)
+    const empData = empRes.data.data || empRes.data || []
+    derniersEmployes.value = Array.isArray(empData) ? empData : []
 
     // Assurer que le canvas de la pyramide est rendu après le changement de v-if
     await nextTick()
@@ -297,6 +298,15 @@ const loadData = async () => {
 }
 
 const updateCharts = () => {
+  // S'assure que les refs sont prêtes
+  if (!chartDepartements.value || !chartContrats.value || !chartTendances.value || !chartAges.value) {
+    nextTick(() => updateCharts())
+    return
+  }
+  if (!chartAges.value) {
+    console.warn('Chart Ages: canvas non trouvé')
+  }
+
   Object.values(charts).forEach(chart => chart?.destroy())
   charts = {}
 
@@ -421,6 +431,9 @@ const updateCharts = () => {
         }
       }
     })
+  } else if (charts.ages) {
+    charts.ages.destroy()
+    charts.ages = null
   }
 }
 
@@ -573,6 +586,14 @@ onUnmounted(() => {
 .chart-container {
   height: 250px;
   position: relative;
+}
+.chart-container canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+.chart-hidden {
+  opacity: 0;
 }
 .chart-empty {
   height: 100%;

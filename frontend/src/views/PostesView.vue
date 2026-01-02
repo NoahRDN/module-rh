@@ -66,7 +66,8 @@ const departements = ref([])
 const postes = ref([])
 const filterDep = ref('')
 const message = ref('')
-const categories = ['Ouvriers', 'Employés', 'TAM', 'Cadres', 'Dirigeants']
+const categories = ref([])
+const defaultCategories = ['Ouvriers', 'Employés', 'TAM', 'Cadres', 'Dirigeants']
 const filters = ref({ nom: '', departement: '', categorie: '' })
 const sortKey = ref('nom')
 const sortDir = ref('asc')
@@ -96,6 +97,16 @@ const debouncedFetchPostes = debounce(fetchPostes, 300)
 const fetchDeps = async () => {
   const { data } = await api.get('/v1/departements')
   departements.value = data.data || []
+}
+
+const fetchCategories = async () => {
+  try {
+    const { data } = await api.get('/v1/categories-postes')
+    const payload = data || []
+    categories.value = payload.length ? payload.map((c) => c.nom) : defaultCategories
+  } catch (e) {
+    categories.value = defaultCategories
+  }
 }
 
 const createPoste = async () => {
@@ -159,6 +170,7 @@ const prevPage = () => {
 
 onMounted(async () => {
   await fetchDeps()
+  await fetchCategories()
   await fetchPostes()
 })
 </script>

@@ -1,12 +1,11 @@
 import axios from 'axios'
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://192.168.88.15:8000/api' || 'http://localhost:8000/api'
+  baseURL: import.meta.env.VITE_API_URL || 'http://192.168.16.101:8000/api' || 'http://localhost:8000/api'
 })
 // injecter le token s’il existe
 api.interceptors.request.use(config => {
   const token = localStorage.getItem('token')
-  console.log('Token dans api.js:', token)
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }

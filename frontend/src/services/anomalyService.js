@@ -1,7 +1,11 @@
 import api from './api'
 
 /**
+ * @remarks Feature prête mais désactivée temporairement.
+ * @deprecated Activation ultérieure (phase 2).
+ * 
  * Service pour la détection d'anomalies RH
+ * Features: Détection d'anomalies sur les heures ou la paie
  */
 const anomalyService = {
   /**

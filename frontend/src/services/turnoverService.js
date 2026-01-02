@@ -1,7 +1,11 @@
 import api from './api'
 
 /**
+ * @remarks Feature prête mais désactivée temporairement.
+ * @deprecated Activation ultérieure (phase 2).
+ * 
  * Service pour la prédiction de turnover et analyse RH
+ * Features: Prédiction de turnover (analyse de données), Détection d'anomalies sur les heures ou la paie
  */
 const turnoverService = {
   /**

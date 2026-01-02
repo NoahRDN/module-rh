@@ -183,7 +183,7 @@
           <thead><tr><th>Type</th><th>Début</th><th>Fin</th><th>Statut</th></tr></thead>
           <tbody>
             <tr v-for="d in demandes" :key="d.id">
-              <td>{{ d.type?.nom || d.type?.label || '—' }}</td>
+              <td>{{ d.type_conge?.libelle || d.type?.label || '—' }}</td>
               <td>{{ formatDate(d.date_debut) }}</td>
               <td>{{ formatDate(d.date_fin) }}</td>
               <td><span class="chip">{{ d.statut }}</span></td>

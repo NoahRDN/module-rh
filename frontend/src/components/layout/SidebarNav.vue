@@ -57,19 +57,8 @@ const groups = [
       { to: '/departements', label: 'Départements', hint: 'Structure', icon: '🏢' },
       { to: '/postes', label: 'Postes', hint: 'Fonctions', icon: '🪜' },
       { to: '/historiques', label: 'Historique postes', hint: 'Mobilités', icon: '⏱️' },
+      { to: '/contrats', label: 'Contrats', hint: 'Contrats actifs', icon: '📄' },
       { to: '/documents', label: 'Documents', hint: 'RH & pièces', icon: '📁' }
-    ]
-  },
-  {
-    label: 'Compétences & formations',
-    icon: '🎯',
-    items: [
-      { to: '/competences', label: 'Compétences', hint: 'Cartographie', icon: '🎯' },
-      { to: '/competences-employes', label: 'Compétences employés', hint: 'Attribuer/voir', icon: '👥' },
-      { to: '/competences-postes', label: 'Compétences postes', hint: 'Requis', icon: '💼' },
-      { to: '/formations', label: 'Formations', hint: 'Catalogue', icon: '🎓' },
-      { to: '/matching', label: 'Matching', hint: 'Profil / Poste', icon: '🔄' },
-      { to: '/matching-ia', label: 'Matching IA', hint: 'Recommandations', icon: '🤖' }
     ]
   },
   {

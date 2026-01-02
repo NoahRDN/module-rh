@@ -385,6 +385,14 @@
 </template>
 
 <script>
+/**
+ * @remarks Feature prête mais désactivée temporairement.
+ * @deprecated Activation ultérieure (phase 2).
+ * 
+ * Vue pour le matching IA avancé
+ * Features: Matching automatique profil/poste, Suggestion de formations, 
+ * Recommandation de candidats (matching CV ↔ poste)
+ */
 import aiMatchingService from '@/services/aiMatchingService'
 import api from '@/services/api'
 

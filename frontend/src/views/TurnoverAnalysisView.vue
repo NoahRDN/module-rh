@@ -206,6 +206,13 @@
 </template>
 
 <script>
+/**
+ * @remarks Feature prête mais désactivée temporairement.
+ * @deprecated Activation ultérieure (phase 2).
+ * 
+ * Vue pour l'analyse prédictive du turnover
+ * Features: Prédiction de turnover (analyse de données), Détection d'anomalies sur les heures ou la paie
+ */
 import turnoverService from '@/services/turnoverService'
 import api from '@/services/api'
 import Chart from 'chart.js/auto'

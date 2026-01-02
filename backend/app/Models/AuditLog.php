@@ -4,6 +4,14 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * @note Fonction prête mais non utilisée pour l'instant.
+ * @deprecated Activation ultérieure (phase 2).
+ * 
+ * Modèle pour la journalisation des actions (traces d'audit).
+ * Features: Journalisation des actions, Gestion des autorisations par rôle, 
+ * Sauvegarde et archivage légal des documents RH
+ */
 class AuditLog extends Model
 {
     protected $table = 'audit_logs';

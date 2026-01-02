@@ -4,6 +4,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * @note Fonction prête mais non utilisée pour l'instant.
+ * @deprecated Activation ultérieure (phase 2).
+ * 
+ * Modèle pour la gestion des évaluations de performance des employés.
+ * Features: Évaluations périodiques automatisées (scoring) et Génération de rapports de performance
+ */
 class Evaluation extends Model
 {
     protected $table = 'evaluations';

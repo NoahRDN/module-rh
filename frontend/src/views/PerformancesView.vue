@@ -223,6 +223,13 @@
 </template>
 
 <script setup>
+/**
+ * @remarks Feature prête mais désactivée temporairement.
+ * @deprecated Activation ultérieure (phase 2).
+ * 
+ * Vue pour la gestion des performances
+ * Features: Évaluations périodiques automatisées (scoring), Génération de rapports de performance
+ */
 import { ref, onMounted, onUnmounted } from 'vue'
 import { Chart, registerables } from 'chart.js'
 import api from '../services/api'

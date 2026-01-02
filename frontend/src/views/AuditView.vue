@@ -254,6 +254,14 @@
 </template>
 
 <script>
+/**
+ * @remarks Feature prête mais désactivée temporairement.
+ * @deprecated Activation ultérieure (phase 2).
+ * 
+ * Vue pour le journal d'audit
+ * Features: Journalisation des actions (traces d'audit), Gestion des autorisations par rôle,
+ * Sauvegarde et archivage légal des documents RH
+ */
 import auditService from '@/services/auditService'
 
 export default {

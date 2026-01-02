@@ -10,6 +10,7 @@ use App\Models\DemandeConge;
 use App\Models\Pointage;
 use App\Models\Evaluation;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -22,9 +23,9 @@ class DashboardController extends Controller
     {
         $filtre = $request->get('filtre', 'annee'); // mois, trimestre, annee
         $date = $request->get('date', now()->format('Y-m-d'));
-        
+
         $periode = $this->getPeriode($filtre, $date);
-        
+
         return response()->json([
             'effectifs' => $this->getStatistiquesEffectifs($periode),
             'indicateurs' => $this->getIndicateursRH($periode),
@@ -44,7 +45,7 @@ class DashboardController extends Controller
     private function getPeriode(string $filtre, string $date): array
     {
         $dateRef = Carbon::parse($date);
-        
+
         switch ($filtre) {
             case 'mois':
                 return [
@@ -71,7 +72,7 @@ class DashboardController extends Controller
     private function getStatistiquesEffectifs(array $periode): array
     {
         $now = now()->toDateString();
-        
+
         // Employés actifs (avec contrat en cours)
         $employesActifs = Employe::whereHas('contrats', function ($q) use ($now) {
             $q->whereDate('date_debut', '<=', $now)
@@ -113,7 +114,7 @@ class DashboardController extends Controller
     private function getIndicateursRH(array $periode): array
     {
         $now = now()->toDateString();
-        
+
         // Ancienneté moyenne (en années)
         // PostgreSQL compatible : age(now(), date_embauche) converti en années
         $anciennete = Employe::whereNotNull('date_embauche')
@@ -252,7 +253,7 @@ class DashboardController extends Controller
     private function getAgeDistribution(): array
     {
         $now = now();
-        
+
         $tranches = [
             ['label' => '< 25 ans', 'min' => 0, 'max' => 24, 'value' => 0],
             ['label' => '25-34 ans', 'min' => 25, 'max' => 34, 'value' => 0],
@@ -272,7 +273,8 @@ class DashboardController extends Controller
             ->get();
 
         foreach ($employes as $emp) {
-            $age = $now->diffInYears($emp->date_naissance);
+            $age = $emp->date_naissance->diffInYears($now);
+            Log::info("Calcul âge pour l'employé ID {$emp->id} : $age ans");
             foreach ($tranches as &$tranche) {
                 if ($age >= $tranche['min'] && $age <= $tranche['max']) {
                     $tranche['value']++;
@@ -295,7 +297,7 @@ class DashboardController extends Controller
 
         while ($current <= $end) {
             $moisFin = $current->copy()->endOfMonth();
-            
+
             // Effectif à la fin du mois
             $effectif = Employe::whereHas('contrats', function ($q) use ($moisFin) {
                 $q->whereDate('date_debut', '<=', $moisFin)

@@ -213,7 +213,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { Chart, registerables } from 'chart.js'
 import api from '../services/api'
 
@@ -271,6 +271,8 @@ const loadData = async () => {
     topPerformers.value = perfRes.data.data || []
     derniersEmployes.value = (empRes.data.data || []).slice(0, 5)
 
+    // Assurer que le canvas de la pyramide est rendu après le changement de v-if
+    await nextTick()
     updateCharts()
   } catch (e) {
     console.error('Erreur chargement dashboard:', e)

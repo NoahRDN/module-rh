@@ -5,12 +5,6 @@
       <p class="text-sm text-slate-500">Entrées / sorties / pauses · retards · absences justifiées</p>
     </div>
     <div class="flex gap-2 flex-wrap">
-      <select class="select" v-model="filters.employe_id" @change="debouncedFetchPointages">
-        <option value="">Tous les employés</option>
-        <option v-for="emp in employes" :key="emp.id" :value="emp.id">{{ emp.matricule }} - {{ emp.nom }}</option>
-      </select>
-      <input class="input" type="date" v-model="filters.from" @change="debouncedFetchPointages" />
-      <input class="input" type="date" v-model="filters.to" @change="debouncedFetchPointages" />
       <RouterLink class="btn" to="/pointages/nouveau">+ Ajouter</RouterLink>
     </div>
   </div>
@@ -19,6 +13,12 @@
     <div class="card">
       <h2 class="text-lg font-semibold mb-2">Liste des pointages</h2>
       <div class="grid gap-2 md:grid-cols-3 lg:grid-cols-6 mb-3">
+        <select class="select" v-model="filters.employe_id" @change="debouncedFetchPointages">
+          <option value="">Tous les employés</option>
+          <option v-for="emp in employes" :key="emp.id" :value="emp.id">{{ emp.matricule }} - {{ emp.nom }}</option>
+        </select>
+        <input class="input" type="date" v-model="filters.from" @change="debouncedFetchPointages" />
+        <input class="input" type="date" v-model="filters.to" @change="debouncedFetchPointages" />
         <input class="input" placeholder="Matricule" v-model="filtersLocal.matricule" />
         <input class="input" placeholder="Nom" v-model="filtersLocal.nom" />
         <input class="input" placeholder="Type" v-model="filtersLocal.type" />
@@ -37,6 +37,7 @@
               <th class="cursor-pointer" @click="setSort('date')">Date/heure {{ sortLabel('date') }}</th>
               <th class="cursor-pointer" @click="setSort('source')">Source {{ sortLabel('source') }}</th>
               <th>Absence</th>
+              <th>Commentaire</th>
             </tr>
           </thead>
           <tbody>
@@ -49,9 +50,10 @@
                 <span v-if="p.absence_justifiee" class="chip" style="background: rgba(59,130,246,0.15); color: #93c5fd;">Justifiée</span>
                 <span v-else class="muted">—</span>
               </td>
+              <td class="comment-cell">{{ p.commentaire || '—' }}</td>
             </tr>
             <tr v-if="!pointagesFiltres.length">
-              <td colspan="5" class="muted">Aucun pointage</td>
+              <td colspan="6" class="muted">Aucun pointage</td>
             </tr>
           </tbody>
         </table>
@@ -261,5 +263,10 @@ onMounted(async () => {
   border-radius: 12px;
   padding: 10px 12px;
   background: rgba(255, 255, 255, 0.02);
+}
+
+.comment-cell {
+  max-width: 240px;
+  white-space: normal;
 }
 </style>

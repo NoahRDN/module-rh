@@ -272,6 +272,7 @@ const loadData = async () => {
     const empData = empRes.data.data || empRes.data || []
     derniersEmployes.value = Array.isArray(empData) ? empData : []
 
+    // Assurer que le canvas de la pyramide est rendu après le changement de v-if
     await nextTick()
     updateCharts()
   } catch (e) {

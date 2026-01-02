@@ -167,6 +167,13 @@
 </template>
 
 <script>
+/**
+ * @remarks Feature prête mais désactivée temporairement.
+ * @deprecated Activation ultérieure (phase 2).
+ * 
+ * Vue pour la détection d'anomalies
+ * Features: Détection d'anomalies sur les heures ou la paie
+ */
 import anomalyService from '@/services/anomalyService'
 
 export default {

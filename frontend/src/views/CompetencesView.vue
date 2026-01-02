@@ -183,6 +183,14 @@
 </template>
 
 <script setup>
+/**
+ * @remarks Feature prête mais désactivée temporairement.
+ * @deprecated Activation ultérieure (phase 2).
+ * 
+ * Vue pour la cartographie des compétences
+ * Features: Cartographie des compétences de l'entreprise, Matching automatique profil/poste,
+ * Suggestion de formations en fonction des écarts de compétences
+ */
 import { ref, computed, onMounted } from 'vue'
 import competenceService from '../services/competenceService'
 

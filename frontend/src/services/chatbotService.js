@@ -1,7 +1,11 @@
 import api from './api'
 
 /**
+ * @remarks Feature prête mais désactivée temporairement.
+ * @deprecated Activation ultérieure (phase 2).
+ * 
  * Service pour le chatbot RH intelligent
+ * Features: Chatbot RH pour répondre aux questions fréquentes (congés, paie, etc.)
  */
 const chatbotService = {
   /**

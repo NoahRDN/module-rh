@@ -63,18 +63,6 @@ const groups = [
     ]
   },
   {
-    label: 'Compétences & formations',
-    icon: '🎯',
-    items: [
-      { to: '/competences', label: 'Compétences', hint: 'Cartographie', icon: '🎯' },
-      { to: '/competences-employes', label: 'Compétences employés', hint: 'Attribuer/voir', icon: '👥' },
-      { to: '/competences-postes', label: 'Compétences postes', hint: 'Requis', icon: '💼' },
-      { to: '/formations', label: 'Formations', hint: 'Catalogue', icon: '🎓' },
-      { to: '/matching', label: 'Matching', hint: 'Profil / Poste', icon: '🔄' },
-      { to: '/matching-ia', label: 'Matching IA', hint: 'Recommandations', icon: '🤖' }
-    ]
-  },
-  {
     label: 'Congés & absences',
     icon: '🗓️',
     items: [

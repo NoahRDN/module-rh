@@ -1,27 +1,28 @@
 <template>
-  <div class="flex flex-col gap-3 mb-4 lg:flex-row lg:items-center lg:justify-between">
-    <div class="page-title">
-      <h1>Relevé de présence</h1>
-      <span>Heures, heures sup, retards, absences</span>
-    </div>
-    <div class="flex flex-wrap items-center gap-2">
-      <select class="select" v-model="mode">
-        <option value="day">Journalier</option>
-        <option value="week">Hebdomadaire</option>
-        <option value="month">Mensuel</option>
-      </select>
-      <select class="select" v-model="employeId">
-        <option value="">Employé</option>
-        <option v-for="e in employes" :key="e.id" :value="e.id">{{ e.matricule }} - {{ e.nom }} {{ e.prenom }}</option>
-      </select>
-      <input v-if="mode === 'day'" class="input w-36" type="date" v-model="dateJour" />
-      <input v-else-if="mode === 'week'" class="input w-36" type="month" v-model="mois" />
-      <input v-else class="input w-24" type="number" min="2000" max="2100" v-model="yearOnly" />
-      <button class="btn btn-secondary" @click="fetchReleve">Générer</button>
-      <RouterLink class="btn" to="/paie-generation">Vers paie</RouterLink>
+  <div class="grid gap-4">
+    <div class="card">
+      <div class="page-title">
+        <h1>Relevé de présence</h1>
+        <span>Heures, heures sup, retards, absences</span>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <select class="select" v-model="mode">
+          <option value="day">Journalier</option>
+          <option value="week">Hebdomadaire</option>
+          <option value="month">Mensuel</option>
+        </select>
+        <select class="select" v-model="employeId">
+          <option value="">Employé</option>
+          <option v-for="e in employes" :key="e.id" :value="e.id">{{ e.matricule }} - {{ e.nom }} {{ e.prenom }}</option>
+        </select> 
+        <input v-if="mode === 'day'" class="input w-36" type="date" v-model="dateJour" />
+        <input v-else-if="mode === 'week'" class="input w-36" type="month" v-model="mois" />
+        <input v-else class="input w-24" type="number" min="2000" max="2100" v-model="yearOnly" />
+        <button class="btn btn-secondary" @click="fetchReleve">Générer</button>
+        <RouterLink class="btn" to="/paie-generation">Vers paie</RouterLink>
+      </div>
     </div>
   </div>
-
   <div class="card" v-if="mode === 'day' && jourResume">
     <div class="flex items-center justify-between mb-2">
       <h3 class="text-lg font-semibold">Journalier</h3>

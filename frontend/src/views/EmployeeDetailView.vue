@@ -327,8 +327,30 @@ const weekLabel = (date) => {
 const photoUrl = (emp) => {
   if (emp?.photo) return emp.photo
   const initials = `${emp?.nom?.[0] || ''}${emp?.prenom?.[0] || ''}` || 'EMP'
-  return `https://ui-avatars.com/api/?background=0f172a&color=fff&name=${encodeURIComponent(initials)}`
+  return generateAvatar(initials)
 }
+
+function generateAvatar(initials) {
+  const bg = "#0f172a";
+  const fg = "#ffffff";
+
+  const svg = `
+  <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128">
+    <rect width="100%" height="100%" fill="${bg}"/>
+    <text x="50%" y="50%"
+          dominant-baseline="middle"
+          text-anchor="middle"
+          font-size="48"
+          font-family="Arial, sans-serif"
+          fill="${fg}">
+      ${initials}
+    </text>
+  </svg>
+  `;
+
+  return "data:image/svg+xml;base64," + btoa(svg);
+}
+
 
 const formatDate = (d) => (d ? String(d).split('T')[0] : '')
 

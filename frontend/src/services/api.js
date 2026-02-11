@@ -1,7 +1,8 @@
 import axios from 'axios'
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://192.168.88.15:8000/api' || 'http://localhost:8000/api'
+  // Use Vite dev-server proxy by default to avoid CORS in development.
+  baseURL: import.meta.env.VITE_API_URL || '/api'
 })
 // injecter le token s’il existe
 api.interceptors.request.use(config => {

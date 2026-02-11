@@ -103,5 +103,35 @@ npm run build
 3. Configurer l'environnement (`APP_URL`, `APP_ENV=production`, caches via `php artisan config:cache route:cache`, etc.).
 4. Assurez-vous d'exécuter `php artisan migrate --force` lors des mises à jour.
 
+## Docker (docker compose)
+Prérequis : Docker Desktop (ou Docker Engine) + le plugin `docker compose`.
+
+### Nom du “stack” (project name)
+Le nom est défini par `COMPOSE_PROJECT_NAME` dans `.env` (à la racine). Pour le modifier, changez cette valeur, puis relancez.
+Astuce : si vous aviez déjà lancé l'ancien nom, il faut arrêter avec l'ancien project name, ex : `docker compose -p ancien_nom down`.
+
+### Lancer backend + frontend + PostgreSQL
+À la racine du dépôt :
+```bash
+docker compose up --build
+```
+
+Ensuite :
+- API : `http://localhost:8000/api`
+- Frontend : `http://localhost:5173`
+
+### Initialiser la base (premier lancement)
+Dans un autre terminal :
+```bash
+docker compose exec backend php artisan migrate
+docker compose exec backend php artisan storage:link
+```
+
+### Arrêter / repartir de zéro
+```bash
+docker compose down
+docker compose down -v   # supprime aussi les volumes (Postgres, vendor, storage, node_modules)
+```
+
 ## Ressources supplémentaires
 - `backend/database/*.sql` : scripts PG pour créer la base `rh`, insérer les données métiers, vues, index et resynchroniser les séquences.

@@ -5,7 +5,12 @@ import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '')
+
+  const backendUrl = env.VITE_BACKEND_URL || 'http://backend:8000'
+
+  return {
   plugins: [
     vue(),
     vueDevTools(),
@@ -21,26 +26,14 @@ export default defineConfig({
     strictPort: true,
     proxy: {
       '/api': {
-        target: 'http://192.168.16.101:8000',
+        target: backendUrl,
         changeOrigin: true,
-        },
-    },
-    server: {
-      host: '0.0.0.0',
-      port: 5173,
-      strictPort: true,
-      proxy: {
-        '/api': {
-          // When running via docker-compose, the dev server runs inside the
-          // frontend container, so target should be the backend service name.
-          target: env.VITE_BACKEND_URL || 'http://backend:8000',
-          changeOrigin: true,
-        },
-        '/sanctum': {
-          target: env.VITE_BACKEND_URL || 'http://backend:8000',
-          changeOrigin: true,
-        },
+      },
+      '/sanctum': {
+        target: backendUrl,
+        changeOrigin: true,
       },
     },
-  }
+  },
+}
 })

@@ -86,28 +86,28 @@ const groups = [
       { to: '/worktime-config', label: 'Worktime', hint: 'configuration', icon: '⚙️' }
     ]
   },
-  {
-    label: 'IA & Analytics',
-    icon: '📈',
-    items: [
-      { to: '/turnover', label: 'Prédiction Turnover', hint: 'Analyse IA', icon: '📈' },
-      { to: '/anomalies', label: 'Détection Anomalies', hint: 'Surveillance IA', icon: '🔍' }
-    ]
-  },
-  {
-    label: 'Manager',
-    icon: '👔',
-    items: [{ to: '/manager', label: 'Portail Manager', hint: 'Mon équipe', icon: '👥' }]
-  },
-  {
-    label: 'Audit & Conformité',
-    icon: '🔐',
-    items: [
-      { to: '/audit', label: 'Journal d\'audit', hint: 'Traçabilité', icon: '🔍' },
-      // { to: '/archives', label: 'Archives', hint: 'Documents légaux', icon: '🗄️' },
-      { to: '/permissions', label: 'Permissions', hint: 'Contrôle d\'accès', icon: '🔐' }
-    ]
-  }
+  // {
+  //   label: 'IA & Analytics',
+  //   icon: '📈',
+  //   items: [
+  //     { to: '/turnover', label: 'Prédiction Turnover', hint: 'Analyse IA', icon: '📈' },
+  //     { to: '/anomalies', label: 'Détection Anomalies', hint: 'Surveillance IA', icon: '🔍' }
+  //   ]
+  // },
+  // {
+  //   label: 'Manager',
+  //   icon: '👔',
+  //   items: [{ to: '/manager', label: 'Portail Manager', hint: 'Mon équipe', icon: '👥' }]
+  // },
+  // {
+  //   label: 'Audit & Conformité',
+  //   icon: '🔐',
+  //   items: [
+  //     { to: '/audit', label: 'Journal d\'audit', hint: 'Traçabilité', icon: '🔍' },
+  //     // { to: '/archives', label: 'Archives', hint: 'Documents légaux', icon: '🗄️' },
+  //     { to: '/permissions', label: 'Permissions', hint: 'Contrôle d\'accès', icon: '🔐' }
+  //   ]
+  // }
 ]
 
 const openGroups = reactive(

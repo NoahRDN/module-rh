@@ -136,15 +136,15 @@ const routes = [
     ]
   },
   // Routes Manager Portal
-  {
-    path: '/manager',
-    component: MainLayout,
-    meta: { requiresAuth: true, roles: ['admin', 'rh', 'manager'] },
-    children: [
-      { path: '', redirect: '/manager/dashboard' },
-      { path: 'dashboard', name: 'manager-dashboard', component: ManagerDashboardView, meta: { subtitle: 'Tableau de bord Manager' } }
-    ]
-  },
+  // {
+  //   path: '/manager',
+  //   component: MainLayout,
+  //   meta: { requiresAuth: true, roles: ['admin', 'rh', 'manager'] },
+  //   children: [
+  //     { path: '', redirect: '/manager/dashboard' },
+  //     { path: 'dashboard', name: 'manager-dashboard', component: ManagerDashboardView, meta: { subtitle: 'Tableau de bord Manager' } }
+  //   ]
+  // },
   // Routes Self-Service Employé
   {
     path: '/self-service',

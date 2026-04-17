@@ -340,18 +340,16 @@ body[data-theme='dark'] .workspace-stat {
   min-width: 0;
   padding: 10px 12px;
   border-radius: 18px;
-  border: 1px solid rgba(226, 232, 240, 0.66);
+  border: none;
   color: inherit;
   transition:
     transform 0.18s ease,
-    border-color 0.18s ease,
     background 0.18s ease,
     box-shadow 0.18s ease;
 }
 
 .nav-item:hover {
   transform: translateY(-1px);
-  border-color: rgba(79, 70, 229, 0.14);
   background: rgba(255, 255, 255, 0.74);
 }
 
@@ -360,7 +358,6 @@ body[data-theme='dark'] .nav-item:hover {
 }
 
 .nav-item.active {
-  border-color: rgba(79, 70, 229, 0.18);
   background:
     linear-gradient(135deg, rgba(79, 70, 229, 0.1), rgba(255, 255, 255, 0.84)),
     rgba(255, 255, 255, 0.82);
@@ -379,7 +376,7 @@ body[data-theme='dark'] .nav-item.active {
   width: 38px;
   height: 38px;
   border-radius: 13px;
-  border: 1px solid var(--border);
+  border: none;
   background: rgba(255, 255, 255, 0.8);
   color: var(--muted);
 }
@@ -389,7 +386,6 @@ body[data-theme='dark'] .nav-icon {
 }
 
 .nav-item.active .nav-icon {
-  border-color: rgba(79, 70, 229, 0.18);
   background: rgba(79, 70, 229, 0.14);
   color: var(--brand-600);
 }

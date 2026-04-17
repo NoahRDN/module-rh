@@ -41,6 +41,8 @@ const onLogin = async () => {
     }
     localStorage.setItem('token', token)
     localStorage.setItem('role', data?.user?.role ?? '')
+    localStorage.setItem('user_identifiant', data?.user?.identifiant ?? identifiant.value ?? '')
+    localStorage.setItem('user_name', data?.user?.name ?? '')
     const role = data?.user?.role
     if (role === 'employe') {
       router.push('/self-service/profil')

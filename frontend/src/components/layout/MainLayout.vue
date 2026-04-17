@@ -25,10 +25,18 @@ const subtitle = computed(() => route.meta?.subtitle ?? 'Espace RH')
 
 <style scoped>
 .content {
-  padding: 16px 18px 24px;
+  min-width: 0;
+  padding: 18px 22px 28px;
 }
 
 .main-panel {
-  margin-top: 16px;
+  min-width: 0;
+  margin-top: 22px;
+}
+
+@media (max-width: 1100px) {
+  .content {
+    padding: 18px;
+  }
 }
 </style>

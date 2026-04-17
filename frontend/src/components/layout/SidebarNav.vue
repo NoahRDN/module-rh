@@ -19,6 +19,11 @@
         </div>
         <p class="workspace-title">Gestion RH</p>
         <p class="workspace-copy">Paie, structure et opérations RH dans une interface unique.</p>
+        <div class="workspace-metrics">
+          <span class="workspace-stat">Annuaire</span>
+          <span class="workspace-stat">Paie</span>
+          <span class="workspace-stat">Temps</span>
+        </div>
       </div>
 
       <nav class="nav">
@@ -51,7 +56,7 @@
           <span class="footer-dot"></span>
           Stack active
         </span>
-        <p class="footer-text">CNAPS, OSTIE, IRSA, contrats et présence prêts à piloter.</p>
+        <p class="footer-text">Paie, contrats et présence prêts à piloter.</p>
       </div>
     </div>
   </aside>
@@ -202,13 +207,14 @@ const isActive = (path) => route.path === path || route.path.startsWith(`${path}
 
 .workspace-card {
   display: grid;
-  gap: 10px;
-  padding: 14px 15px;
-  border-radius: 20px;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 24px;
   border: 1px solid rgba(79, 70, 229, 0.12);
   background:
-    linear-gradient(180deg, rgba(79, 70, 229, 0.08), rgba(255, 255, 255, 0)),
+    linear-gradient(180deg, rgba(79, 70, 229, 0.09), rgba(255, 255, 255, 0)),
     var(--panel-soft);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
 .workspace-head {
@@ -250,7 +256,7 @@ body[data-theme='dark'] .workspace-badge {
 
 .workspace-title {
   margin: 0;
-  font-size: 0.98rem;
+  font-size: 1rem;
   font-weight: 800;
   letter-spacing: -0.02em;
 }
@@ -259,6 +265,30 @@ body[data-theme='dark'] .workspace-badge {
   color: var(--muted);
   font-size: 0.82rem;
   line-height: 1.45;
+}
+
+.workspace-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.workspace-stat {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.74);
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+body[data-theme='dark'] .workspace-stat {
+  background: rgba(15, 23, 42, 0.72);
 }
 
 .nav {
@@ -273,7 +303,7 @@ body[data-theme='dark'] .workspace-badge {
 
 .nav-group {
   display: grid;
-  gap: 6px;
+  gap: 8px;
 }
 
 .nav-group-label {
@@ -292,11 +322,11 @@ body[data-theme='dark'] .workspace-badge {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   gap: 12px;
-  align-items: start;
+  align-items: center;
   min-width: 0;
-  padding: 11px 12px;
-  border-radius: 16px;
-  border: 1px solid transparent;
+  padding: 10px 12px;
+  border-radius: 18px;
+  border: 1px solid rgba(226, 232, 240, 0.66);
   color: inherit;
   transition:
     transform 0.18s ease,
@@ -307,18 +337,20 @@ body[data-theme='dark'] .workspace-badge {
 
 .nav-item:hover {
   transform: translateY(-1px);
-  border-color: var(--border);
-  background: rgba(255, 255, 255, 0.58);
+  border-color: rgba(79, 70, 229, 0.14);
+  background: rgba(255, 255, 255, 0.74);
 }
 
 body[data-theme='dark'] .nav-item:hover {
-  background: rgba(15, 23, 42, 0.52);
+  background: rgba(15, 23, 42, 0.62);
 }
 
 .nav-item.active {
   border-color: rgba(79, 70, 229, 0.18);
-  background: linear-gradient(135deg, rgba(79, 70, 229, 0.12), rgba(255, 255, 255, 0.72));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  background:
+    linear-gradient(135deg, rgba(79, 70, 229, 0.1), rgba(255, 255, 255, 0.84)),
+    rgba(255, 255, 255, 0.82);
+  box-shadow: 0 10px 26px rgba(79, 70, 229, 0.08);
 }
 
 body[data-theme='dark'] .nav-item.active {
@@ -330,9 +362,9 @@ body[data-theme='dark'] .nav-item.active {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 12px;
+  width: 38px;
+  height: 38px;
+  border-radius: 13px;
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.8);
   color: var(--muted);
@@ -351,13 +383,12 @@ body[data-theme='dark'] .nav-icon {
 .nav-copy {
   display: grid;
   min-width: 0;
-  gap: 2px;
-  padding-top: 1px;
+  gap: 3px;
 }
 
 .nav-title {
   display: block;
-  font-size: 0.92rem;
+  font-size: 0.95rem;
   font-weight: 700;
   letter-spacing: -0.01em;
   line-height: 1.25;
@@ -366,8 +397,8 @@ body[data-theme='dark'] .nav-icon {
 .nav-hint {
   display: block;
   color: var(--muted);
-  font-size: 0.77rem;
-  line-height: 1.35;
+  font-size: 0.8rem;
+  line-height: 1.3;
   white-space: normal;
   overflow-wrap: anywhere;
 }

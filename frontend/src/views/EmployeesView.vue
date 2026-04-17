@@ -1,295 +1,562 @@
 <template>
-  <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between mb-4">
-    <div>
-      <h1 class="text-2xl font-semibold">Employés</h1>
-      <p class="text-sm text-slate-500">Annuaire des collaborateurs</p>
-    </div>
-    <div class="flex w-full gap-2 lg:w-auto">
-      <RouterLink class="btn whitespace-nowrap" to="/employes/nouveau">+ Nouvel employé</RouterLink>
-    </div>
-  </div>
+  <div class="employees-page">
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="hero-kicker">Employee directory</p>
+        <h1>Employés</h1>
+        <p class="hero-subtitle">
+          Gérez l’annuaire RH, les postes, les départements et le statut des collaborateurs dans une
+          vue plus structurée, plus lisible et plus cohérente avec le reste du produit.
+        </p>
 
-  <div class="card card-light">
-    <div class="flex items-center justify-between gap-2 mb-3">
-      <div>
-        <h3 class="text-lg font-semibold">Liste des employés</h3>
+        <div class="hero-pills">
+          <span class="pill">Annuaire unifié</span>
+          <span class="pill">Recherche rapide</span>
+          <span class="pill">Filtres multicritères</span>
+        </div>
       </div>
-    </div>
-    <div class="grid gap-2 md:grid-cols-3 lg:grid-cols-6 mb-3">
-      <div class="search-wrap">
-        <span class="search-icon">🔍</span>
-        <input
-          class="input flex-1"
-          placeholder="Rechercher (nom, prénom, matricule)"
-          v-model="search"
-          @input="handleSearch"
-          @focus="searchFocus = true"
-          @blur="() => setTimeout(() => searchFocus = false, 150)"
-        />
-        <div
-          v-if="searchFocus && searchSuggestions.length"
-          class="search-suggestions"
-        >
-          <div class="suggestion-header">
-            Suggestions
-            <span class="badge">{{ searchSuggestions.length }}</span>
+
+      <div class="hero-actions">
+        <div class="filters-panel">
+          <div class="action-row">
+            <button class="btn btn-secondary" type="button" @click="refreshData" :disabled="loading">
+              <AppIcon name="refresh" :size="18" />
+              <span>{{ loading ? 'Actualisation...' : 'Actualiser' }}</span>
+            </button>
+
+            <RouterLink class="btn" to="/employes/nouveau">
+              <AppIcon name="plus" :size="18" />
+              <span>Nouvel employé</span>
+            </RouterLink>
           </div>
-          <div
-            v-for="emp in searchSuggestions"
-            :key="emp.id"
-            class="suggestion-row"
-            @mousedown.prevent="applySuggestion(emp)"
-          >
-            <div class="avatar">{{ emp.nom?.[0] || '' }}{{ emp.prenom?.[0] || '' }}</div>
-            <div class="suggestion-text">
-              <div class="name">{{ emp.nom }} {{ emp.prenom }}</div>
-              <div class="meta">{{ emp.matricule }} · {{ emp.poste?.nom || 'Poste N/A' }}</div>
+
+          <div class="hero-meta-list">
+            <p class="hero-meta">
+              Total annuaire:
+              <strong>{{ formatInteger(pagination.total || employes.length) }}</strong>
+            </p>
+            <p class="hero-meta">
+              Dernière synchro:
+              <strong>{{ lastSyncedLabel }}</strong>
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="metric-grid">
+      <article v-for="metric in metricCards" :key="metric.label" class="metric-card">
+        <span class="metric-chip">{{ metric.tag }}</span>
+        <p class="metric-label">{{ metric.label }}</p>
+        <p class="metric-value">{{ metric.value }}</p>
+        <p class="metric-caption">{{ metric.caption }}</p>
+      </article>
+    </section>
+
+    <div v-if="loading && !employes.length" class="card loading-card">
+      <p class="loading-title">Chargement de l’annuaire RH…</p>
+      <p class="muted">Les collaborateurs, statuts et informations de structure sont en cours de synchronisation.</p>
+    </div>
+
+    <template v-else>
+      <section class="card section-card filters-card">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Directory controls</p>
+            <h2>Recherche et filtres</h2>
+          </div>
+          <button class="btn btn-secondary btn-sm" type="button" @click="resetFilters" :disabled="!hasAnyFilters">
+            Réinitialiser
+          </button>
+        </div>
+
+        <p class="section-copy">
+          Combinez la recherche globale avec les filtres métier pour isoler rapidement un profil, une
+          équipe ou une catégorie de poste.
+        </p>
+
+        <div class="filter-grid">
+          <label class="filter-card search-card">
+            <span class="field-label">Recherche globale</span>
+            <div class="search-wrap">
+              <input
+                v-model="search"
+                class="input"
+                placeholder="Nom, prénom, matricule ou poste"
+                @input="handleSearch"
+                @focus="searchFocus = true"
+                @blur="handleSearchBlur"
+              />
+
+              <div v-if="searchFocus && searchSuggestions.length" class="search-suggestions">
+                <div class="suggestion-header">
+                  <span>Suggestions</span>
+                  <span class="badge">{{ searchSuggestions.length }}</span>
+                </div>
+
+                <button
+                  v-for="emp in searchSuggestions"
+                  :key="emp.id"
+                  class="suggestion-row"
+                  type="button"
+                  @mousedown.prevent="applySuggestion(emp)"
+                >
+                  <span class="suggestion-avatar">{{ initials(emp) }}</span>
+                  <span class="suggestion-copy">
+                    <span class="suggestion-name">{{ emp.nom }} {{ emp.prenom }}</span>
+                    <span class="suggestion-meta">
+                      {{ emp.matricule || 'Sans matricule' }} · {{ emp.poste?.nom || 'Poste non défini' }}
+                    </span>
+                  </span>
+                  <span class="pill">{{ emp.departement?.nom || 'Département' }}</span>
+                </button>
+              </div>
             </div>
-            <span class="pill">{{ emp.departement?.nom || 'Département' }}</span>
+          </label>
+
+          <label class="filter-card">
+            <span class="field-label">Matricule</span>
+            <input v-model="filters.matricule" class="input" placeholder="EMP-001" list="matricules-list" />
+          </label>
+
+          <label class="filter-card">
+            <span class="field-label">Nom / prénom</span>
+            <input v-model="filters.nom" class="input" placeholder="Recherche nominative" />
+          </label>
+
+          <label class="filter-card">
+            <span class="field-label">Email</span>
+            <input v-model="filters.email" class="input" placeholder="adresse@email.test" />
+          </label>
+
+          <label class="filter-card">
+            <span class="field-label">Poste</span>
+            <input v-model="filters.poste" class="input" placeholder="Fonction" list="postes-list" />
+          </label>
+
+          <label class="filter-card">
+            <span class="field-label">Département</span>
+            <input v-model="filters.departement" class="input" placeholder="Structure" list="departements-list" />
+          </label>
+
+          <label class="filter-card">
+            <span class="field-label">Catégorie</span>
+            <input v-model="filters.categorie" class="input" placeholder="Famille ou niveau" list="categories-list" />
+          </label>
+        </div>
+
+        <datalist id="matricules-list">
+          <option v-for="m in optionsMatricules" :key="m" :value="m" />
+        </datalist>
+        <datalist id="postes-list">
+          <option v-for="p in optionsPostes" :key="p" :value="p" />
+        </datalist>
+        <datalist id="departements-list">
+          <option v-for="d in optionsDepartements" :key="d" :value="d" />
+        </datalist>
+        <datalist id="categories-list">
+          <option v-for="c in optionsCategories" :key="c" :value="c" />
+        </datalist>
+      </section>
+
+      <section class="content-grid">
+        <article class="card section-card table-card">
+          <div class="section-heading">
+            <div>
+              <p class="section-kicker">Employee list</p>
+              <h2>Annuaire des collaborateurs</h2>
+            </div>
+            <span class="section-chip">{{ formatInteger(filteredEmployes.length) }} visibles</span>
           </div>
-        </div>
-      </div>
-      <input class="input" placeholder="Matricule" v-model="filters.matricule" list="matricules-list" />
-      <input class="input" placeholder="Nom / Prénom" v-model="filters.nom" />
-      <input class="input" placeholder="Email" v-model="filters.email" />
-      <input class="input" placeholder="Poste" v-model="filters.poste" list="postes-list" />
-      <input class="input" placeholder="Département" v-model="filters.departement" list="departements-list" />
-      <input class="input" placeholder="Catégorie" v-model="filters.categorie" list="categories-list" />
-    </div>
-    <div class="flex justify-end mb-3">
-      <button class="btn btn-secondary btn-xs" @click="resetFilters">Réinitialiser les filtres</button>
-    </div>
-    <datalist id="matricules-list">
-      <option v-for="m in optionsMatricules" :key="m" :value="m" />
-    </datalist>
-    <datalist id="postes-list">
-      <option v-for="p in optionsPostes" :key="p" :value="p" />
-    </datalist>
-    <datalist id="departements-list">
-      <option v-for="d in optionsDepartements" :key="d" :value="d" />
-    </datalist>
-    <datalist id="categories-list">
-      <option v-for="c in optionsCategories" :key="c" :value="c" />
-    </datalist>
-    <div class="overflow-x-auto rounded-xl border border-slate-200 shadow-sm">
-      <table class="min-w-full text-sm text-left bg-white rounded-xl">
-        <thead class="bg-slate-50 text-slate-700">
-          <tr>
-            <th class="px-4 py-3 font-semibold">Photo</th>
-            <th class="px-4 py-3 font-semibold cursor-pointer" @click="setSort('matricule')">
-              Matricule <span class="text-xs">{{ sortLabel('matricule') }}</span>
-            </th>
-            <th class="px-4 py-3 font-semibold cursor-pointer" @click="setSort('nom')">
-              Nom & Prénom <span class="text-xs">{{ sortLabel('nom') }}</span>
-            </th>
-            <th class="px-4 py-3 font-semibold cursor-pointer" @click="setSort('email')">
-              Email <span class="text-xs">{{ sortLabel('email') }}</span>
-            </th>
-            <th class="px-4 py-3 font-semibold cursor-pointer" @click="setSort('poste')">
-              Poste <span class="text-xs">{{ sortLabel('poste') }}</span>
-            </th>
-            <th class="px-4 py-3 font-semibold cursor-pointer" @click="setSort('categorie')">
-              Catégorie <span class="text-xs">{{ sortLabel('categorie') }}</span>
-            </th>
-            <th class="px-4 py-3 font-semibold cursor-pointer" @click="setSort('departement')">
-              Département <span class="text-xs">{{ sortLabel('departement') }}</span>
-            </th>
-            <th class="px-4 py-3 font-semibold cursor-pointer" @click="setSort('actif')">
-              Statut <span class="text-xs">{{ sortLabel('actif') }}</span>
-            </th>
-            <th class="px-4 py-3 font-semibold text-right">Fiche</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-100">
-          <template v-if="loading">
-            <tr v-for="n in 5" :key="n" class="animate-pulse">
-              <td class="px-4 py-4">
-                <div class="h-12 w-12 rounded-full bg-slate-800"></div>
-              </td>
-              <td class="px-4 py-4">
-                <div class="h-3 w-20 rounded bg-slate-800"></div>
-              </td>
-              <td class="px-4 py-4">
-                <div class="h-3 w-32 rounded bg-slate-800 mb-2"></div>
-                <div class="h-3 w-20 rounded bg-slate-800"></div>
-              </td>
-              <td class="px-4 py-4">
-                <div class="h-3 w-32 rounded bg-slate-800"></div>
-              </td>
-              <td class="px-4 py-4">
-                <div class="h-3 w-24 rounded bg-slate-800"></div>
-              </td>
-              <td class="px-4 py-4">
-                <div class="h-3 w-24 rounded bg-slate-800"></div>
-              </td>
-              <td class="px-4 py-4">
-                <div class="h-3 w-20 rounded bg-slate-800"></div>
-              </td>
-              <td class="px-4 py-4 text-right">
-                <div class="h-3 w-10 rounded bg-slate-800 ml-auto"></div>
-              </td>
-            </tr>
-          </template>
-          <template v-else>
-            <tr
-              v-for="emp in filteredEmployes"
-              :key="emp.id"
-              class="hover:bg-slate-50 transition"
-            >
-              <td class="px-4 py-3">
-                <div class="flex items-center gap-3">
-                  <img
-                    :src="photoUrl(emp)"
-                    alt="photo"
-                    class="h-12 w-12 rounded-full object-cover border border-slate-700 shadow-inner"
-                    style="max-height: 48px; max-width: 48px;"
-                  />
-                </div>
-              </td>
-              <td class="px-4 py-3 font-semibold text-slate-800">{{ emp.matricule }}</td>
-              <td>
-                <div class="px-4 py-3">
-                  <p class="font-semibold">{{ emp.nom }} {{ emp.prenom }}</p>
-                </div>
-              </td>
-              <td>
-                <div class="px-4 py-3">
-                  <p class="text-xs text-slate-500">{{ emp.email || 'Email N/A' }}</p>
-                </div>
-              </td>
-              <td class="px-4 py-3">
-                <span class="chip">{{ emp.poste?.nom || '—' }}</span>
-              </td>
-              <td class="px-4 py-3">
-                <span class="chip chip-secondary">{{ emp.poste?.categorie || '—' }}</span>
-              </td>
-              <td class="px-4 py-3 text-slate-700">{{ emp.departement?.nom || '—' }}</td>
-              <td class="px-4 py-3">
-                <span class="chip" :class="emp.actif ? '' : 'muted'">{{ emp.actif ? 'Actif' : 'Inactif' }}</span>
-              </td>
-              <td class="px-4 py-3 text-right">
-                <RouterLink :to="`/employes/${emp.id}`" class="text-indigo-400 hover:underline text-sm">Voir</RouterLink>
-              </td>
-            </tr>
-            <tr v-if="!employes.length">
-              <td colspan="9" class="px-4 py-4 text-center text-slate-500">Aucun employé</td>
-            </tr>
-          </template>
-        </tbody>
-      </table>
-      <div class="flex items-center justify-between mt-3 text-sm text-slate-400">
-        <span>Page {{ pagination.page }} / {{ pagination.last_page }} — {{ pagination.total }} lignes</span>
-        <div class="flex items-center gap-2">
-          <button class="btn btn-secondary text-xs" :disabled="pagination.page <= 1" @click="prevPage">Précédent</button>
-          <button class="btn btn-secondary text-xs" :disabled="pagination.page >= pagination.last_page" @click="nextPage">Suivant</button>
-        </div>
-      </div>
-    </div>
+
+          <p class="section-copy">
+            Le tableau centralise les informations essentielles pour passer rapidement du repérage à la
+            consultation détaillée d’un collaborateur.
+          </p>
+
+          <div class="table-shell">
+            <table class="table employee-table">
+              <thead>
+                <tr>
+                  <th>
+                    <button class="sort-button" type="button" @click="setSort('nom')">
+                      Collaborateur
+                      <span>{{ sortLabel('nom') }}</span>
+                    </button>
+                  </th>
+                  <th>
+                    <button class="sort-button" type="button" @click="setSort('matricule')">
+                      Matricule
+                      <span>{{ sortLabel('matricule') }}</span>
+                    </button>
+                  </th>
+                  <th>
+                    <button class="sort-button" type="button" @click="setSort('poste')">
+                      Poste
+                      <span>{{ sortLabel('poste') }}</span>
+                    </button>
+                  </th>
+                  <th>
+                    <button class="sort-button" type="button" @click="setSort('categorie')">
+                      Catégorie
+                      <span>{{ sortLabel('categorie') }}</span>
+                    </button>
+                  </th>
+                  <th>
+                    <button class="sort-button" type="button" @click="setSort('departement')">
+                      Département
+                      <span>{{ sortLabel('departement') }}</span>
+                    </button>
+                  </th>
+                  <th>
+                    <button class="sort-button" type="button" @click="setSort('actif')">
+                      Statut
+                      <span>{{ sortLabel('actif') }}</span>
+                    </button>
+                  </th>
+                  <th class="actions-col">Fiche</th>
+                </tr>
+              </thead>
+
+              <tbody v-if="loading">
+                <tr v-for="n in 5" :key="n" class="loading-row">
+                  <td>
+                    <div class="employee-cell skeleton-line">
+                      <div class="employee-avatar skeleton-circle"></div>
+                      <div class="employee-main">
+                        <span class="skeleton-bar wide"></span>
+                        <span class="skeleton-bar short"></span>
+                      </div>
+                    </div>
+                  </td>
+                  <td><span class="skeleton-bar short"></span></td>
+                  <td><span class="skeleton-bar medium"></span></td>
+                  <td><span class="skeleton-bar medium"></span></td>
+                  <td><span class="skeleton-bar medium"></span></td>
+                  <td><span class="skeleton-bar short"></span></td>
+                  <td class="actions-col"><span class="skeleton-bar short"></span></td>
+                </tr>
+              </tbody>
+
+              <tbody v-else>
+                <tr v-for="emp in filteredEmployes" :key="emp.id">
+                  <td>
+                    <div class="employee-cell">
+                      <img :src="photoUrl(emp)" alt="photo" class="employee-avatar" />
+                      <div class="employee-main">
+                        <p class="employee-name">{{ emp.nom }} {{ emp.prenom }}</p>
+                        <span class="employee-sub">{{ emp.email || 'Email non renseigné' }}</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td>{{ emp.matricule || '—' }}</td>
+                  <td>
+                    <span class="chip">{{ emp.poste?.nom || '—' }}</span>
+                  </td>
+                  <td>
+                    <span class="chip">{{ emp.poste?.categorie || '—' }}</span>
+                  </td>
+                  <td>{{ emp.departement?.nom || '—' }}</td>
+                  <td>
+                    <span class="pill" :class="emp.actif ? 'green' : 'red'">
+                      {{ emp.actif ? 'Actif' : 'Inactif' }}
+                    </span>
+                  </td>
+                  <td class="actions-col">
+                    <RouterLink :to="`/employes/${emp.id}`" class="btn btn-secondary btn-sm">
+                      Voir
+                    </RouterLink>
+                  </td>
+                </tr>
+
+                <tr v-if="!filteredEmployes.length">
+                  <td colspan="7" class="empty-state">
+                    <p>Aucun employé ne correspond à la sélection actuelle.</p>
+                    <span>Réduisez les filtres ou relancez une recherche plus large.</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="table-footer">
+            <p class="table-meta">
+              Page <strong>{{ pagination.page }}</strong> sur <strong>{{ pagination.last_page }}</strong>
+              · {{ formatInteger(pagination.total) }} collaborateurs dans l’annuaire
+            </p>
+
+            <div class="table-actions">
+              <button class="btn btn-secondary btn-sm" type="button" :disabled="pagination.page <= 1" @click="prevPage">
+                Précédent
+              </button>
+              <button
+                class="btn btn-secondary btn-sm"
+                type="button"
+                :disabled="pagination.page >= pagination.last_page"
+                @click="nextPage"
+              >
+                Suivant
+              </button>
+            </div>
+          </div>
+        </article>
+
+        <aside class="card section-card insights-card">
+          <div class="section-heading compact">
+            <div>
+              <p class="section-kicker">Overview</p>
+              <h2>Résumé annuaire</h2>
+            </div>
+          </div>
+
+          <p class="summary-intro">
+            Vue synthétique de la page courante pour comprendre rapidement la couverture, la structure
+            et l’intensité du filtrage actif.
+          </p>
+
+          <div class="overview-grid">
+            <article v-for="card in overviewCards" :key="card.label" class="overview-card">
+              <span class="overview-chip">{{ card.tag }}</span>
+              <p class="overview-label">{{ card.label }}</p>
+              <p class="overview-value">{{ card.value }}</p>
+              <p class="overview-copy">{{ card.copy }}</p>
+            </article>
+          </div>
+
+          <div class="notes-card">
+            <h3>Repères rapides</h3>
+            <ul>
+              <li v-for="note in employeeNotes" :key="note">{{ note }}</li>
+            </ul>
+          </div>
+        </aside>
+      </section>
+    </template>
   </div>
 </template>
 
 <script setup>
-import { onMounted, ref, computed } from 'vue'
-import api from '../services/api'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
+import api from '../services/api'
+import AppIcon from '../components/ui/AppIcon.vue'
 
 const employes = ref([])
 const search = ref('')
-const placeholder = ref('https://via.placeholder.com/80?text=EMP')
 const loading = ref(false)
-const pagination = ref({ page: 1, last_page: 1, total: 0 })
-let searchTimer = null
 const searchFocus = ref(false)
+const pagination = ref({ page: 1, last_page: 1, total: 0 })
+const lastRefreshedAt = ref(null)
+
 const filters = ref({
   matricule: '',
   nom: '',
   email: '',
   poste: '',
   departement: '',
-  categorie: ''
+  categorie: '',
 })
+
 const sortKey = ref('matricule')
 const sortDir = ref('asc')
+let searchTimer = null
+
 const optionsMatricules = computed(() => [...new Set(employes.value.map((e) => e.matricule).filter(Boolean))])
 const optionsPostes = computed(() => [...new Set(employes.value.map((e) => e.poste?.nom).filter(Boolean))])
 const optionsDepartements = computed(() => [...new Set(employes.value.map((e) => e.departement?.nom).filter(Boolean))])
 const optionsCategories = computed(() => [...new Set(employes.value.map((e) => e.poste?.categorie).filter(Boolean))])
+
 const searchSuggestions = computed(() => {
   if (!search.value) return []
   const term = search.value.toLowerCase()
   return employes.value
-    .filter(e =>
-      (`${e.nom} ${e.prenom}`.toLowerCase().includes(term)) ||
-      (e.matricule || '').toLowerCase().includes(term) ||
-      (e.poste?.nom || '').toLowerCase().includes(term)
+    .filter((emp) =>
+      (`${emp.nom || ''} ${emp.prenom || ''}`.toLowerCase().includes(term)) ||
+      (emp.matricule || '').toLowerCase().includes(term) ||
+      (emp.poste?.nom || '').toLowerCase().includes(term),
     )
     .slice(0, 6)
 })
 
+const filteredEmployes = computed(() => {
+  const toSearch = (value) => String(value || '').toLowerCase()
+  const f = filters.value
+
+  let list = employes.value.filter((emp) => (
+    toSearch(emp.matricule).includes(toSearch(f.matricule)) &&
+    `${toSearch(emp.nom)} ${toSearch(emp.prenom)}`.includes(toSearch(f.nom)) &&
+    toSearch(emp.email).includes(toSearch(f.email)) &&
+    toSearch(emp.poste?.nom).includes(toSearch(f.poste)) &&
+    toSearch(emp.poste?.categorie).includes(toSearch(f.categorie)) &&
+    toSearch(emp.departement?.nom).includes(toSearch(f.departement))
+  ))
+
+  list = [...list].sort((left, right) => {
+    const valA = getSortVal(left, sortKey.value)
+    const valB = getSortVal(right, sortKey.value)
+
+    if (valA < valB) return sortDir.value === 'asc' ? -1 : 1
+    if (valA > valB) return sortDir.value === 'asc' ? 1 : -1
+    return 0
+  })
+
+  return list
+})
+
+const activeVisibleCount = computed(() => filteredEmployes.value.filter((emp) => emp.actif).length)
+const departmentCount = computed(() => countDistinct(filteredEmployes.value, (emp) => emp.departement?.nom))
+const positionCount = computed(() => countDistinct(filteredEmployes.value, (emp) => emp.poste?.nom))
+const activeFiltersCount = computed(() => [
+  search.value,
+  filters.value.matricule,
+  filters.value.nom,
+  filters.value.email,
+  filters.value.poste,
+  filters.value.departement,
+  filters.value.categorie,
+].filter(Boolean).length)
+
+const dominantDepartment = computed(() => findDominant(filteredEmployes.value, (emp) => emp.departement?.nom))
+const dominantCategory = computed(() => findDominant(filteredEmployes.value, (emp) => emp.poste?.categorie))
+
+const hasAnyFilters = computed(() => activeFiltersCount.value > 0)
+
+const lastSyncedLabel = computed(() => {
+  if (!lastRefreshedAt.value) return 'Jamais'
+  return new Intl.DateTimeFormat('fr-FR', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(lastRefreshedAt.value)
+})
+
+const metricCards = computed(() => [
+  {
+    label: 'Collaborateurs',
+    value: formatInteger(pagination.value.total || employes.value.length),
+    caption: `${formatInteger(filteredEmployes.value.length)} visibles sur la page courante`,
+    tag: 'Directory',
+  },
+  {
+    label: 'Actifs visibles',
+    value: formatInteger(activeVisibleCount.value),
+    caption: `${formatInteger(Math.max(filteredEmployes.value.length - activeVisibleCount.value, 0))} inactifs sur la sélection`,
+    tag: 'Status',
+  },
+  {
+    label: 'Départements',
+    value: formatInteger(departmentCount.value),
+    caption: 'Couverture structurelle de la sélection affichée',
+    tag: 'Structure',
+  },
+  {
+    label: 'Postes visibles',
+    value: formatInteger(positionCount.value),
+    caption: 'Fonctions représentées dans la page courante',
+    tag: 'Roles',
+  },
+])
+
+const overviewCards = computed(() => [
+  {
+    label: 'Sélection visible',
+    value: formatInteger(filteredEmployes.value.length),
+    copy: 'Nombre de collaborateurs affichés après tri et filtres.',
+    tag: 'Page',
+  },
+  {
+    label: 'Filtres actifs',
+    value: formatInteger(activeFiltersCount.value),
+    copy: activeFiltersCount.value ? 'La recherche courante resserre la vue affichée.' : 'Aucun filtre manuel actif.',
+    tag: 'Filters',
+  },
+  {
+    label: 'Département dominant',
+    value: dominantDepartment.value?.label || 'Non disponible',
+    copy: dominantDepartment.value ? `${formatInteger(dominantDepartment.value.count)} profils représentés.` : 'Aucune structure dominante.',
+    tag: 'Teams',
+  },
+  {
+    label: 'Catégorie dominante',
+    value: dominantCategory.value?.label || 'Non disponible',
+    copy: dominantCategory.value ? `${formatInteger(dominantCategory.value.count)} profils sur la page.` : 'Aucune catégorie dominante.',
+    tag: 'Families',
+  },
+])
+
+const employeeNotes = computed(() => [
+  activeFiltersCount.value
+    ? `${formatInteger(activeFiltersCount.value)} filtre(s) ou recherche(s) affinent actuellement l’annuaire.`
+    : 'Aucun filtre n’est actif, la page montre la vue la plus large disponible.',
+  dominantDepartment.value
+    ? `${dominantDepartment.value.label} est le département le plus représenté sur cette page.`
+    : 'La répartition par département n’est pas encore suffisamment marquée.',
+  filteredEmployes.value.length
+    ? `${formatInteger(activeVisibleCount.value)} collaborateur(s) actifs restent visibles après filtrage.`
+    : 'La sélection actuelle ne renvoie aucun collaborateur visible.',
+])
+
 const fetchEmployes = async () => {
   loading.value = true
+
   try {
-    const { data } = await api.get('/v1/employes', { params: { search: search.value, page: pagination.value.page } })
+    const { data } = await api.get('/v1/employes', {
+      params: {
+        search: search.value,
+        page: pagination.value.page,
+      },
+    })
+
     employes.value = data.data || []
+
     if (data.meta) {
       pagination.value = {
         page: data.meta.current_page,
         last_page: data.meta.last_page,
-        total: data.meta.total
+        total: data.meta.total,
       }
     } else if (data.current_page !== undefined) {
       pagination.value = {
         page: data.current_page,
         last_page: data.last_page,
-        total: data.total
+        total: data.total,
       }
     }
+
+    lastRefreshedAt.value = new Date()
   } finally {
     loading.value = false
   }
 }
 
+const refreshData = async () => {
+  await fetchEmployes()
+}
+
 const handleSearch = () => {
   clearTimeout(searchTimer)
+  pagination.value.page = 1
   searchTimer = setTimeout(fetchEmployes, 300)
 }
 
-const applySuggestion = (emp) => {
+const handleSearchBlur = () => {
+  window.setTimeout(() => {
+    searchFocus.value = false
+  }, 150)
+}
+
+const applySuggestion = async (emp) => {
   search.value = emp.matricule || `${emp.nom} ${emp.prenom}`.trim()
   searchFocus.value = false
-  fetchEmployes()
+  pagination.value.page = 1
+  await fetchEmployes()
 }
 
 const photoUrl = (emp) => {
   if (emp?.photo) return emp.photo
-  const initials = `${emp?.nom?.[0] || ''}${emp?.prenom?.[0] || ''}` || 'EMP'
-  return `https://ui-avatars.com/api/?background=0f172a&color=fff&name=${encodeURIComponent(initials)}`
+  return `https://ui-avatars.com/api/?background=0f766e&color=ffffff&name=${encodeURIComponent(initials(emp))}`
 }
 
-const filteredEmployes = computed(() => {
-  const f = filters.value
-  const toSearch = (val) => String(val || '').toLowerCase()
-  let list = employes.value.filter((e) => {
-    return (
-      toSearch(e.matricule).includes(toSearch(f.matricule)) &&
-      (`${toSearch(e.nom)} ${toSearch(e.prenom)}`).includes(toSearch(f.nom)) &&
-      toSearch(e.email).includes(toSearch(f.email)) &&
-      toSearch(e.poste?.nom).includes(toSearch(f.poste)) &&
-      toSearch(e.poste?.categorie).includes(toSearch(f.categorie)) &&
-      toSearch(e.departement?.nom).includes(toSearch(f.departement))
-    )
-  })
-  const key = sortKey.value
-  const dir = sortDir.value
-  list = [...list].sort((a, b) => {
-    const valA = getSortVal(a, key)
-    const valB = getSortVal(b, key)
-    if (valA < valB) return dir === 'asc' ? -1 : 1
-    if (valA > valB) return dir === 'asc' ? 1 : -1
-    return 0
-  })
-  return list
-})
+const initials = (emp) => `${emp?.nom?.[0] || ''}${emp?.prenom?.[0] || ''}`.trim() || 'RH'
 
 const getSortVal = (emp, key) => {
   switch (key) {
@@ -325,163 +592,643 @@ const sortLabel = (key) => {
   return sortDir.value === 'asc' ? '▲' : '▼'
 }
 
-const resetFilters = () => {
+const resetFilters = async () => {
   filters.value = {
     matricule: '',
     nom: '',
     email: '',
     poste: '',
     departement: '',
-    categorie: ''
+    categorie: '',
   }
   search.value = ''
+  pagination.value.page = 1
+  await fetchEmployes()
 }
 
-const nextPage = () => {
+const nextPage = async () => {
   if (pagination.value.page < pagination.value.last_page) {
-    pagination.value.page++
-    fetchEmployes()
+    pagination.value.page += 1
+    await fetchEmployes()
   }
 }
-const prevPage = () => {
+
+const prevPage = async () => {
   if (pagination.value.page > 1) {
-    pagination.value.page--
-    fetchEmployes()
+    pagination.value.page -= 1
+    await fetchEmployes()
   }
 }
+
+const countDistinct = (list, accessor) => new Set(list.map(accessor).filter(Boolean)).size
+
+const findDominant = (list, accessor) => {
+  const counts = new Map()
+
+  list.forEach((item) => {
+    const value = accessor(item)
+    if (!value) return
+    counts.set(value, (counts.get(value) || 0) + 1)
+  })
+
+  let dominant = null
+  counts.forEach((count, label) => {
+    if (!dominant || count > dominant.count) {
+      dominant = { label, count }
+    }
+  })
+
+  return dominant
+}
+
+const formatInteger = (value) => new Intl.NumberFormat('fr-FR').format(Number(value || 0))
 
 onMounted(async () => {
   await fetchEmployes()
 })
+
+onBeforeUnmount(() => {
+  clearTimeout(searchTimer)
+})
 </script>
 
 <style scoped>
-.input {
-  border: 1px solid #e2e8f0;
-  background: #fff;
-  border-radius: 10px;
-  padding: 10px 14px;
-  color: #0f172a;
+.employees-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-bottom: 24px;
+}
+
+.hero {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 28px;
+  border: 1px solid rgba(79, 70, 229, 0.14);
+  border-radius: 30px;
+  background:
+    linear-gradient(135deg, rgba(79, 70, 229, 0.1), rgba(255, 255, 255, 0)),
+    rgba(255, 255, 255, 0.9);
+  box-shadow: var(--shadow-lg);
+}
+
+body[data-theme='dark'] .hero {
+  background:
+    linear-gradient(135deg, rgba(79, 70, 229, 0.18), rgba(15, 23, 42, 0)),
+    rgba(15, 23, 42, 0.88);
+}
+
+.hero-copy {
+  max-width: 760px;
+}
+
+.hero-kicker,
+.section-kicker,
+.metric-label,
+.metric-caption,
+.hero-meta,
+.summary-intro,
+.overview-label,
+.overview-copy,
+.empty-state span {
+  margin: 0;
+}
+
+.hero-kicker,
+.section-kicker {
+  color: var(--brand-600);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.hero h1,
+.section-heading h2 {
+  margin: 8px 0 0;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+
+.hero h1 {
+  font-size: clamp(2rem, 3vw, 2.9rem);
+}
+
+.hero-subtitle {
+  margin: 12px 0 0;
+  max-width: 700px;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+.hero-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.hero-actions {
+  display: flex;
+  min-width: 320px;
+  max-width: 360px;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.filters-panel {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.76);
+}
+
+body[data-theme='dark'] .filters-panel {
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.action-row {
+  display: flex;
+  gap: 10px;
+}
+
+.action-row > * {
+  flex: 1;
+}
+
+.hero-meta-list {
+  display: grid;
+  gap: 6px;
+}
+
+.hero-meta {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.metric-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: var(--panel);
+  box-shadow: var(--shadow-sm);
+}
+
+.metric-chip,
+.section-chip,
+.overview-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(79, 70, 229, 0.12);
+  background: rgba(79, 70, 229, 0.1);
+  color: var(--brand-600);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.metric-label {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.metric-value {
+  margin: 10px 0 8px;
+  font-size: 1.82rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+
+.metric-caption {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.loading-card {
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+}
+
+.loading-title,
+.overview-value,
+.empty-state p {
+  margin: 0;
+}
+
+.loading-title {
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.section-card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.section-heading.compact {
+  margin-bottom: 2px;
+}
+
+.section-heading h2 {
+  font-size: 1.48rem;
+}
+
+.section-copy {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.65;
+}
+
+.filter-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.filter-card {
+  display: grid;
+  gap: 8px;
+}
+
+.search-card {
+  grid-column: span 2;
+}
+
+.field-label {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
 }
 
 .search-wrap {
   position: relative;
 }
 
-.search-icon {
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 14px;
-  opacity: 0.6;
-}
-
-.search-wrap .input {
-  padding-left: 34px;
-}
-
 .search-suggestions {
   position: absolute;
-  top: 46px;
+  top: calc(100% + 10px);
   left: 0;
   right: 0;
-  background: linear-gradient(145deg, #0f172a, #111827);
-  color: white;
-  border-radius: 14px;
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  z-index: 10;
+  display: grid;
+  gap: 0;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--panel-solid);
+  box-shadow: var(--shadow-lg);
   overflow: hidden;
-  backdrop-filter: blur(6px);
+  z-index: 20;
+}
+
+body[data-theme='dark'] .search-suggestions {
+  background: rgba(15, 23, 42, 0.96);
 }
 
 .suggestion-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 14px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.8rem;
   font-weight: 700;
-  letter-spacing: 0.2px;
-  background: rgba(255, 255, 255, 0.04);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .suggestion-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.18s ease;
 }
 
 .suggestion-row:hover {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(37, 99, 235, 0.15));
+  background: rgba(79, 70, 229, 0.06);
 }
 
-.suggestion-row .avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #3b82f6, #2563eb);
-  display: flex;
+.suggestion-avatar {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: white;
-  font-weight: 700;
-  font-size: 14px;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #0f766e, #14b8a6);
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 800;
 }
 
-.suggestion-text .name {
+.suggestion-copy {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.suggestion-name {
   font-weight: 700;
+}
+
+.suggestion-meta {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.content-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(320px, 0.9fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.table-shell {
+  overflow: auto;
+}
+
+.sort-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.sort-button span {
+  color: var(--brand-600);
+  font-size: 0.72rem;
+}
+
+.employee-cell {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 12px;
+  min-width: 220px;
 }
 
-.suggestion-text .meta {
-  font-size: 12px;
-  color: #cbd5e1;
+.employee-avatar {
+  width: 46px;
+  height: 46px;
+  flex: none;
+  border-radius: 14px;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 
-.pill {
-  background: rgba(255, 255, 255, 0.08);
-  color: #e2e8f0;
-  padding: 6px 10px;
+.employee-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.employee-name {
+  margin: 0;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.employee-sub {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.actions-col {
+  text-align: right;
+}
+
+.table-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.table-meta {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.loading-row {
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.skeleton-line {
+  min-width: 220px;
+}
+
+.skeleton-circle {
+  background: rgba(148, 163, 184, 0.22);
+}
+
+.skeleton-bar {
+  display: block;
+  height: 12px;
   border-radius: 999px;
-  font-size: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  white-space: nowrap;
+  background: rgba(148, 163, 184, 0.22);
 }
 
-.btn {
-  padding: 10px 16px;
-  border: none;
-  border-radius: 10px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  background: linear-gradient(135deg, #3b82f6, #2563eb);
-  color: white;
+.skeleton-bar.short {
+  width: 82px;
 }
 
-.btn-secondary {
-  background: rgba(148, 163, 184, 0.2);
-  color: #0f172a;
+.skeleton-bar.medium {
+  width: 118px;
 }
 
-.card-light {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.08);
+.skeleton-bar.wide {
+  width: 160px;
 }
 
-.card-light h3 {
-  color: #0f172a;
+.insights-card {
+  position: sticky;
+  top: 18px;
 }
 
-.card-light .input::placeholder {
-  color: #94a3b8;
+.summary-intro {
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.overview-card {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: rgba(248, 250, 252, 0.82);
+}
+
+body[data-theme='dark'] .overview-card {
+  background: rgba(15, 23, 42, 0.46);
+}
+
+.overview-label {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.overview-value {
+  font-size: 1.22rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.overview-copy {
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.notes-card {
+  padding: 18px 18px 20px;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: rgba(248, 250, 252, 0.84);
+}
+
+body[data-theme='dark'] .notes-card {
+  background: rgba(15, 23, 42, 0.56);
+}
+
+.notes-card h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.notes-card ul {
+  margin: 14px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+  display: grid;
+  gap: 10px;
+}
+
+.empty-state {
+  padding: 26px 14px;
+  text-align: center;
+}
+
+.empty-state p {
+  font-weight: 700;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.65;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 1200px) {
+  .metric-grid,
+  .filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .insights-card {
+    position: static;
+  }
+}
+
+@media (max-width: 900px) {
+  .hero {
+    padding: 22px;
+  }
+
+  .hero-actions {
+    min-width: 100%;
+    max-width: none;
+  }
+
+  .filter-grid,
+  .overview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .search-card {
+    grid-column: span 1;
+  }
+}
+
+@media (max-width: 680px) {
+  .metric-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .action-row,
+  .table-footer,
+  .section-heading {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .employee-cell {
+    min-width: 180px;
+  }
 }
 </style>

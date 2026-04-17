@@ -1,6 +1,16 @@
 <template>
   <header class="topbar">
     <div class="topbar-copy">
+      <button
+        class="menu-toggle"
+        type="button"
+        @click="$emit('toggle-sidebar')"
+        :title="sidebarOpen ? 'Masquer le menu' : 'Afficher le menu'"
+        :aria-label="sidebarOpen ? 'Masquer le menu' : 'Afficher le menu'"
+      >
+        <AppIcon name="grid" :size="18" />
+      </button>
+
       <span class="topbar-chip">
         <AppIcon name="shield" :size="15" />
         Enterprise HR workspace
@@ -75,7 +85,12 @@ defineProps({
     type: String,
     default: '',
   },
+  sidebarOpen: {
+    type: Boolean,
+    default: true,
+  },
 })
+defineEmits(['toggle-sidebar'])
 
 const router = useRouter()
 const theme = ref(localStorage.getItem('theme') || 'light')
@@ -212,7 +227,9 @@ onBeforeUnmount(() => {
   gap: 16px;
   padding: 18px 22px;
   border: 1px solid var(--border);
-  border-radius: 24px;
+  border-radius: 0;
+  border-top: 0;
+  border-right: 0;
   background: var(--panel);
   box-shadow: var(--shadow-sm);
   backdrop-filter: blur(18px);
@@ -227,6 +244,34 @@ onBeforeUnmount(() => {
 .topbar-copy {
   gap: 16px;
   min-width: 0;
+}
+
+.menu-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.74);
+  color: var(--text);
+  cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    transform 0.18s ease;
+}
+
+body[data-theme='dark'] .menu-toggle {
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.menu-toggle:hover {
+  transform: translateY(-1px);
+  border-color: var(--border-strong);
+  background: var(--panel-solid);
 }
 
 .topbar-chip {

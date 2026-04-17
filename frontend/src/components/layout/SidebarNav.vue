@@ -1,5 +1,5 @@
 <template>
-  <aside class="sidebar">
+  <aside class="sidebar" :class="{ closed: !open }">
     <div class="sidebar-shell">
       <div class="brand">
         <div class="brand-mark">
@@ -66,6 +66,13 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import AppIcon from '../ui/AppIcon.vue'
+
+defineProps({
+  open: {
+    type: Boolean,
+    default: true,
+  },
+})
 
 const route = useRoute()
 const role = localStorage.getItem('role') || ''
@@ -143,17 +150,24 @@ const isActive = (path) => route.path === path || route.path.startsWith(`${path}
   top: 0;
   align-self: start;
   min-height: 100vh;
-  padding: 18px 0 18px 18px;
+  width: 288px;
+  overflow: hidden;
+  transition: width 0.25s ease;
+}
+
+.sidebar.closed {
+  width: 0;
 }
 
 .sidebar-shell {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  min-height: calc(100vh - 36px);
+  min-height: 100vh;
   padding: 20px 16px 16px;
   border: 1px solid var(--border);
-  border-radius: 28px;
+  border-radius: 0;
+  border-left: 0;
   background: var(--panel);
   box-shadow: var(--shadow-lg);
   backdrop-filter: blur(18px);
@@ -425,13 +439,12 @@ body[data-theme='dark'] .nav-icon {
 
 @media (max-width: 1100px) {
   .sidebar {
-    position: relative;
-    min-height: auto;
-    padding: 18px 18px 0;
+    width: 0;
+    min-height: 0;
   }
 
   .sidebar-shell {
-    min-height: auto;
+    min-height: 100vh;
   }
 }
 </style>

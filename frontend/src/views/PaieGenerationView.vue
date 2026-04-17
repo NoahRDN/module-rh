@@ -1,97 +1,159 @@
 <template>
-  <div class="page">
-    <div class="hero">
-      <div>
-        <p class="eyebrow">Payroll</p>
+  <div class="paie-generation-page">
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="hero-kicker">Payroll engine</p>
         <h1>Génération de la paie</h1>
-        <p class="subtitle">Calculez brut / net, heures sup et retenues en un clic.</p>
-        <div class="chips">
+        <p class="hero-subtitle">
+          Lancez le calcul d'un bulletin mensuel avec ventilation instantanée du brut, du net,
+          des heures supplémentaires et des retenues sociales.
+        </p>
+
+        <div class="hero-pills">
           <span class="pill">Bulletins PDF</span>
-          <span class="pill pill-blue">IRSA / CNAPS / OSTIE</span>
-          <span class="pill pill-green">Heures sup gérées</span>
+          <span class="pill">IRSA / CNAPS / OSTIE</span>
+          <span class="pill">Calcul mensuel</span>
         </div>
       </div>
-    </div>
 
-    <div class="grid gap-4 lg:grid-cols-3">
-      <div class="card glass">
-        <div class="card-header">
-          <div>
-            <p class="eyebrow">Paramètres</p>
-            <h3>Employé & mois</h3>
-          </div>
-          <button class="btn-ghost" @click="fetchEmployes">↻</button>
-        </div>
-        <form class="form" @submit.prevent="generer">
-          <label class="field">
-            <span>Employé</span>
-            <select class="input" v-model="form.employe_id" required>
-              <option value="">Sélectionner</option>
-              <option v-for="emp in employes" :key="emp.id" :value="emp.id">{{ emp.matricule }} - {{ emp.nom }}</option>
-            </select>
-          </label>
-          <label class="field">
-            <span>Mois</span>
-            <input class="input" type="month" v-model="form.mois" required />
-          </label>
-          <button class="btn" type="submit">Générer</button>
-          <p class="muted" v-if="message">{{ message }}</p>
-        </form>
-      </div>
-
-      <div class="card glass lg:col-span-2" v-if="paie">
-        <div class="card-header">
-          <div>
-            <p class="eyebrow">Résultat</p>
-            <h3>{{ paie.employe?.nom || 'Bulletin' }} — {{ paie.mois }}</h3>
-          </div>
-          <button class="btn" @click="downloadPdf" :disabled="downloading">
-            {{ downloading ? 'Téléchargement...' : 'Télécharger le PDF' }}
+      <div class="hero-actions">
+        <div class="action-row">
+          <button class="btn btn-secondary" type="button" @click="fetchEmployes">
+            <AppIcon name="refresh" :size="18" />
+            <span>Actualiser employés</span>
+          </button>
+          <button class="btn" type="button" @click="generer">
+            <AppIcon name="plus" :size="18" />
+            <span>Générer maintenant</span>
           </button>
         </div>
-        <div class="stats-grid">
-          <div class="stat">
-            <p class="label">Salaire brut</p>
-            <p class="value">{{ paie.total_brut }}</p>
-          </div>
-          <div class="stat">
-            <p class="label">Net à payer</p>
-            <p class="value text-green-500">{{ paie.net_a_payer }}</p>
-          </div>
-          <div class="stat">
-            <p class="label">Heures supp.</p>
-            <p class="value">{{ paie.heures_supplementaires }} h</p>
-            <p class="muted small">Montant: {{ paie.montant_hs }}</p>
-          </div>
-          <div class="stat">
-            <p class="label">Retenues totales</p>
-            <p class="value">{{ paie.total_retenues }}</p>
-          </div>
-          <div class="stat">
-            <p class="label">CNAPS</p>
-            <p class="value">{{ paie.retenue_cnaps }}</p>
-          </div>
-          <div class="stat">
-            <p class="label">OSTIE</p>
-            <p class="value">{{ paie.retenue_ostie }}</p>
-          </div>
-          <div class="stat">
-            <p class="label">IRSA</p>
-            <p class="value">{{ paie.retenue_irsa }}</p>
+
+        <p class="hero-meta">
+          Employés disponibles:
+          <strong>{{ formatInteger(employes.length) }}</strong>
+        </p>
+      </div>
+    </section>
+
+    <p v-if="message" class="banner" :class="{ success: paie, danger: !paie }">{{ message }}</p>
+
+    <section class="metric-grid">
+      <article v-for="metric in metrics" :key="metric.label" class="metric-card">
+        <span class="metric-chip">{{ metric.tag }}</span>
+        <p class="metric-label">{{ metric.label }}</p>
+        <p class="metric-value">{{ metric.value }}</p>
+        <p class="metric-caption">{{ metric.caption }}</p>
+      </article>
+    </section>
+
+    <section class="content-grid">
+      <article class="card section-card controls-card">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Payroll input</p>
+            <h2>Employé et période</h2>
           </div>
         </div>
-      </div>
 
-      <div class="card glass lg:col-span-2 empty" v-else>
-        <p class="muted">Sélectionnez un employé et un mois puis cliquez sur “Générer”.</p>
-      </div>
-    </div>
+        <p class="section-copy">
+          Sélectionnez un collaborateur et le mois de traitement pour générer la fiche de paie.
+        </p>
+
+        <form class="form-grid" @submit.prevent="generer">
+          <label class="field-card">
+            <span class="field-label">Employé</span>
+            <select class="input" v-model="form.employe_id" required>
+              <option value="">Sélectionner</option>
+              <option v-for="emp in employes" :key="emp.id" :value="emp.id">
+                {{ emp.matricule }} - {{ emp.nom }}
+              </option>
+            </select>
+          </label>
+
+          <label class="field-card">
+            <span class="field-label">Mois</span>
+            <input class="input" type="month" v-model="form.mois" required />
+          </label>
+
+          <div class="action-row">
+            <button class="btn" type="submit">
+              <AppIcon name="save" :size="18" />
+              <span>Lancer le calcul</span>
+            </button>
+          </div>
+        </form>
+      </article>
+
+      <article class="card section-card table-card" v-if="paie">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Payroll result</p>
+            <h2>{{ paie.employe?.nom || 'Bulletin généré' }} - {{ paie.mois }}</h2>
+          </div>
+          <button class="btn btn-secondary" type="button" @click="downloadPdf" :disabled="downloading">
+            <AppIcon name="download" :size="18" />
+            <span>{{ downloading ? 'Téléchargement...' : 'Télécharger PDF' }}</span>
+          </button>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-box">
+            <p class="stat-label">Salaire brut</p>
+            <p class="stat-value">{{ paie.total_brut }}</p>
+          </div>
+          <div class="stat-box accent">
+            <p class="stat-label">Net à payer</p>
+            <p class="stat-value">{{ paie.net_a_payer }}</p>
+          </div>
+          <div class="stat-box">
+            <p class="stat-label">Heures supp.</p>
+            <p class="stat-value">{{ paie.heures_supplementaires }} h</p>
+            <p class="stat-copy">Montant: {{ paie.montant_hs }}</p>
+          </div>
+          <div class="stat-box">
+            <p class="stat-label">Retenues totales</p>
+            <p class="stat-value">{{ paie.total_retenues }}</p>
+          </div>
+        </div>
+
+        <div class="table-shell compact">
+          <table class="table detail-table">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Montant</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>CNAPS</td>
+                <td>{{ paie.retenue_cnaps }}</td>
+              </tr>
+              <tr>
+                <td>OSTIE</td>
+                <td>{{ paie.retenue_ostie }}</td>
+              </tr>
+              <tr>
+                <td>IRSA</td>
+                <td>{{ paie.retenue_irsa }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="card section-card empty-state" v-else>
+        <p class="empty-title">Aucun bulletin calculé</p>
+        <p class="empty-copy">Lancez une génération pour afficher le détail de paie et activer l'export PDF.</p>
+      </article>
+    </section>
   </div>
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import api from '../services/api'
+import AppIcon from '../components/ui/AppIcon.vue'
 
 const employes = ref([])
 const paie = ref(null)
@@ -101,6 +163,38 @@ const downloading = ref(false)
 const form = ref({
   employe_id: '',
   mois: ''
+})
+
+const formatInteger = (value) => new Intl.NumberFormat('fr-FR').format(Number(value || 0))
+
+const metrics = computed(() => {
+  const hasPaie = Boolean(paie.value)
+  return [
+    {
+      tag: 'Coverage',
+      label: 'Employés chargés',
+      value: formatInteger(employes.value.length),
+      caption: 'Liste utilisée pour la sélection',
+    },
+    {
+      tag: 'Gross',
+      label: 'Salaire brut',
+      value: hasPaie ? paie.value.total_brut : '—',
+      caption: hasPaie ? 'Dernier bulletin calculé' : 'Disponible après génération',
+    },
+    {
+      tag: 'Net',
+      label: 'Net à payer',
+      value: hasPaie ? paie.value.net_a_payer : '—',
+      caption: hasPaie ? 'Valeur finale collaborateur' : 'En attente de calcul',
+    },
+    {
+      tag: 'Deductions',
+      label: 'Retenues',
+      value: hasPaie ? paie.value.total_retenues : '—',
+      caption: hasPaie ? 'Somme des déductions sociales' : 'IRSA, CNAPS et OSTIE',
+    },
+  ]
 })
 
 const fetchEmployes = async () => {
@@ -142,57 +236,360 @@ onMounted(fetchEmployes)
 </script>
 
 <style scoped>
-.page { display: flex; flex-direction: column; gap: 16px; }
+.paie-generation-page {
+  display: grid;
+  gap: 20px;
+}
+
 .hero {
-  padding: 18px 20px;
+  display: grid;
+  grid-template-columns: 1.2fr minmax(280px, 0.8fr);
+  gap: 18px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 22px;
+  background: linear-gradient(140deg, color-mix(in srgb, var(--brand-primary) 6%, var(--panel) 94%), var(--panel));
+}
+
+.hero-kicker {
+  margin: 0;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--brand-primary);
+  font-weight: 700;
+}
+
+.hero-copy h1 {
+  margin: 8px 0;
+  font-size: clamp(1.5rem, 2.6vw, 2.05rem);
+  line-height: 1.15;
+}
+
+.hero-subtitle {
+  margin: 0;
+  color: var(--muted);
+  max-width: 62ch;
+  line-height: 1.55;
+}
+
+.hero-pills {
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  background: color-mix(in srgb, var(--brand-primary) 12%, transparent);
+}
+
+.hero-actions {
+  border: 1px solid var(--border);
   border-radius: 16px;
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  background: #ffffff;
-  color: #0f172a;
+  padding: 14px;
+  background: color-mix(in srgb, var(--panel-soft) 80%, transparent);
+  display: grid;
+  gap: 12px;
+  align-content: start;
 }
-.hero h1 { margin: 6px 0; font-size: 26px; }
-.subtitle { margin: 0; color: #475569; }
-.eyebrow { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #2563eb; margin: 0; }
-.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-.pill { padding: 6px 10px; border-radius: 999px; background: rgba(148, 163, 184, 0.15); color: #0f172a; font-size: 12px; }
-.pill-blue { background: rgba(59, 130, 246, 0.12); color: #1d4ed8; }
-.pill-green { background: rgba(16, 185, 129, 0.12); color: #15803d; }
 
-.card.glass {
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  background: #ffffff;
+.action-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
 }
-.card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-.form { display: flex; flex-direction: column; gap: 12px; }
-.field { display: flex; flex-direction: column; gap: 4px; font-size: 14px; color: #334155; }
-.input { border: 1px solid rgba(148, 163, 184, 0.6); border-radius: 10px; padding: 10px; background: #fff; color: #0f172a; }
-.input:focus { outline: 2px solid rgba(59,130,246,0.4); }
-.btn { padding: 10px 14px; border-radius: 10px; border: 1px solid rgba(148, 163, 184, 0.4); background: #22c55e; color: #0b172a; cursor: pointer; }
-.btn:hover { filter: brightness(1.05); }
-.btn-ghost { border: 1px solid rgba(148, 163, 184, 0.6); background: #f8fafc; color: #0f172a; border-radius: 10px; padding: 8px 10px; cursor: pointer; }
-.muted { color: #64748b; font-size: 13px; }
-.empty { display: flex; align-items: center; justify-content: center; min-height: 140px; }
 
-.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
-.stat { padding: 12px; border-radius: 12px; border: 1px solid rgba(148, 163, 184, 0.3); background: #f8fafc; }
-.label { color: #475569; font-size: 13px; margin: 0; }
-.value { margin: 2px 0 0; font-size: 18px; font-weight: 700; color: #0f172a; }
-.value.text-green-500 { color: #16a34a; }
-
-:deep(body[data-theme='dark']) .hero {
-  background: #0b1120;
-  color: #e2e8f0;
+.action-row > * {
+  flex: 0 0 auto;
 }
-:deep(body[data-theme='dark']) .subtitle { color: #cbd5e1; }
-:deep(body[data-theme='dark']) .pill { color: #e2e8f0; background: rgba(148,163,184,0.25); }
-:deep(body[data-theme='dark']) .card.glass { background: rgba(15, 23, 42, 0.8); border-color: rgba(148,163,184,0.25); }
-:deep(body[data-theme='dark']) .input { background: rgba(15,23,42,0.6); color: #e2e8f0; border-color: rgba(148,163,184,0.3); }
-:deep(body[data-theme='dark']) .field { color: #cbd5e1; }
-:deep(body[data-theme='dark']) .muted { color: #94a3b8; }
-:deep(body[data-theme='dark']) .stat { background: rgba(255,255,255,0.04); border-color: rgba(148,163,184,0.25); }
-:deep(body[data-theme='dark']) .value { color: #e2e8f0; }
 
-@media (max-width: 1024px) {
-  .grid { grid-template-columns: 1fr !important; }
+.hero-meta {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.hero-meta strong {
+  color: var(--text);
+}
+
+.btn {
+  border: 1px solid color-mix(in srgb, var(--brand-primary) 35%, var(--border));
+  background: var(--brand-primary);
+  color: #fff;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: var(--panel);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.banner {
+  margin: 0;
+  border-radius: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.banner.success {
+  border-color: color-mix(in srgb, #16a34a 45%, var(--border));
+  color: color-mix(in srgb, #166534 72%, var(--text));
+  background: color-mix(in srgb, #22c55e 12%, transparent);
+}
+
+.banner.danger {
+  border-color: color-mix(in srgb, #dc2626 45%, var(--border));
+  color: color-mix(in srgb, #991b1b 72%, var(--text));
+  background: color-mix(in srgb, #ef4444 10%, transparent);
+}
+
+.metric-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+.metric-card {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+  background: var(--panel);
+}
+
+.metric-chip {
+  display: inline-flex;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.metric-label {
+  margin: 10px 0 2px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.metric-value {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.metric-caption {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.content-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 360px minmax(0, 1fr);
+}
+
+.card.section-card {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 16px;
+  background: var(--panel);
+}
+
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.section-kicker {
+  margin: 0;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--brand-primary);
+  font-weight: 700;
+}
+
+.section-heading h2 {
+  margin: 5px 0 0;
+  font-size: 1.15rem;
+}
+
+.section-copy {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.form-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.field-card {
+  display: grid;
+  gap: 6px;
+}
+
+.field-label {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.input {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: var(--panel);
+  color: var(--text);
+  width: 100%;
+}
+
+.input:focus {
+  outline: 2px solid color-mix(in srgb, var(--brand-primary) 35%, transparent);
+  outline-offset: 1px;
+}
+
+.stats-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.stat-box {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  background: color-mix(in srgb, var(--panel-soft) 65%, transparent);
+}
+
+.stat-box.accent {
+  background: color-mix(in srgb, #22c55e 10%, var(--panel));
+  border-color: color-mix(in srgb, #16a34a 35%, var(--border));
+}
+
+.stat-label {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.stat-value {
+  margin: 4px 0 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.stat-copy {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.table-shell {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: auto;
+  margin-top: 12px;
+}
+
+.table-shell.compact {
+  margin-top: 14px;
+}
+
+.detail-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.detail-table th,
+.detail-table td {
+  border-bottom: 1px solid var(--border);
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.detail-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.empty-state {
+  display: grid;
+  place-items: center;
+  min-height: 260px;
+  text-align: center;
+}
+
+.empty-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.empty-copy {
+  margin: 8px 0 0;
+  color: var(--muted);
+  max-width: 46ch;
+}
+
+@media (max-width: 1120px) {
+  .hero {
+    grid-template-columns: 1fr;
+  }
+
+  .content-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .paie-generation-page {
+    gap: 14px;
+  }
+
+  .hero,
+  .card.section-card {
+    padding: 14px;
+    border-radius: 14px;
+  }
+
+  .action-row {
+    width: 100%;
+  }
+
+  .action-row .btn {
+    width: 100%;
+    justify-content: center;
+  }
 }
 </style>

@@ -11,10 +11,6 @@
         <AppIcon name="grid" :size="18" />
       </button>
 
-      <span class="topbar-chip">
-        <AppIcon name="shield" :size="15" />
-        Enterprise HR workspace
-      </span>
       <div>
         <p class="topbar-eyebrow">Navigation</p>
         <p class="topbar-title">{{ subtitle || 'Pilotage RH' }}</p>

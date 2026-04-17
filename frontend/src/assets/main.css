@@ -21,6 +21,9 @@
   --gray-800: #1e293b;
   --gray-900: #0f172a;
 
+  --purple-100: rgba(79, 70, 229, 0.12);
+  --purple-500: #4f46e5;
+
   --success-100: #ecfdf3;
   --success-500: #12b76a;
   --warning-100: #fffaeb;

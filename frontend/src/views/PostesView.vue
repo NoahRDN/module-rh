@@ -35,7 +35,7 @@
               Total postes:
               <strong>{{ formatInteger(pagination.total || postes.length) }}</strong>
             </p>
-            <p class="hero-meta">
+            <p class="hero-meta"> 
               Dernière synchro:
               <strong>{{ lastSyncedLabel }}</strong>
             </p>
@@ -511,9 +511,7 @@ onMounted(async () => {
   padding: 28px;
   border: 1px solid rgba(79, 70, 229, 0.14);
   border-radius: 30px;
-  background:
-    linear-gradient(135deg, rgba(79, 70, 229, 0.1), rgba(255, 255, 255, 0)),
-    rgba(255, 255, 255, 0.9);
+  background:var(--purple-100);
   box-shadow: var(--shadow-lg);
 }
 

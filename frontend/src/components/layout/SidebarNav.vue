@@ -358,14 +358,12 @@ body[data-theme='dark'] .nav-item:hover {
 }
 
 .nav-item.active {
-  background:
-    linear-gradient(135deg, rgba(79, 70, 229, 0.1), rgba(255, 255, 255, 0.84)),
-    rgba(255, 255, 255, 0.82);
-  box-shadow: 0 10px 26px rgba(79, 70, 229, 0.08);
+  background: rgba(79, 70, 229, 0.12);
+  box-shadow: none;
 }
 
 body[data-theme='dark'] .nav-item.active {
-  background: linear-gradient(135deg, rgba(79, 70, 229, 0.2), rgba(15, 23, 42, 0.82));
+  background: rgba(79, 70, 229, 0.2);
   box-shadow: none;
 }
 

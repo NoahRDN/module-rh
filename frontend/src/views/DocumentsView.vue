@@ -569,11 +569,13 @@ body[data-theme='dark'] .filters-panel {
 
 .action-row {
   display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
 }
 
 .action-row > * {
-  flex: 1;
+  flex: 0 0 auto;
 }
 
 .hero-meta-list {

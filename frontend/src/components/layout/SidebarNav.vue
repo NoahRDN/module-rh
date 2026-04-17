@@ -12,20 +12,6 @@
         </div>
       </div>
 
-      <div class="workspace-card">
-        <div class="workspace-head">
-          <span class="workspace-chip">Workspace</span>
-          <span class="workspace-badge">HR ops</span>
-        </div>
-        <p class="workspace-title">Gestion RH</p>
-        <p class="workspace-copy">Paie, structure et opérations RH dans une interface unique.</p>
-        <div class="workspace-metrics">
-          <span class="workspace-stat">Annuaire</span>
-          <span class="workspace-stat">Paie</span>
-          <span class="workspace-stat">Temps</span>
-        </div>
-      </div>
-
       <nav class="nav">
         <section v-for="group in filteredGroups" :key="group.label" class="nav-group">
           <div class="nav-group-label">

@@ -1,75 +1,178 @@
 <template>
-  <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between mb-4">
-    <div>
-      <h1 class="text-2xl font-semibold">Types d'absence</h1>
-      <p class="text-sm text-slate-500">Congés payés, maladie, exceptionnels</p>
-    </div>
-    <div class="flex w-full gap-2 lg:w-auto">
-      <button class="btn btn-secondary" @click="fetchTypes">Actualiser</button>
-      <RouterLink class="btn" to="/absences-types/nouveau">+ Ajouter</RouterLink>
-    </div>
-  </div>
-
-  <div class="card">
-    <h3 class="text-lg font-semibold mb-2">Catalogue des types</h3>
-    <div class="grid gap-2 md:grid-cols-3 mb-3">
-      <input class="input flex-1" placeholder="Rechercher un type" v-model="search" @input="fetchTypes" />
-      <input class="input" placeholder="Nom" v-model="filters.nom" />
-      <input class="input" placeholder="Payant (oui/non)" v-model="filters.payant" />
-      <input class="input" placeholder="Jours annuels" v-model="filters.jours" />
-    </div>
-    <div class="flex justify-end mb-2">
-      <button class="btn btn-secondary btn-xs" @click="resetFilters">Réinitialiser</button>
-    </div>
-    <table class="min-w-full text-sm">
-      <thead>
-        <tr class="border-b border-slate-800/60">
-          <th class="py-2 text-left text-slate-400 text-xs cursor-pointer" @click="setSort('nom')">Nom {{ sortLabel('nom') }}</th>
-          <th class="py-2 text-left text-slate-400 text-xs cursor-pointer" @click="setSort('payant')">Payant {{ sortLabel('payant') }}</th>
-          <th class="py-2 text-left text-slate-400 text-xs cursor-pointer" @click="setSort('jours')">Jours {{ sortLabel('jours') }}</th>
-          <th class="py-2 text-left text-slate-400 text-xs">Fréquence</th>
-          <th class="py-2 text-left text-slate-400 text-xs">Limite</th>
-          <th class="py-2 text-left text-slate-400 text-xs">Cumulable</th>
-          <th class="py-2 text-left text-slate-400 text-xs">Description</th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-slate-800/60">
-        <tr v-for="t in typesFiltres" :key="t.id" class="hover:bg-slate-800/30 transition">
-          <td class="py-2 font-semibold text-slate-100">{{ t.libelle }}</td>
-          <td class="py-2">
-            <span v-if="t.paye" class="chip">Payant</span>
-            <span v-else class="chip" style="background: rgba(255,255,255,0.04); color: #cbd5e1;">Non payant</span>
-          </td>
-          <td class="py-2">{{ t.jours_forfait ?? '—' }}</td>
-          <td class="py-2">{{ frequence(t) }}</td>
-          <td class="py-2">
-            <div class="text-xs text-slate-300">
-              <div v-if="t.limite">
-                Max {{ t.limite }} <span v-if="t.limite_frequence">/ {{ t.limite_frequence.libelle || t.limite_frequence.code }}</span>
-              </div>
-              <div v-else>—</div>
-            </div>
-          </td>
-          <td class="py-2">
-            <div class="text-xs text-slate-300">
-              <div>{{ t.cumulable ? 'Oui' : 'Non' }}</div>
-              <div v-if="t.cumulable_duree">Durée: {{ t.cumulable_duree }} ({{ cumulableFreq(t) }})</div>
-            </div>
-          </td>
-          <td class="py-2 text-slate-400 text-xs">{{ t.description || '—' }}</td>
-        </tr>
-        <tr v-if="!typesFiltres.length">
-          <td colspan="7" class="py-3 text-center text-slate-500">Aucun type</td>
-        </tr>
-      </tbody>
-    </table>
-    <div class="flex items-center justify-between mt-3 text-sm text-slate-400">
-      <span>Page {{ pagination.page }} / {{ pagination.last_page }} — {{ pagination.total }} lignes</span>
-      <div class="flex items-center gap-2">
-        <button class="btn btn-secondary text-xs" :disabled="pagination.page <= 1" @click="prevPage">Précédent</button>
-        <button class="btn btn-secondary text-xs" :disabled="pagination.page >= pagination.last_page" @click="nextPage">Suivant</button>
+  <div class="absence-types-page">
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="hero-kicker">Leave taxonomy</p>
+        <h1>Types d'absence</h1>
+        <p class="hero-subtitle">
+          Gérez le catalogue des congés et absences pour un traitement homogène des droits,
+          limites et règles de cumul.
+        </p>
+        <div class="hero-pills">
+          <span class="pill">Congés payés</span>
+          <span class="pill">Absences exceptionnelles</span>
+          <span class="pill">Politique RH</span>
+        </div>
       </div>
-    </div>
+
+      <div class="hero-actions">
+        <div class="filters-panel">
+          <div class="action-row">
+            <button class="btn btn-secondary" type="button" @click="fetchTypes" :disabled="loading">
+              <AppIcon name="refresh" :size="18" />
+              <span>{{ loading ? 'Actualisation...' : 'Actualiser' }}</span>
+            </button>
+            <RouterLink class="btn" to="/absences-types/nouveau">
+              <AppIcon name="plus" :size="18" />
+              <span>Ajouter</span>
+            </RouterLink>
+          </div>
+
+          <div class="hero-meta-list">
+            <p class="hero-meta">
+              Total types:
+              <strong>{{ formatInteger(pagination.total || types.length) }}</strong>
+            </p>
+            <p class="hero-meta">
+              Dernière synchro:
+              <strong>{{ lastSyncedLabel }}</strong>
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="metric-grid">
+      <article v-for="metric in metricCards" :key="metric.label" class="metric-card">
+        <span class="metric-chip">{{ metric.tag }}</span>
+        <p class="metric-label">{{ metric.label }}</p>
+        <p class="metric-value">{{ metric.value }}</p>
+        <p class="metric-caption">{{ metric.caption }}</p>
+      </article>
+    </section>
+
+    <section class="card section-card controls-card">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">Directory controls</p>
+          <h2>Recherche et filtres</h2>
+        </div>
+        <button class="btn btn-secondary btn-sm" type="button" @click="resetFilters" :disabled="!hasFilters">
+          Réinitialiser
+        </button>
+      </div>
+
+      <p class="section-copy">
+        Filtrez les types par libellé, mode de rémunération et volume de jours pour cibler rapidement
+        la bonne règle d'absence.
+      </p>
+
+      <div class="controls-grid">
+        <label class="field-card">
+          <span class="field-label">Recherche</span>
+          <input class="input" placeholder="Rechercher un type" v-model="search" @input="fetchTypes" />
+        </label>
+        <label class="field-card">
+          <span class="field-label">Nom</span>
+          <input class="input" placeholder="Nom" v-model="filters.nom" />
+        </label>
+        <label class="field-card">
+          <span class="field-label">Payant</span>
+          <input class="input" placeholder="oui / non" v-model="filters.payant" />
+        </label>
+        <label class="field-card">
+          <span class="field-label">Jours annuels</span>
+          <input class="input" placeholder="Nombre de jours" v-model="filters.jours" />
+        </label>
+      </div>
+    </section>
+
+    <section class="content-grid">
+      <article class="card section-card table-card">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Leave types</p>
+            <h2>Catalogue des types</h2>
+          </div>
+          <span class="section-chip">{{ formatInteger(typesFiltres.length) }} visibles</span>
+        </div>
+
+        <div class="table-shell">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>
+                  <button class="sort-button" type="button" @click="setSort('nom')">
+                    Nom
+                    <span>{{ sortLabel('nom') }}</span>
+                  </button>
+                </th>
+                <th>
+                  <button class="sort-button" type="button" @click="setSort('payant')">
+                    Payant
+                    <span>{{ sortLabel('payant') }}</span>
+                  </button>
+                </th>
+                <th>
+                  <button class="sort-button" type="button" @click="setSort('jours')">
+                    Jours
+                    <span>{{ sortLabel('jours') }}</span>
+                  </button>
+                </th>
+                <th>Fréquence</th>
+                <th>Limite</th>
+                <th>Cumulable</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="t in typesFiltres" :key="t.id">
+                <td class="type-name">{{ t.libelle }}</td>
+                <td>
+                  <span v-if="t.paye" class="chip">Payant</span>
+                  <span v-else class="chip muted-chip">Non payant</span>
+                </td>
+                <td>{{ t.jours_forfait ?? '—' }}</td>
+                <td>{{ frequence(t) }}</td>
+                <td>
+                  <div class="cell-stack">
+                    <div v-if="t.limite">
+                      Max {{ t.limite }}
+                      <span v-if="t.limite_frequence"> / {{ t.limite_frequence.libelle || t.limite_frequence.code }}</span>
+                    </div>
+                    <div v-else>—</div>
+                  </div>
+                </td>
+                <td>
+                  <div class="cell-stack">
+                    <div>{{ t.cumulable ? 'Oui' : 'Non' }}</div>
+                    <div v-if="t.cumulable_duree">Durée: {{ t.cumulable_duree }} ({{ cumulableFreq(t) }})</div>
+                  </div>
+                </td>
+                <td class="type-desc">{{ t.description || '—' }}</td>
+              </tr>
+              <tr v-if="!typesFiltres.length">
+                <td colspan="7" class="empty-state">
+                  <p>Aucun type d'absence ne correspond à la sélection actuelle.</p>
+                  <span>Affinez les filtres ou ajoutez un nouveau type.</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="table-footer">
+          <p class="table-meta">
+            Page <strong>{{ pagination.page }}</strong> sur <strong>{{ pagination.last_page }}</strong>
+            · {{ formatInteger(pagination.total) }} lignes
+          </p>
+          <div class="table-actions">
+            <button class="btn btn-secondary btn-sm" :disabled="pagination.page <= 1" @click="prevPage">Précédent</button>
+            <button class="btn btn-secondary btn-sm" :disabled="pagination.page >= pagination.last_page" @click="nextPage">Suivant</button>
+          </div>
+        </div>
+      </article>
+    </section>
   </div>
 </template>
 
@@ -77,21 +180,32 @@
 import { ref, onMounted, computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import api from '../services/api'
+import AppIcon from '../components/ui/AppIcon.vue'
 
 const types = ref([])
 const search = ref('')
 const filters = ref({ nom: '', payant: '', jours: '' })
+const loading = ref(false)
+const lastRefreshedAt = ref(null)
 const sortKey = ref('libelle')
 const sortDir = ref('asc')
 const pagination = ref({ page: 1, last_page: 1, total: 0 })
 
+const hasFilters = computed(() => Boolean(search.value || filters.value.nom || filters.value.payant || filters.value.jours))
+
 const fetchTypes = async () => {
-  const { data } = await api.get('/v1/types-conges', { params: { search: search.value, page: pagination.value.page }, paramsSerializer: { indexes: null } })
-  types.value = data.data || []
-  if (data.meta) {
-    pagination.value = { page: data.meta.current_page, last_page: data.meta.last_page, total: data.meta.total }
-  } else if (data.current_page !== undefined) {
-    pagination.value = { page: data.current_page, last_page: data.last_page, total: data.total }
+  loading.value = true
+  try {
+    const { data } = await api.get('/v1/types-conges', { params: { search: search.value, page: pagination.value.page }, paramsSerializer: { indexes: null } })
+    types.value = data.data || []
+    if (data.meta) {
+      pagination.value = { page: data.meta.current_page, last_page: data.meta.last_page, total: data.meta.total }
+    } else if (data.current_page !== undefined) {
+      pagination.value = { page: data.current_page, last_page: data.last_page, total: data.total }
+    }
+    lastRefreshedAt.value = new Date()
+  } finally {
+    loading.value = false
   }
 }
 
@@ -137,6 +251,50 @@ const setSort = (key) => {
 const sortLabel = (key) => (sortKey.value === key ? (sortDir.value === 'asc' ? '▲' : '▼') : '')
 const resetFilters = () => { filters.value = { nom: '', payant: '', jours: '' } }
 
+const formatInteger = (value) =>
+  new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(Number(value) || 0)
+
+const lastSyncedLabel = computed(() => {
+  if (!lastRefreshedAt.value) return 'Jamais'
+  return new Intl.DateTimeFormat('fr-FR', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(lastRefreshedAt.value)
+})
+
+const payantsCount = computed(() => types.value.filter((t) => Boolean(t.paye)).length)
+const cumulablesCount = computed(() => types.value.filter((t) => Boolean(t.cumulable)).length)
+const withLimitCount = computed(() => types.value.filter((t) => Number(t.limite) > 0).length)
+
+const metricCards = computed(() => [
+  {
+    label: 'Types visibles',
+    value: formatInteger(typesFiltres.value.length),
+    caption: 'Résultats après recherche et filtres',
+    tag: 'Types',
+  },
+  {
+    label: 'Types payants',
+    value: formatInteger(payantsCount.value),
+    caption: `${formatInteger(Math.max(types.value.length - payantsCount.value, 0))} non payants`,
+    tag: 'Paid',
+  },
+  {
+    label: 'Cumulables',
+    value: formatInteger(cumulablesCount.value),
+    caption: 'Types autorisant le report de droits',
+    tag: 'Carry',
+  },
+  {
+    label: 'Avec limite',
+    value: formatInteger(withLimitCount.value),
+    caption: 'Règles avec plafond configuré',
+    tag: 'Limit',
+  },
+])
+
 const frequence = (t) => {
   if (t.frequence?.libelle) return `${t.frequence.libelle} (${t.frequence.code})`
   const nom = (t.libelle || '').toLowerCase()
@@ -172,3 +330,320 @@ const prevPage = () => {
   }
 }
 </script>
+
+<style scoped>
+.absence-types-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-bottom: 24px;
+}
+
+.hero {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 28px;
+  border: 1px solid rgba(79, 70, 229, 0.14);
+  border-radius: 30px;
+  background:
+    linear-gradient(135deg, rgba(79, 70, 229, 0.1), rgba(255, 255, 255, 0)),
+    rgba(255, 255, 255, 0.9);
+  box-shadow: var(--shadow-lg);
+}
+
+body[data-theme='dark'] .hero {
+  background:
+    linear-gradient(135deg, rgba(79, 70, 229, 0.18), rgba(15, 23, 42, 0)),
+    rgba(15, 23, 42, 0.88);
+}
+
+.hero-copy {
+  max-width: 760px;
+}
+
+.hero-kicker,
+.section-kicker,
+.metric-label,
+.metric-caption,
+.hero-meta,
+.empty-state span {
+  margin: 0;
+}
+
+.hero-kicker,
+.section-kicker {
+  color: var(--brand-600);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.hero h1,
+.section-heading h2 {
+  margin: 8px 0 0;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+
+.hero h1 {
+  font-size: clamp(2rem, 3vw, 2.9rem);
+}
+
+.hero-subtitle {
+  margin: 12px 0 0;
+  max-width: 700px;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+.hero-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.hero-actions {
+  display: flex;
+  min-width: 320px;
+  max-width: 400px;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.filters-panel {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.76);
+}
+
+body[data-theme='dark'] .filters-panel {
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.action-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.action-row > * {
+  flex: 0 0 auto;
+}
+
+.hero-meta-list {
+  display: grid;
+  gap: 6px;
+}
+
+.hero-meta {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.metric-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: var(--panel);
+  box-shadow: var(--shadow-sm);
+}
+
+.metric-chip,
+.section-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(79, 70, 229, 0.12);
+  background: rgba(79, 70, 229, 0.1);
+  color: var(--brand-600);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.metric-label {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.metric-value,
+.empty-state p {
+  margin: 0;
+}
+
+.metric-value {
+  margin: 10px 0 8px;
+  font-size: 1.82rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+
+.metric-caption {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.section-card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.section-heading h2 {
+  font-size: 1.48rem;
+}
+
+.section-copy {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.65;
+}
+
+.controls-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.field-card {
+  display: grid;
+  gap: 8px;
+}
+
+.field-label {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.content-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+}
+
+.table-shell {
+  overflow: auto;
+}
+
+.sort-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.sort-button span {
+  color: var(--brand-600);
+  font-size: 0.72rem;
+}
+
+.type-name {
+  font-weight: 700;
+}
+
+.type-desc,
+.cell-stack {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.muted-chip {
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--muted);
+}
+
+.table-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.table-meta {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.empty-state {
+  padding: 26px 14px;
+  text-align: center;
+}
+
+.empty-state p {
+  font-weight: 700;
+}
+
+@media (max-width: 1200px) {
+  .metric-grid,
+  .controls-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .hero {
+    padding: 22px;
+  }
+
+  .hero-actions {
+    min-width: 100%;
+    max-width: none;
+  }
+}
+
+@media (max-width: 680px) {
+  .metric-grid,
+  .controls-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .action-row,
+  .section-heading,
+  .table-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+</style>

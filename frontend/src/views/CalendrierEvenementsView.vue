@@ -1,10 +1,12 @@
 <template>
-  <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between mb-4">
-    <div>
-      <h1 class="text-2xl font-semibold">Calendrier entreprise</h1>
-      <p class="text-sm text-slate-500">Vue Mois / Semaine / Jour</p>
-    </div>
-    <div class="flex flex-wrap items-center gap-2">
+  <div class="calendrier-page">
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="hero-kicker">Company calendar</p>
+        <h1>Calendrier entreprise</h1>
+        <p class="hero-subtitle">Visualisez les congés, absences, jours fériés et événements RH en vue mois, semaine ou jour.</p>
+      </div>
+      <div class="hero-actions">
       <select class="select" v-model="filter.type" @change="debouncedFetchEvents">
         <option value="">Tous les types</option>
         <option value="conge">Congés</option>
@@ -15,8 +17,8 @@
       <input class="input" placeholder="Matricule" v-model="filter.matricule" @input="debouncedFetchEvents" />
       <input class="input" placeholder="Nom" v-model="filter.nom" @input="debouncedFetchEvents" />
       <button class="btn btn-secondary btn-xs" @click="resetFilters">Réinitialiser</button>
-    </div>
-  </div>
+      </div>
+    </section>
 
   <div class="card rounded-2xl border border-slate-700/50 bg-gradient-to-br from-[var(--panel)] via-[var(--bg-soft)] to-[var(--panel)] shadow-2xl transition-colors duration-150">
     <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
@@ -126,6 +128,7 @@
         
     </div>
   </div>
+</div>
 </template>
 
 <script setup>
@@ -282,6 +285,65 @@ onMounted(fetchEvents)
 </script>
 
 <style scoped>
+.calendrier-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-bottom: 24px;
+}
+
+.hero {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 28px;
+  border: 1px solid rgba(79, 70, 229, 0.14);
+  border-radius: 30px;
+  background:
+    linear-gradient(135deg, rgba(79, 70, 229, 0.1), rgba(255, 255, 255, 0)),
+    rgba(255, 255, 255, 0.9);
+  box-shadow: var(--shadow-lg);
+}
+
+body[data-theme='dark'] .hero {
+  background:
+    linear-gradient(135deg, rgba(79, 70, 229, 0.18), rgba(15, 23, 42, 0)),
+    rgba(15, 23, 42, 0.88);
+}
+
+.hero-kicker {
+  margin: 0;
+  color: var(--brand-600);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.hero h1 {
+  margin: 8px 0 0;
+  font-size: clamp(2rem, 3vw, 2.9rem);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+
+.hero-subtitle {
+  margin: 12px 0 0;
+  max-width: 760px;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  min-width: 320px;
+}
+
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
@@ -354,5 +416,15 @@ onMounted(fetchEvents)
 .btn.active {
   border-color: rgba(34, 197, 94, 0.3);
   background: rgba(34, 197, 94, 0.12);
+}
+
+@media (max-width: 900px) {
+  .hero {
+    padding: 22px;
+  }
+
+  .hero-actions {
+    min-width: 100%;
+  }
 }
 </style>

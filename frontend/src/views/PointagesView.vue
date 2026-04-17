@@ -1,15 +1,26 @@
 <template>
-  <div class="flex flex-col gap-3 mb-4 lg:flex-row lg:items-center lg:justify-between">
-    <div>
-      <h1 class="text-2xl font-semibold">Pointage & Heures sup</h1>
-      <p class="text-sm text-slate-500">Entrées / sorties / pauses · retards · absences justifiées</p>
-    </div>
-    <div class="flex gap-2 flex-wrap">
-      <RouterLink class="btn" to="/pointages/nouveau">+ Ajouter</RouterLink>
-    </div>
-  </div>
+  <div class="pointages-page">
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="hero-kicker">Attendance tracking</p>
+        <h1>Pointage & Heures sup</h1>
+        <p class="hero-subtitle">Entrées, sorties, pauses, retards et absences justifiées dans une vue unique.</p>
+      </div>
+      <div class="hero-actions">
+        <button class="btn btn-secondary" @click="fetchPointages" :disabled="loading">{{ loading ? 'Actualisation...' : 'Actualiser' }}</button>
+        <RouterLink class="btn" to="/pointages/nouveau">+ Ajouter</RouterLink>
+      </div>
+    </section>
 
-  <div class="grid gap-4">
+    <section class="metric-grid">
+      <article v-for="metric in metricCards" :key="metric.label" class="metric-card">
+        <span class="metric-chip">{{ metric.tag }}</span>
+        <p class="metric-label">{{ metric.label }}</p>
+        <p class="metric-value">{{ metric.value }}</p>
+        <p class="metric-caption">{{ metric.caption }}</p>
+      </article>
+    </section>
+
     <div class="card">
       <h2 class="text-lg font-semibold mb-2">Liste des pointages</h2>
       <div class="grid gap-2 md:grid-cols-3 lg:grid-cols-6 mb-3">
@@ -66,6 +77,7 @@
         </div>
       </div>
     </div>
+
   </div>
 
 </template>
@@ -78,6 +90,8 @@ import { debounce } from '../utils/debounce'
 
 const pointages = ref([])
 const employes = ref([])
+const loading = ref(false)
+const lastRefreshedAt = ref(null)
 
 const filters = ref({
   employe_id: '',
@@ -108,21 +122,27 @@ const sortDir = ref('desc')
 const pagination = ref({ page: 1, last_page: 1, total: 0 })
 
 const fetchPointages = async () => {
-  const params = { ...filters.value, page: pagination.value.page }
-  const { data } = await api.get('/v1/pointages', { params })
-  pointages.value = data.data || []
-  if (data.meta) {
-    pagination.value = {
-      page: data.meta.current_page,
-      last_page: data.meta.last_page,
-      total: data.meta.total
+  loading.value = true
+  try {
+    const params = { ...filters.value, page: pagination.value.page }
+    const { data } = await api.get('/v1/pointages', { params })
+    pointages.value = data.data || []
+    if (data.meta) {
+      pagination.value = {
+        page: data.meta.current_page,
+        last_page: data.meta.last_page,
+        total: data.meta.total
+      }
+    } else if (data.current_page !== undefined) {
+      pagination.value = {
+        page: data.current_page,
+        last_page: data.last_page,
+        total: data.total
+      }
     }
-  } else if (data.current_page !== undefined) {
-    pagination.value = {
-      page: data.current_page,
-      last_page: data.last_page,
-      total: data.total
-    }
+    lastRefreshedAt.value = new Date()
+  } finally {
+    loading.value = false
   }
 }
 
@@ -238,6 +258,40 @@ const setSort = (key) => {
 const sortLabel = (key) => (sortKey.value === key ? (sortDir.value === 'asc' ? '▲' : '▼') : '')
 const resetFilters = () => { filtersLocal.value = { matricule: '', nom: '', type: '', source: '', date: '' } }
 
+const formatInteger = (value) =>
+  new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(Number(value) || 0)
+
+const withJustified = computed(() => pointages.value.filter((p) => Boolean(p.absence_justifiee)).length)
+const withLate = computed(() => pointages.value.filter((p) => String(p.type || '').toLowerCase().includes('retard')).length)
+const metricCards = computed(() => [
+  {
+    label: 'Pointages visibles',
+    value: formatInteger(pointagesFiltres.value.length),
+    caption: 'Résultats après filtres',
+    tag: 'Rows',
+  },
+  {
+    label: 'Absences justifiées',
+    value: formatInteger(withJustified.value),
+    caption: 'Entrées marquées justifiées',
+    tag: 'Justified',
+  },
+  {
+    label: 'Retards détectés',
+    value: formatInteger(withLate.value),
+    caption: 'Pointages de type retard',
+    tag: 'Late',
+  },
+  {
+    label: 'Dernière synchro',
+    value: lastRefreshedAt.value
+      ? new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(lastRefreshedAt.value)
+      : 'Jamais',
+    caption: 'Date de rafraîchissement',
+    tag: 'Sync',
+  },
+])
+
 const nextPage = () => {
   if (pagination.value.page < pagination.value.last_page) {
     pagination.value.page++
@@ -258,6 +312,118 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.pointages-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-bottom: 24px;
+}
+
+.hero {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 28px;
+  border: 1px solid rgba(79, 70, 229, 0.14);
+  border-radius: 30px;
+  background:
+    linear-gradient(135deg, rgba(79, 70, 229, 0.1), rgba(255, 255, 255, 0)),
+    rgba(255, 255, 255, 0.9);
+  box-shadow: var(--shadow-lg);
+}
+
+body[data-theme='dark'] .hero {
+  background:
+    linear-gradient(135deg, rgba(79, 70, 229, 0.18), rgba(15, 23, 42, 0)),
+    rgba(15, 23, 42, 0.88);
+}
+
+.hero-kicker {
+  margin: 0;
+  color: var(--brand-600);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.hero h1 {
+  margin: 8px 0 0;
+  font-size: clamp(2rem, 3vw, 2.9rem);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+
+.hero-subtitle {
+  margin: 12px 0 0;
+  max-width: 700px;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+.hero-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.metric-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: var(--panel);
+  box-shadow: var(--shadow-sm);
+}
+
+.metric-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(79, 70, 229, 0.12);
+  background: rgba(79, 70, 229, 0.1);
+  color: var(--brand-600);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.metric-label {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.metric-value {
+  margin: 10px 0 8px;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.metric-caption {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
 .stat {
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -268,5 +434,17 @@ onMounted(async () => {
 .comment-cell {
   max-width: 240px;
   white-space: normal;
+}
+
+@media (max-width: 1000px) {
+  .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  .metric-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

@@ -155,6 +155,12 @@
       <path d="M9 15.25H15" :stroke-width="strokeWidth" stroke="currentColor" stroke-linecap="round" />
     </template>
 
+    <template v-else-if="name === 'download'">
+      <path d="M12 4.75V14" :stroke-width="strokeWidth" stroke="currentColor" stroke-linecap="round" />
+      <path d="M8.75 10.75L12 14L15.25 10.75" :stroke-width="strokeWidth" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" />
+      <path d="M5.75 18.25H18.25" :stroke-width="strokeWidth" stroke="currentColor" stroke-linecap="round" />
+    </template>
+
     <template v-else-if="name === 'trash'">
       <path d="M5.75 7H18.25" :stroke-width="strokeWidth" stroke="currentColor" stroke-linecap="round" />
       <path d="M9.25 4.75H14.75" :stroke-width="strokeWidth" stroke="currentColor" stroke-linecap="round" />

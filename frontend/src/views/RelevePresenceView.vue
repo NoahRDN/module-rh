@@ -1,246 +1,363 @@
 <template>
-  <div class="releve-page">
-    <section class="hero">
-      <div class="hero-copy">
-        <p class="hero-kicker">Presence reporting</p>
+  <div class="rh-page releve-page">
+    <section class="rh-hero">
+      <div class="rh-hero-copy">
+        <p class="rh-hero-kicker">Presence reporting</p>
         <h1>Relevé de présence</h1>
-        <p class="hero-subtitle">Analysez les heures, retards, absences et heures supplémentaires sur différentes périodes.</p>
+        <p class="rh-hero-subtitle">
+          Analysez les heures travaillées, retards, absences et heures supplémentaires avec une vue
+          plus lisible, mieux hiérarchisée et cohérente avec le reste du module RH.
+        </p>
+
+        <div class="rh-hero-pills">
+          <span class="pill">Journalier</span>
+          <span class="pill">Hebdomadaire</span>
+          <span class="pill">Mensuel</span>
+        </div>
+      </div>
+
+      <div class="rh-hero-actions">
+        <div class="rh-panel">
+          <div class="rh-action-row">
+            <button class="btn btn-secondary" @click="fetchReleve">
+              <AppIcon name="refresh" :size="18" />
+              <span>Générer</span>
+            </button>
+            <RouterLink class="btn" to="/paie-generation">
+              <AppIcon name="wallet" :size="18" />
+              <span>Vers paie</span>
+            </RouterLink>
+          </div>
+
+          <div class="rh-hero-meta-list">
+            <p class="rh-hero-meta">
+              Collaborateur:
+              <strong>{{ selectedEmployeLabel }}</strong>
+            </p>
+            <p class="rh-hero-meta">
+              Mode:
+              <strong>{{ modeLabel }}</strong>
+            </p>
+          </div>
+        </div>
       </div>
     </section>
 
-    <div class="grid gap-4">
-    <div class="card">
-      <div class="flex flex-wrap items-center gap-2">
-        <select class="select" v-model="mode">
-          <option value="day">Journalier</option>
-          <option value="week">Hebdomadaire</option>
-          <option value="month">Mensuel</option>
-        </select>
-        <select class="select" v-model="employeId">
-          <option value="">Employé</option>
-          <option v-for="e in employes" :key="e.id" :value="e.id">{{ e.matricule }} - {{ e.nom }} {{ e.prenom }}</option>
-        </select> 
-        <input v-if="mode === 'day'" class="input w-36" type="date" v-model="dateJour" />
-        <input v-else-if="mode === 'week'" class="input w-36" type="month" v-model="mois" />
-        <input v-else class="input w-24" type="number" min="2000" max="2100" v-model="yearOnly" />
-        <button class="btn btn-secondary" @click="fetchReleve">Générer</button>
-        <RouterLink class="btn" to="/paie-generation">Vers paie</RouterLink>
+    <section class="rh-metric-grid">
+      <article v-for="metric in metricCards" :key="metric.label" class="rh-metric-card">
+        <span class="rh-metric-chip">{{ metric.tag }}</span>
+        <p class="rh-metric-label">{{ metric.label }}</p>
+        <p class="rh-metric-value">{{ metric.value }}</p>
+        <p class="rh-metric-caption">{{ metric.caption }}</p>
+      </article>
+    </section>
+
+    <section class="card rh-section-card">
+      <div class="rh-section-heading">
+        <div>
+          <p class="rh-section-kicker">Reporting controls</p>
+          <h2>Choix du mode et de la période</h2>
+        </div>
       </div>
-    </div>
-  </div>
-  <div class="card" v-if="mode === 'day' && jourResume">
-    <div class="flex items-center justify-between mb-2">
-      <h3 class="text-lg font-semibold">Journalier</h3>
-      <button class="btn btn-secondary btn-xs" @click="toggleDayDetails">{{ showDayDetails ? 'Masquer pointages' : 'Voir pointages' }}</button>
-    </div>
-    <table class="min-w-full text-sm">
-      <thead class="border-b border-slate-800/60">
-        <tr>
-          <th class="py-2 text-left text-slate-400 text-xs">Jour</th>
-          <th class="py-2 text-left text-slate-400 text-xs">Heures</th>
-          <th class="py-2 text-left text-slate-400 text-xs">HS week-end</th>
-          <th class="py-2 text-left text-slate-400 text-xs">HS férié</th>
-          <th class="py-2 text-left text-slate-400 text-xs">Retard (min)</th>
-          <th class="py-2 text-left text-slate-400 text-xs">Pauses (min)</th>
-          <th class="py-2 text-left text-slate-400 text-xs">Statut</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td class="py-2">{{ dateJour }}</td>
-          <td class="py-2">{{ jourResume.heures_travaillees }}</td>
-          <td class="py-2">{{ isSundayDay ? jourResume.heures_supplementaires : 0 }}</td>
-          <td class="py-2">{{ jourResume.absence_justifiee ? jourResume.heures_supplementaires : 0 }}</td>
-          <td class="py-2">{{ jourResume.retard_minutes }}</td>
-          <td class="py-2">{{ jourResume.minutes_pauses }}</td>
-          <td class="py-2">
-            <span
-              v-for="chip in chips(jourResume)"
-              :key="chip.label"
-              class="chip"
-              :style="chip.style"
-            >{{ chip.label }}</span>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-    <div v-if="showDayDetails && dayPointages.length" class="mt-4">
-      <h4 class="text-md font-semibold mb-2">Pointages de la journée</h4>
-      <table class="min-w-full text-sm">
-        <thead class="border-b border-slate-800/60">
-          <tr>
-            <th class="py-2 text-left text-slate-400 text-xs">#</th>
-            <th class="py-2 text-left text-slate-400 text-xs">Type</th>
-            <th class="py-2 text-left text-slate-400 text-xs">Horodatage</th>
-            <th class="py-2 text-left text-slate-400 text-xs">Source</th>
-            <th class="py-2 text-left text-slate-400 text-xs">Commentaire</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-800/60">
-          <tr v-for="(p, idx) in dayPointages" :key="idx">
-            <td class="py-2">{{ idx + 1 }}</td>
-            <td class="py-2">{{ p.type }}</td>
-            <td class="py-2">{{ p.pointe_a }}</td>
-            <td class="py-2">{{ p.source || '—' }}</td>
-            <td class="py-2">{{ p.commentaire || '—' }}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
 
-  <div class="card" v-if="mode === 'month'">
-    <h3 class="text-lg font-semibold mb-2">Synthèse mensuelle</h3>
-    <table class="min-w-full text-sm">
-      <thead class="border-b border-slate-800/60">
-        <tr>
-          <th class="py-2 text-left text-slate-400 text-xs">Mois</th>
-          <th class="py-2 text-left text-slate-400 text-xs">Heures</th>
-          <th class="py-2 text-left text-slate-400 text-xs">HS</th>
-          <th class="py-2 text-left text-slate-400 text-xs">HS week-end</th>
-          <th class="py-2 text-left text-slate-400 text-xs">HS férié</th>
-          <th class="py-2 text-left text-slate-400 text-xs">Retards (min)</th>
-          <th class="py-2 text-left text-slate-400 text-xs">Absences</th>
-          <th class="py-2 text-left text-slate-400 text-xs">Détails</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="(m, idx) in monthsData" :key="m.label">
-          <td class="py-2">{{ m.label }}</td>
-          <td class="py-2">{{ m.totaux.heures_travaillees }}</td>
-          <td class="py-2">{{ m.totaux.heures_supplementaires }}</td>
-          <td class="py-2">{{ m.totaux.hs_weekend }}</td>
-          <td class="py-2">{{ m.totaux.hs_ferie }}</td>
-          <td class="py-2">{{ m.totaux.retard_minutes }}</td>
-          <td class="py-2">{{ m.totaux.absences }}</td>
-          <td class="py-2">
-            <button class="btn btn-secondary btn-xs" @click="toggleMonthDetailsFor(m)">
-              {{ selectedMonth === m.label && showMonthDetails ? 'Masquer' : 'Voir' }}
-            </button>
-          </td>
-        </tr>
-        <tr v-if="!monthsData.length">
-          <td colspan="8" class="py-3 text-center text-slate-500">Aucune donnée</td>
-        </tr>
-      </tbody>
-    </table>
+      <p class="rh-section-copy">
+        Sélectionnez le collaborateur, le mode d’analyse et la période à traiter pour générer le
+        relevé correspondant.
+      </p>
 
-    <div v-if="showMonthDetails && selectedMonthWeeks.length" class="mt-4">
-      <h4 class="text-md font-semibold mb-2">Détails hebdomadaires ({{ selectedMonth }})</h4>
-      <table class="min-w-full text-sm">
-        <thead class="border-b border-slate-800/60">
-          <tr>
-            <th class="py-2 text-left text-slate-400 text-xs">#</th>
-            <th class="py-2 text-left text-slate-400 text-xs">Semaine</th>
-            <th class="py-2 text-left text-slate-400 text-xs">Heures</th>
-            <th class="py-2 text-left text-slate-400 text-xs">HS</th>
-            <th class="py-2 text-left text-slate-400 text-xs">HS week-end</th>
-            <th class="py-2 text-left text-slate-400 text-xs">HS férié</th>
-            <th class="py-2 text-left text-slate-400 text-xs">Retards (min)</th>
-            <th class="py-2 text-left text-slate-400 text-xs">Absences</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-800/60">
-          <tr v-for="(w, idx) in selectedMonthWeeks" :key="w.label">
-            <td class="py-2">{{ idx + 1 }}</td>
-            <td class="py-2">{{ w.label }}</td>
-            <td class="py-2">{{ w.heures_travaillees }}</td>
-            <td class="py-2">{{ w.heures_supplementaires }}</td>
-          <td class="py-2">{{ w.hs_weekend }}</td>
-            <td class="py-2">{{ w.hs_ferie }}</td>
-            <td class="py-2">{{ w.retard_minutes }}</td>
-            <td class="py-2">{{ w.absences }}</td>
-          </tr>
-          <tr v-if="!selectedMonthWeeks.length">
-            <td colspan="8" class="py-3 text-center text-slate-500">Aucune donnée</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
+      <div class="rh-fields-grid controls-grid">
+        <label class="rh-field-card">
+          <span class="rh-field-label">Mode</span>
+          <select class="select" v-model="mode">
+            <option value="day">Journalier</option>
+            <option value="week">Hebdomadaire</option>
+            <option value="month">Mensuel</option>
+          </select>
+        </label>
 
-  <div class="card" v-if="mode === 'week'">
-    <h3 class="text-lg font-semibold mb-2">Synthèse hebdomadaire</h3>
-    <table class="min-w-full text-sm">
-      <thead class="border-b border-slate-800/60">
-        <tr>
-          <th class="py-2 text-left text-slate-400 text-xs">#</th>
-          <th class="py-2 text-left text-slate-400 text-xs">Semaine</th>
-          <th class="py-2 text-left text-slate-400 text-xs">Heures</th>
-          <th class="py-2 text-left text-slate-400 text-xs">HS</th>
-          <th class="py-2 text-left text-slate-400 text-xs">HS week-end</th>
-          <th class="py-2 text-left text-slate-400 text-xs">HS férié</th>
-          <th class="py-2 text-left text-slate-400 text-xs">Retards (min)</th>
-          <th class="py-2 text-left text-slate-400 text-xs">Absences</th>
-          <th class="py-2 text-left text-slate-400 text-xs">Abs. justifiées</th>
-          <th class="py-2 text-left text-slate-400 text-xs">Détails</th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-slate-800/60">
-        <tr v-for="(w, idx) in semaines" :key="w.label">
-          <td class="py-2">{{ idx + 1 }}</td>
-          <td class="py-2">{{ w.label }}</td>
-          <td class="py-2">{{ w.heures_travaillees }}</td>
-          <td class="py-2">{{ w.hs_weekend === null ? w.heures_supplementaires : 0 }}</td>
-          <td class="py-2">{{ w.hs_weekend }}</td>
-          <td class="py-2">{{ w.hs_ferie }}</td>
-          <td class="py-2">{{ w.retard_minutes }}</td>
-          <td class="py-2">{{ w.absences }}</td>
-          <td class="py-2">{{ w.absences_justifiees }}</td>
-          <td class="py-2">
-            <button class="btn btn-secondary btn-xs" @click="selectWeek(w)">Voir</button>
-          </td>
-        </tr>
-        <tr v-if="!semaines.length">
-          <td colspan="6" class="py-3 text-center text-slate-500">Aucune donnée</td>
-        </tr>
-      </tbody>
-    </table>
+        <label class="rh-field-card">
+          <span class="rh-field-label">Employé</span>
+          <select class="select" v-model="employeId">
+            <option value="">Sélectionner</option>
+            <option v-for="e in employes" :key="e.id" :value="e.id">
+              {{ e.matricule }} - {{ e.nom }} {{ e.prenom }}
+            </option>
+          </select>
+        </label>
 
-      <div v-if="weekDetails.length" class="mt-4">
-        <h4 class="text-md font-semibold mb-2">Détails de {{ selectedWeekLabel }}</h4>
-        <table class="min-w-full text-sm">
-          <thead class="border-b border-slate-800/60">
+        <label v-if="mode === 'day'" class="rh-field-card">
+          <span class="rh-field-label">Jour</span>
+          <input class="input" type="date" v-model="dateJour" />
+        </label>
+
+        <label v-else-if="mode === 'week'" class="rh-field-card">
+          <span class="rh-field-label">Mois de référence</span>
+          <input class="input" type="month" v-model="mois" />
+        </label>
+
+        <label v-else class="rh-field-card">
+          <span class="rh-field-label">Année</span>
+          <input class="input" type="number" min="2000" max="2100" v-model="yearOnly" />
+        </label>
+      </div>
+
+      <div class="rh-action-row action-row-inline">
+        <button class="btn" @click="fetchReleve" :disabled="!canGenerate">
+          <AppIcon name="save" :size="18" />
+          <span>Générer le relevé</span>
+        </button>
+      </div>
+    </section>
+
+    <article class="card rh-section-card" v-if="mode === 'day' && jourResume">
+      <div class="rh-section-heading">
+        <div>
+          <p class="rh-section-kicker">Daily report</p>
+          <h2>Journalier - {{ dateJour }}</h2>
+        </div>
+        <button class="btn btn-secondary btn-sm" @click="toggleDayDetails">
+          {{ showDayDetails ? 'Masquer pointages' : 'Voir pointages' }}
+        </button>
+      </div>
+
+      <div class="rh-table-shell">
+        <table class="table">
+          <thead>
             <tr>
-              <th class="py-2 text-left text-slate-400 text-xs">Jour</th>
-              <th class="py-2 text-left text-slate-400 text-xs">Heures</th>
-          <th class="py-2 text-left text-slate-400 text-xs">HS week-end</th>
-          <th class="py-2 text-left text-slate-400 text-xs">HS férié</th>
-              <th class="py-2 text-left text-slate-400 text-xs">Retard (min)</th>
-              <th class="py-2 text-left text-slate-400 text-xs">Statut</th>
+              <th>Jour</th>
+              <th>Heures</th>
+              <th>HS week-end</th>
+              <th>HS férié</th>
+              <th>Retard (min)</th>
+              <th>Pauses (min)</th>
+              <th>Statut</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-800/60">
-            <tr v-for="d in weekDetails" :key="d.jour">
-              <td class="py-2">{{ d.jour }}</td>
-              <td class="py-2">{{ d.heures_travaillees }}</td>
-              <td class="py-2">{{ d.weekend ? d.heures_supplementaires : 0 }}</td>
-              <td class="py-2">{{ d.ferie ? d.heures_supplementaires : 0 }}</td>
-              <td class="py-2">{{ d.retard_minutes }}</td>
-            <td class="py-2">
-              <span
-                v-for="chip in chips(d)"
-                :key="chip.label"
-                class="chip"
-                :style="chip.style"
-              >{{ chip.label }}</span>
-            </td>
-          </tr>
-          <tr v-if="!weekDetails.length">
-            <td colspan="6" class="py-3 text-center text-slate-500">Aucune donnée</td>
-          </tr>
-        </tbody>
-      </table>
+          <tbody>
+            <tr>
+              <td>{{ dateJour }}</td>
+              <td>{{ formatNumber(jourResume.heures_travaillees) }}</td>
+              <td>{{ formatNumber(isSundayDay ? jourResume.heures_supplementaires : 0) }}</td>
+              <td>{{ formatNumber(jourResume.absence_justifiee ? jourResume.heures_supplementaires : 0) }}</td>
+              <td>{{ formatNumber(jourResume.retard_minutes) }}</td>
+              <td>{{ formatNumber(jourResume.minutes_pauses) }}</td>
+              <td>
+                <div class="chip-list">
+                  <span v-for="chip in chips(jourResume)" :key="chip.label" class="chip" :style="chip.style">{{ chip.label }}</span>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div v-if="showDayDetails && dayPointages.length" class="detail-block">
+        <div class="rh-section-heading compact">
+          <div>
+            <p class="rh-section-kicker">Raw events</p>
+            <h2>Pointages de la journée</h2>
+          </div>
+        </div>
+
+        <div class="rh-table-shell">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Type</th>
+                <th>Horodatage</th>
+                <th>Source</th>
+                <th>Commentaire</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(p, idx) in dayPointages" :key="idx">
+                <td>{{ idx + 1 }}</td>
+                <td>{{ p.type }}</td>
+                <td>{{ p.pointe_a }}</td>
+                <td>{{ p.source || '—' }}</td>
+                <td>{{ p.commentaire || '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </article>
+
+    <article class="card rh-section-card" v-else-if="mode === 'week' && semaines.length">
+      <div class="rh-section-heading">
+        <div>
+          <p class="rh-section-kicker">Weekly report</p>
+          <h2>Synthèse hebdomadaire</h2>
+        </div>
+      </div>
+
+      <div class="rh-table-shell">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Semaine</th>
+              <th>Heures</th>
+              <th>HS</th>
+              <th>HS week-end</th>
+              <th>HS férié</th>
+              <th>Retards (min)</th>
+              <th>Absences</th>
+              <th>Abs. justifiées</th>
+              <th>Détails</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(w, idx) in semaines" :key="w.label">
+              <td>{{ idx + 1 }}</td>
+              <td>{{ w.label }}</td>
+              <td>{{ formatNumber(w.heures_travaillees) }}</td>
+              <td>{{ formatNumber(w.heures_supplementaires) }}</td>
+              <td>{{ formatNumber(w.hs_weekend) }}</td>
+              <td>{{ formatNumber(w.hs_ferie) }}</td>
+              <td>{{ formatNumber(w.retard_minutes) }}</td>
+              <td>{{ w.absences }}</td>
+              <td>{{ w.absences_justifiees }}</td>
+              <td>
+                <button class="btn btn-secondary btn-sm" @click="selectWeek(w)">Voir</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div v-if="weekDetails.length" class="detail-block">
+        <div class="rh-section-heading compact">
+          <div>
+            <p class="rh-section-kicker">Week details</p>
+            <h2>{{ selectedWeekLabel }}</h2>
+          </div>
+        </div>
+
+        <div class="rh-table-shell">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Jour</th>
+                <th>Heures</th>
+                <th>HS week-end</th>
+                <th>HS férié</th>
+                <th>Retard (min)</th>
+                <th>Statut</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="d in weekDetails" :key="d.jour">
+                <td>{{ d.jour }}</td>
+                <td>{{ formatNumber(d.heures_travaillees) }}</td>
+                <td>{{ formatNumber(d.hs_weekend) }}</td>
+                <td>{{ formatNumber(d.hs_ferie) }}</td>
+                <td>{{ formatNumber(d.retard_minutes) }}</td>
+                <td>
+                  <div class="chip-list">
+                    <span v-for="chip in chips(d)" :key="chip.label" class="chip" :style="chip.style">{{ chip.label }}</span>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </article>
+
+    <article class="card rh-section-card" v-else-if="mode === 'month' && monthsData.length">
+      <div class="rh-section-heading">
+        <div>
+          <p class="rh-section-kicker">Monthly report</p>
+          <h2>Synthèse mensuelle {{ yearOnly }}</h2>
+        </div>
+      </div>
+
+      <div class="rh-table-shell">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Mois</th>
+              <th>Heures</th>
+              <th>HS</th>
+              <th>HS week-end</th>
+              <th>HS férié</th>
+              <th>Retards (min)</th>
+              <th>Absences</th>
+              <th>Détails</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="item in monthsData" :key="item.label">
+              <td>{{ item.label }}</td>
+              <td>{{ formatNumber(item.totaux.heures_travaillees) }}</td>
+              <td>{{ formatNumber(item.totaux.heures_supplementaires) }}</td>
+              <td>{{ formatNumber(item.totaux.hs_weekend) }}</td>
+              <td>{{ formatNumber(item.totaux.hs_ferie) }}</td>
+              <td>{{ formatNumber(item.totaux.retard_minutes) }}</td>
+              <td>{{ item.totaux.absences }}</td>
+              <td>
+                <button class="btn btn-secondary btn-sm" @click="toggleMonthDetailsFor(item)">
+                  {{ selectedMonth === item.label && showMonthDetails ? 'Masquer' : 'Voir' }}
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div v-if="showMonthDetails && selectedMonthWeeks.length" class="detail-block">
+        <div class="rh-section-heading compact">
+          <div>
+            <p class="rh-section-kicker">Month details</p>
+            <h2>{{ selectedMonth }}</h2>
+          </div>
+        </div>
+
+        <div class="rh-table-shell">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Semaine</th>
+                <th>Heures</th>
+                <th>HS</th>
+                <th>HS week-end</th>
+                <th>HS férié</th>
+                <th>Retards (min)</th>
+                <th>Absences</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(w, idx) in selectedMonthWeeks" :key="w.label">
+                <td>{{ idx + 1 }}</td>
+                <td>{{ w.label }}</td>
+                <td>{{ formatNumber(w.heures_travaillees) }}</td>
+                <td>{{ formatNumber(w.heures_supplementaires) }}</td>
+                <td>{{ formatNumber(w.hs_weekend) }}</td>
+                <td>{{ formatNumber(w.hs_ferie) }}</td>
+                <td>{{ formatNumber(w.retard_minutes) }}</td>
+                <td>{{ w.absences }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </article>
+
+    <div v-else class="card rh-loading-card">
+      <p class="rh-loading-title">Aucun relevé affiché</p>
+      <p class="muted">Choisissez un collaborateur, une période et lancez la génération.</p>
     </div>
-  </div>
   </div>
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import api from '../services/api'
-import { computed } from 'vue'
+import AppIcon from '../components/ui/AppIcon.vue'
 
 const employes = ref([])
 const employeId = ref('')
@@ -249,7 +366,6 @@ const dateJour = ref(new Date().toISOString().slice(0, 10))
 const mode = ref('month')
 const yearOnly = ref(new Date().getFullYear())
 const totaux = ref({})
-const details = ref([])
 const jourResume = ref(null)
 const semaines = ref([])
 const weekDetails = ref([])
@@ -257,22 +373,118 @@ const selectedWeekLabel = ref('')
 const showMonthDetails = ref(false)
 const showDayDetails = ref(false)
 const dayPointages = ref([])
-const isSundayDay = computed(() => new Date(dateJour.value).getDay() === 0)
 const monthsData = ref([])
 const selectedMonth = ref('')
 const selectedMonthWeeks = ref([])
+
+const isSundayDay = computed(() => new Date(dateJour.value).getDay() === 0)
+
+const selectedEmploye = computed(() =>
+  employes.value.find((item) => String(item.id) === String(employeId.value)) || null,
+)
+
+const selectedEmployeLabel = computed(() => {
+  if (!selectedEmploye.value) return 'Aucun'
+  return `${selectedEmploye.value.matricule || 'EMP'} - ${selectedEmploye.value.nom || ''}`
+}
+)
+
+const modeLabel = computed(() => {
+  if (mode.value === 'day') return 'Journalier'
+  if (mode.value === 'week') return 'Hebdomadaire'
+  return 'Mensuel'
+})
+
+const canGenerate = computed(() => {
+  if (!employeId.value) return false
+  if (mode.value === 'day') return Boolean(dateJour.value)
+  if (mode.value === 'week') return Boolean(mois.value)
+  return Boolean(yearOnly.value)
+})
+
+const currentTotals = computed(() => {
+  if (mode.value === 'day' && jourResume.value) {
+    return {
+      heures_travaillees: Number(jourResume.value.heures_travaillees || 0),
+      heures_supplementaires: Number(jourResume.value.heures_supplementaires || 0),
+      hs_weekend: isSundayDay.value ? Number(jourResume.value.heures_supplementaires || 0) : 0,
+      hs_ferie: jourResume.value.absence_justifiee ? Number(jourResume.value.heures_supplementaires || 0) : 0,
+      retard_minutes: Number(jourResume.value.retard_minutes || 0),
+      absences: jourResume.value.absent ? 1 : 0,
+    }
+  }
+
+  if (mode.value === 'month') {
+    return monthsData.value.reduce(
+      (accumulator, item) => ({
+        heures_travaillees: accumulator.heures_travaillees + Number(item.totaux.heures_travaillees || 0),
+        heures_supplementaires:
+          accumulator.heures_supplementaires + Number(item.totaux.heures_supplementaires || 0),
+        hs_weekend: accumulator.hs_weekend + Number(item.totaux.hs_weekend || 0),
+        hs_ferie: accumulator.hs_ferie + Number(item.totaux.hs_ferie || 0),
+        retard_minutes: accumulator.retard_minutes + Number(item.totaux.retard_minutes || 0),
+        absences: accumulator.absences + Number(item.totaux.absences || 0),
+      }),
+      {
+        heures_travaillees: 0,
+        heures_supplementaires: 0,
+        hs_weekend: 0,
+        hs_ferie: 0,
+        retard_minutes: 0,
+        absences: 0,
+      },
+    )
+  }
+
+  return {
+    heures_travaillees: Number(totaux.value.heures_travaillees || 0),
+    heures_supplementaires: Number(totaux.value.heures_supplementaires || 0),
+    hs_weekend: Number(totaux.value.hs_weekend || 0),
+    hs_ferie: Number(totaux.value.hs_ferie || 0),
+    retard_minutes: Number(totaux.value.retard_minutes || 0),
+    absences: Number(totaux.value.absences || 0),
+  }
+})
+
+const metricCards = computed(() => [
+  {
+    label: 'Heures travaillées',
+    value: formatNumber(currentTotals.value.heures_travaillees),
+    caption: 'Total visible selon le mode actif',
+    tag: 'Hours',
+  },
+  {
+    label: 'Heures sup.',
+    value: formatNumber(currentTotals.value.heures_supplementaires),
+    caption: 'Heures supplémentaires calculées',
+    tag: 'OT',
+  },
+  {
+    label: 'Retards',
+    value: formatNumber(currentTotals.value.retard_minutes),
+    caption: 'Minutes de retard remontées',
+    tag: 'Delay',
+  },
+  {
+    label: 'Absences',
+    value: currentTotals.value.absences,
+    caption: 'Absences détectées sur la période',
+    tag: 'Abs',
+  },
+])
+
 const chips = (row = {}) => {
   const list = []
   const add = (label, bg, color) => list.push({ label, style: `background:${bg};color:${color};` })
-  if (row.ferie) add('Férié', 'rgba(56,189,248,0.15)', '#67e8f9')
-  else if (row.weekend) add('Week-end', 'rgba(148,163,184,0.15)', '#cbd5e1')
-  else if (row.absence_justifiee) add('Absence justifiée', 'rgba(59,130,246,0.15)', '#93c5fd')
-  else if (row.absent) add('Absent', 'rgba(248,113,113,0.15)', '#fca5a5')
-  else if (row.present_partiel) add('Présence partielle', 'rgba(251,191,36,0.15)', '#facc15')
-  else add('Présent', 'rgba(34,197,94,0.12)', '#86efac')
+  if (row.ferie) add('Férié', 'rgba(56,189,248,0.15)', '#0f766e')
+  else if (row.weekend) add('Week-end', 'rgba(148,163,184,0.15)', '#475569')
+  else if (row.absence_justifiee) add('Absence justifiée', 'rgba(59,130,246,0.15)', '#2563eb')
+  else if (row.absent) add('Absent', 'rgba(248,113,113,0.15)', '#dc2626')
+  else if (row.present_partiel) add('Présence partielle', 'rgba(251,191,36,0.15)', '#d97706')
+  else add('Présent', 'rgba(34,197,94,0.12)', '#15803d')
 
-  if (!row.ferie && !row.weekend && row.retard_minutes > 0) {
-    add('Retard', 'rgba(249,115,22,0.15)', '#fb923c')
+  if (!row.ferie && !row.weekend && Number(row.retard_minutes || 0) > 0) {
+    add('Retard', 'rgba(249,115,22,0.15)', '#ea580c')
   }
   return list
 }
@@ -283,107 +495,115 @@ const fetchEmployes = async () => {
 }
 
 const fetchReleve = async () => {
-  if (!employeId.value) return
-  if (mode.value === 'day' && !dateJour.value) return
-  if (mode.value === 'week' && !mois.value) return
-  if (mode.value === 'month' && !yearOnly.value) return
+  if (!canGenerate.value) return
 
   if (mode.value === 'day') {
     const { data } = await api.get('/v1/pointages/releve-journalier', {
-      params: { employe_id: employeId.value, date: dateJour.value }
+      params: { employe_id: employeId.value, date: dateJour.value },
     })
+
     jourResume.value = data.resume
     dayPointages.value = data.pointages || []
-    details.value = []
     semaines.value = []
+    weekDetails.value = []
+    monthsData.value = []
+    selectedMonth.value = ''
+    selectedMonthWeeks.value = []
+    showMonthDetails.value = false
     showDayDetails.value = false
     totaux.value = {
       heures_travaillees: data.resume?.heures_travaillees ?? 0,
       heures_supplementaires: data.resume?.heures_supplementaires ?? 0,
+      hs_weekend: isSundayDay.value ? data.resume?.heures_supplementaires ?? 0 : 0,
+      hs_ferie: data.resume?.absence_justifiee ? data.resume?.heures_supplementaires ?? 0 : 0,
       retard_minutes: data.resume?.retard_minutes ?? 0,
-      absences: data.resume?.absent ? 1 : 0
+      absences: data.resume?.absent ? 1 : 0,
     }
     return
   }
 
-  // month or week -> on s'appuie sur releve-paie qui applique les règles (40h/sem, dimanche)
-  let det = []
-  let totauxWeek = {}
   if (mode.value === 'week') {
     const { data } = await api.get('/v1/pointages/releve-paie', {
-      params: { employe_id: employeId.value, mois: mois.value }
+      params: { employe_id: employeId.value, mois: mois.value },
     })
-    det = data.details || []
-    totauxWeek = data.totaux || {}
-  } else {
-    // mode month : synthèse par mois pour l'année sélectionnée
-    const year = yearOnly.value
-    monthsData.value = []
-    for (let m = 1; m <= 12; m++) {
-      const moisStr = `${year}-${String(m).padStart(2, '0')}`
-      const { data } = await api.get('/v1/pointages/releve-paie', {
-        params: { employe_id: employeId.value, mois: moisStr }
-      })
-      const d = data.details || []
-      const weeks = mergeWeeks(groupByWeek(d))
-      const hsWeekend = d.filter((x) => isWeekend(x)).reduce((s, x) => s + (x.heures_supplementaires || 0), 0)
-      const hsFerie = d.filter((x) => isFerie(x)).reduce((s, x) => s + (x.heures_supplementaires || 0), 0)
-      monthsData.value.push({
-        label: moisStr,
-        totaux: {
-          heures_travaillees: data.totaux?.heures_travaillees || 0,
-          heures_supplementaires: data.totaux?.heures_supplementaires || 0,
-          hs_weekend: hsWeekend,
-          hs_ferie: hsFerie,
-          retard_minutes: data.totaux?.retard_minutes || 0,
-          absences: data.totaux?.absences || 0,
-        },
-        weeks,
-      })
-    }
-    selectedMonth.value = ''
-    selectedMonthWeeks.value = []
-    showMonthDetails.value = false
-  }
-
-  // enrichir pour affichage (dimanche)
-  details.value = det.map((d) => ({
-    ...d,
-    dimanche: new Date(d.jour).getDay() === 0
-  }))
-
-  if (mode.value === 'week') {
-    semaines.value = groupByWeek(det)
-    details.value = []
+    const details = data.details || []
+    semaines.value = groupByWeek(details)
     weekDetails.value = []
     selectedWeekLabel.value = ''
-    totaux.value = totauxWeek
-  } else {
-    // mode month : recalcul des totaux sur le mois affiché
-    semaines.value = []
-    monthWeeks.value = groupByWeek(det)
-    const dimanches = details.value.filter((d) => new Date(d.jour).getDay() === 0).length
-    const absents = details.value.filter((d) => d.absent).length
-    totaux.value = {
-      heures_travaillees: details.value.reduce((s, d) => s + (d.heures_travaillees || 0), 0),
-      heures_supplementaires: details.value.reduce((s, d) => s + (d.heures_supplementaires || 0), 0),
-      hs_weekend: details.value.filter((d) => isWeekend(d)).reduce((s, d) => s + (d.heures_supplementaires || 0), 0),
-      hs_ferie: details.value.filter((d) => isFerie(d)).reduce((s, d) => s + (d.heures_supplementaires || 0), 0),
-      retard_minutes: details.value.reduce((s, d) => s + (d.retard_minutes || 0), 0),
-      absences: absents,
-      dimanches
-    }
-    showMonthDetails.value = false
+    monthsData.value = []
+    jourResume.value = null
+    dayPointages.value = []
+    totaux.value = buildTotalsFromDetails(details, data.totaux || {})
+    return
   }
+
+  const year = Number(yearOnly.value)
+  const rows = []
+  for (let month = 1; month <= 12; month += 1) {
+    const monthLabel = `${year}-${String(month).padStart(2, '0')}`
+    const { data } = await api.get('/v1/pointages/releve-paie', {
+      params: { employe_id: employeId.value, mois: monthLabel },
+    })
+    const details = data.details || []
+    rows.push({
+      label: monthLabel,
+      totaux: buildTotalsFromDetails(details, data.totaux || {}),
+      weeks: mergeWeeks(groupByWeek(details)),
+    })
+  }
+  monthsData.value = rows
+  jourResume.value = null
+  dayPointages.value = []
+  semaines.value = []
+  weekDetails.value = []
+  selectedWeekLabel.value = ''
+  selectedMonth.value = ''
+  selectedMonthWeeks.value = []
+  showMonthDetails.value = false
 }
 
-const groupByWeek = (list) => {
+const buildTotalsFromDetails = (details, apiTotals = {}) => {
+  const totals = {
+    heures_travaillees: Number(apiTotals.heures_travaillees || 0),
+    heures_supplementaires: Number(apiTotals.heures_supplementaires || 0),
+    hs_weekend: 0,
+    hs_ferie: 0,
+    retard_minutes: Number(apiTotals.retard_minutes || 0),
+    absences: Number(apiTotals.absences || 0),
+  }
+
+  details.forEach((detail) => {
+    if (isWeekend(detail)) totals.hs_weekend += Number(detail.heures_supplementaires || 0)
+    if (isFerie(detail)) totals.hs_ferie += Number(detail.heures_supplementaires || 0)
+  })
+
+  if (!apiTotals.heures_travaillees) {
+    totals.heures_travaillees = details.reduce((sum, detail) => sum + Number(detail.heures_travaillees || 0), 0)
+  }
+  if (!apiTotals.heures_supplementaires) {
+    totals.heures_supplementaires = details.reduce(
+      (sum, detail) => sum + Number(detail.heures_supplementaires || 0),
+      0,
+    )
+  }
+  if (!apiTotals.retard_minutes) {
+    totals.retard_minutes = details.reduce((sum, detail) => sum + Number(detail.retard_minutes || 0), 0)
+  }
+  if (!apiTotals.absences) {
+    totals.absences = details.filter((detail) => detail.absent).length
+  }
+
+  return totals
+}
+
+const groupByWeek = (details) => {
   const weeks = {}
-  list.forEach((d) => {
-    const date = new Date(d.jour)
+  details.forEach((detail) => {
+    const date = new Date(detail.jour)
     const label = weekLabel(date)
-    const weekendFlag = isWeekend(d, date)
-    const ferieFlag = isFerie(d)
+    const weekend = isWeekend(detail, date)
+    const ferie = isFerie(detail)
+
     if (!weeks[label]) {
       weeks[label] = {
         label,
@@ -394,49 +614,65 @@ const groupByWeek = (list) => {
         retard_minutes: 0,
         absences: 0,
         absences_justifiees: 0,
-        dimanches: 0,
-        days: []
+        days: [],
       }
     }
-    weeks[label].heures_travaillees += d.heures_travaillees || 0
-    weeks[label].heures_supplementaires += d.heures_supplementaires || 0
-    if (weekendFlag) {
-      weeks[label].hs_weekend += d.heures_supplementaires || 0
-    }
-    if (ferieFlag) {
-      weeks[label].hs_ferie += d.heures_supplementaires || 0
-    }
-    weeks[label].retard_minutes += d.retard_minutes || 0
-    weeks[label].absences += (d.absent && !weekendFlag && !d.ferie) ? 1 : 0
-    weeks[label].absences_justifiees += d.absence_justifiee ? 1 : 0
-    if (date.getDay() === 0) weeks[label].dimanches += 1
+
+    weeks[label].heures_travaillees += Number(detail.heures_travaillees || 0)
+    weeks[label].heures_supplementaires += Number(detail.heures_supplementaires || 0)
+    weeks[label].retard_minutes += Number(detail.retard_minutes || 0)
+    weeks[label].absences += detail.absent && !weekend && !detail.ferie ? 1 : 0
+    weeks[label].absences_justifiees += detail.absence_justifiee ? 1 : 0
+    if (weekend) weeks[label].hs_weekend += Number(detail.heures_supplementaires || 0)
+    if (ferie) weeks[label].hs_ferie += Number(detail.heures_supplementaires || 0)
     weeks[label].days.push({
-      ...d,
-      dimanche: date.getDay() === 0,
-      weekend: weekendFlag,
-      ferie: ferieFlag
+      ...detail,
+      weekend,
+      ferie,
+      hs_weekend: weekend ? Number(detail.heures_supplementaires || 0) : 0,
+      hs_ferie: ferie ? Number(detail.heures_supplementaires || 0) : 0,
     })
   })
   return Object.values(weeks)
 }
 
+const mergeWeeks = (weeks) => {
+  const map = {}
+  weeks.forEach((week) => {
+    if (!map[week.label]) {
+      map[week.label] = { ...week }
+      return
+    }
+
+    map[week.label].heures_travaillees += week.heures_travaillees || 0
+    map[week.label].heures_supplementaires += week.heures_supplementaires || 0
+    map[week.label].hs_weekend += week.hs_weekend || 0
+    map[week.label].hs_ferie += week.hs_ferie || 0
+    map[week.label].retard_minutes += week.retard_minutes || 0
+    map[week.label].absences += week.absences || 0
+    map[week.label].absences_justifiees += week.absences_justifiees || 0
+    map[week.label].days = (map[week.label].days || []).concat(week.days || [])
+  })
+  return Object.values(map)
+}
+
 const weekLabel = (date) => {
   const d = new Date(date)
   const day = d.getDay()
-  const diffToMonday = (day === 0 ? -6 : 1 - day) // 0=dimanche
+  const diffToMonday = day === 0 ? -6 : 1 - day
   const monday = new Date(d)
   monday.setDate(d.getDate() + diffToMonday)
   const end = new Date(monday)
   end.setDate(monday.getDate() + 6)
-  const fmt = (dt) => dt.toISOString().slice(0, 10)
-  return `${fmt(monday)} → ${fmt(end)}`
+  return `${monday.toISOString().slice(0, 10)} → ${end.toISOString().slice(0, 10)}`
 }
 
-onMounted(fetchEmployes)
-
-const toggleMonthDetails = () => {
-  showMonthDetails.value = !showMonthDetails.value
+const isWeekend = (detail, dateObj) => {
+  const date = dateObj || new Date(detail.jour)
+  return Boolean(detail.weekend || date.getDay() === 0 || date.getDay() === 6)
 }
+
+const isFerie = (detail) => Boolean(detail.ferie)
 
 const toggleDayDetails = () => {
   showDayDetails.value = !showDayDetails.value
@@ -444,119 +680,53 @@ const toggleDayDetails = () => {
 
 const selectWeek = (week) => {
   selectedWeekLabel.value = week.label
-  weekDetails.value = (week.days || []).map((d) => {
-    const weekendFlag = d.weekend || isWeekend(d)
-    const ferieFlag = d.ferie || isFerie(d)
-    return {
-      ...d,
-      weekend: weekendFlag,
-      ferie: ferieFlag,
-      hs_weekend: weekendFlag ? (d.heures_supplementaires || 0) : 0,
-      hs_ferie: ferieFlag ? (d.heures_supplementaires || 0) : 0
-    }
-  })
+  weekDetails.value = week.days || []
 }
-
-// Fusionne des semaines ayant le même label (utile quand on accumule plusieurs mois)
-const mergeWeeks = (weeks) => {
-  const map = {}
-  weeks.forEach((w) => {
-    if (!map[w.label]) {
-      map[w.label] = { ...w }
-    } else {
-      map[w.label].heures_travaillees += w.heures_travaillees || 0
-      map[w.label].heures_supplementaires += w.heures_supplementaires || 0
-      map[w.label].hs_weekend += w.hs_weekend || 0
-      map[w.label].hs_ferie += w.hs_ferie || 0
-      map[w.label].retard_minutes += w.retard_minutes || 0
-      map[w.label].absences += w.absences || 0
-      map[w.label].absences_justifiees += w.absences_justifiees || 0
-      map[w.label].dimanches += w.dimanches || 0
-      map[w.label].days = (map[w.label].days || []).concat(w.days || [])
-    }
-  })
-  return Object.values(map)
-}
-
-const isWeekend = (d, dateObj) => {
-  const dt = dateObj || new Date(d.jour)
-  return !!(d.weekend || dt.getDay() === 0 || dt.getDay() === 6)
-}
-
-const isFerie = (d) => !!d.ferie
 
 const toggleMonthDetailsFor = (monthObj) => {
   if (selectedMonth.value === monthObj.label && showMonthDetails.value) {
-    showMonthDetails.value = false
     selectedMonth.value = ''
     selectedMonthWeeks.value = []
+    showMonthDetails.value = false
     return
   }
   selectedMonth.value = monthObj.label
   selectedMonthWeeks.value = monthObj.weeks || []
   showMonthDetails.value = true
 }
+
+const formatNumber = (value) =>
+  new Intl.NumberFormat('fr-FR', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(Number(value || 0))
+
+onMounted(fetchEmployes)
 </script>
 
 <style scoped>
-.releve-page {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  padding-bottom: 24px;
+.controls-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.hero {
+.action-row-inline {
+  justify-content: flex-start;
+}
+
+.detail-block {
+  display: grid;
+  gap: 14px;
+}
+
+.chip-list {
   display: flex;
   flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 18px;
-  padding: 28px;
-  border: 1px solid rgba(79, 70, 229, 0.14);
-  border-radius: 30px;
-  background:var(--purple-100);
-  box-shadow: var(--shadow-lg);
+  gap: 8px;
 }
 
-body[data-theme='dark'] .hero {
-  background:
-    linear-gradient(135deg, rgba(79, 70, 229, 0.18), rgba(15, 23, 42, 0)),
-    rgba(15, 23, 42, 0.88);
-}
-
-.hero-kicker {
-  margin: 0;
-  color: var(--brand-600);
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.hero h1 {
-  margin: 8px 0 0;
-  font-size: clamp(2rem, 3vw, 2.9rem);
-  font-weight: 800;
-  letter-spacing: -0.04em;
-}
-
-.hero-subtitle {
-  margin: 12px 0 0;
-  max-width: 760px;
-  color: var(--muted);
-  font-size: 1rem;
-  line-height: 1.7;
-}
-
-.stat-card {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-@media (max-width: 680px) {
-  .hero {
-    padding: 22px;
+@media (max-width: 920px) {
+  .controls-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

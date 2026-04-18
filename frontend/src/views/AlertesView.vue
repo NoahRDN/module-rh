@@ -1,171 +1,174 @@
 <template>
-  <div class="alertes-page">
-    <div class="hero">
-      <div>
-        <p class="eyebrow">Surveillance continue</p>
+  <div class="rh-page alertes-page">
+    <section class="rh-hero">
+      <div class="rh-hero-copy">
+        <p class="rh-hero-kicker">Continuous monitoring</p>
         <h1>Alertes automatiques</h1>
-        <p class="subtitle">Congés en attente, échéances proches, absences répétées</p>
-        <div class="chips">
+        <p class="rh-hero-subtitle">
+          Surveillez les demandes de congé, les absences répétées, les fins de contrat et les soldes à
+          traiter dans une vue plus cohérente avec le reste du module RH.
+        </p>
+
+        <div class="rh-hero-pills">
           <span class="pill">{{ stats.total }} alertes</span>
-          <span class="pill pill-green">{{ stats.conges }} congés</span>
-          <span class="pill pill-blue">{{ stats.absences }} absences</span>
+          <span class="pill green">{{ stats.conges }} congés</span>
           <span class="pill">{{ stats.contrats }} contrats</span>
-          <span class="pill">{{ stats.soldes }} congés non pris</span>
-          <span class="pill pill-red">{{ stats.critiques }} critiques</span>
-        </div>
-      </div>
-      <div class="hero-actions">
-        <button class="btn" @click="fetchAlertes">↻ Actualiser</button>
-      </div>
-    </div>
-
-    <div class="alertes-grid">
-      <div class="card glass">
-        <div class="section-header">
-          <div>
-            <p class="eyebrow">Congés</p>
-            <h3>En attente / Proches</h3>
-          </div>
-        </div>
-        <div class="timeline">
-          <div
-            v-for="a in alertesFiltrees(['conge_en_attente', 'conge_proche'])"
-            :key="(a.demande_id || '') + a.type"
-            class="timeline-item"
-          >
-            <div class="bullet" :class="levelClass(a.level)"></div>
-            <div class="content">
-              <div class="title">
-                <span class="badge" v-if="a.employe?.matricule">{{ a.employe.matricule }}</span>
-                <span class="message">{{ a.message }}</span>
-              </div>
-              <div class="meta">
-                <span v-if="a.demande_id">Demande #{{ a.demande_id }}</span>
-                <span class="type-tag">Type : {{ a.type }}</span>
-              </div>
-              <RouterLink
-                v-if="a.demande_id"
-                class="link"
-                :to="{ name: 'demandes-conges', query: { focus: a.demande_id } }"
-              >
-                Ouvrir la demande →
-              </RouterLink>
-            </div>
-          </div>
-          <p v-if="!alertesFiltrees(['conge_en_attente', 'conge_proche']).length" class="empty">Aucune alerte</p>
+          <span class="pill red">{{ stats.critiques }} critiques</span>
         </div>
       </div>
 
-      <div class="card glass">
-        <div class="section-header">
-          <div>
-            <p class="eyebrow">Absences</p>
-            <h3>Absences répétées</h3>
+      <div class="rh-hero-actions">
+        <div class="rh-panel">
+          <div class="rh-action-row">
+            <button class="btn btn-secondary" @click="fetchAlertes">
+              <AppIcon name="refresh" :size="18" />
+              <span>Actualiser</span>
+            </button>
+            <RouterLink class="btn" to="/alerte-settings">
+              <AppIcon name="settings" :size="18" />
+              <span>Configurer</span>
+            </RouterLink>
+          </div>
+
+          <div class="rh-hero-meta-list">
+            <p class="rh-hero-meta">
+              Alertes critiques:
+              <strong>{{ stats.critiques }}</strong>
+            </p>
+            <p class="rh-hero-meta">
+              Catégories actives:
+              <strong>{{ activeSections }}</strong>
+            </p>
           </div>
         </div>
-        <div class="timeline">
-          <div
-            v-for="a in alertesFiltrees(['absences_maladie', 'absences_exceptionnelles'])"
-            :key="(a.employe_id || '') + a.type"
-            class="timeline-item"
-          >
-            <div class="bullet" :class="levelClass(a.level)"></div>
-            <div class="content">
-              <div class="title">
-                <span class="badge" v-if="a.employe?.matricule">{{ a.employe.matricule }}</span>
-                <span class="message">{{ a.message }}</span>
+      </div>
+    </section>
+
+    <section class="rh-metric-grid">
+      <article v-for="metric in metricCards" :key="metric.label" class="rh-metric-card">
+        <span class="rh-metric-chip">{{ metric.tag }}</span>
+        <p class="rh-metric-label">{{ metric.label }}</p>
+        <p class="rh-metric-value">{{ metric.value }}</p>
+        <p class="rh-metric-caption">{{ metric.caption }}</p>
+      </article>
+    </section>
+
+    <section class="rh-content-grid">
+      <div class="main-column">
+        <section class="alerts-grid">
+          <article v-for="section in alertSections" :key="section.title" class="card rh-section-card alert-card">
+            <div class="rh-section-heading">
+              <div>
+                <p class="rh-section-kicker">{{ section.kicker }}</p>
+                <h2>{{ section.title }}</h2>
               </div>
-              <div class="meta">
-                <span v-if="a.employe_id && !a.employe?.matricule">Employé #{{ a.employe_id }}</span>
-                <span class="type-tag">Type : {{ a.type }}</span>
+              <span class="rh-section-chip">{{ section.items.length }}</span>
+            </div>
+
+            <p class="rh-section-copy">{{ section.copy }}</p>
+
+            <div class="timeline" v-if="section.items.length">
+              <div v-for="item in section.items" :key="section.key + (item.demande_id || item.contrat_id || item.employe_id || item.type)" class="timeline-item">
+                <div class="bullet" :class="levelClass(item.level)"></div>
+                <div class="timeline-copy">
+                  <div class="timeline-top">
+                    <span class="badge" v-if="item.employe?.matricule">{{ item.employe.matricule }}</span>
+                    <span class="message">{{ item.message }}</span>
+                  </div>
+
+                  <div class="meta">
+                    <span v-if="item.demande_id">Demande #{{ item.demande_id }}</span>
+                    <span v-if="item.contrat_id">Contrat #{{ item.contrat_id }}</span>
+                    <span v-if="item.date_fin">Fin le {{ item.date_fin }}</span>
+                    <span v-if="item.solde">Solde {{ item.solde }} jours</span>
+                    <span class="type-tag">{{ formatType(item.type) }}</span>
+                  </div>
+
+                  <RouterLink
+                    v-if="item.demande_id"
+                    class="link"
+                    :to="{ name: 'demandes-conges', query: { focus: item.demande_id } }"
+                  >
+                    Ouvrir la demande
+                  </RouterLink>
+
+                  <RouterLink
+                    v-else-if="item.contrat_id"
+                    class="link"
+                    :to="{ name: 'contrat-detail', params: { id: item.contrat_id } }"
+                  >
+                    Ouvrir le contrat
+                  </RouterLink>
+                </div>
               </div>
             </div>
-          </div>
-          <p v-if="!alertesFiltrees(['absences_maladie', 'absences_exceptionnelles']).length" class="empty">Aucune alerte</p>
-        </div>
+
+            <div v-else class="rh-empty-state compact">
+              <p>Aucune alerte</p>
+              <span>Cette catégorie ne remonte aucun signal pour le moment.</span>
+            </div>
+          </article>
+        </section>
       </div>
 
-      <div class="card glass">
-        <div class="section-header">
+      <aside class="card rh-section-card rh-side-card">
+        <div class="rh-section-heading compact">
           <div>
-            <p class="eyebrow">Contrats</p>
-            <h3>Fin de contrat proche</h3>
+            <p class="rh-section-kicker">Overview</p>
+            <h2>Résumé surveillance</h2>
           </div>
         </div>
-        <div class="timeline">
-          <div
-            v-for="a in alertesFiltrees(['fin_contrat'])"
-            :key="(a.contrat_id || a.employe_id || '') + a.type"
-            class="timeline-item"
-          >
-            <div class="bullet" :class="levelClass(a.level)"></div>
-            <div class="content">
-              <div class="title">
-                <span class="badge" v-if="a.employe_id">Employé #{{ a.employe_id }}</span>
-                <span class="message">{{ a.message }}</span>
-              </div>
-              <div class="meta">
-                <span v-if="a.date_fin">Fin le {{ a.date_fin }}</span>
-                <span v-if="a.contrat_id">Contrat #{{ a.contrat_id }}</span>
-                <span class="type-tag">Type : {{ a.type }}</span>
-              </div>
-              <RouterLink
-                v-if="a.contrat_id"
-                class="link"
-                :to="{ name: 'contrat-detail', params: { id: a.contrat_id } }"
-              >
-                Ouvrir le contrat →
-              </RouterLink>
-            </div>
-          </div>
-          <p v-if="!alertesFiltrees(['fin_contrat']).length" class="empty">Aucune alerte</p>
-        </div>
-      </div>
 
-      <div class="card glass">
-        <div class="section-header">
-          <div>
-            <p class="eyebrow">Congés</p>
-            <h3>Congés non pris</h3>
-          </div>
+        <p class="rh-summary-intro">
+          Vue rapide des volumes et des alertes prioritaires avant d’entrer dans le détail.
+        </p>
+
+        <div class="rh-overview-grid">
+          <article v-for="card in overviewCards" :key="card.label" class="rh-overview-card">
+            <span class="rh-overview-chip">{{ card.tag }}</span>
+            <p class="rh-overview-label">{{ card.label }}</p>
+            <p class="rh-overview-value">{{ card.value }}</p>
+            <p class="rh-overview-copy">{{ card.copy }}</p>
+          </article>
         </div>
-        <div class="timeline">
-          <div
-            v-for="a in alertesFiltrees(['conges_non_pris'])"
-            :key="(a.employe_id || '') + a.type"
-            class="timeline-item"
-          >
-            <div class="bullet" :class="levelClass(a.level)"></div>
-            <div class="content">
-              <div class="title">
-                <span class="badge" v-if="a.employe_id">Employé #{{ a.employe_id }}</span>
-                <span class="message">{{ a.message }}</span>
-              </div>
-              <div class="meta">
-                <span v-if="a.solde">Solde : {{ a.solde }} jours</span>
-                <span class="type-tag">Type : {{ a.type }}</span>
-              </div>
+
+        <div class="priority-list" v-if="priorityAlerts.length">
+          <div v-for="(item, index) in priorityAlerts" :key="index" class="priority-item" :class="levelClass(item.level)">
+            <div class="priority-top">
+              <span class="priority-pill" :class="levelClass(item.level)">{{ item.level || 'warning' }}</span>
+              <span class="priority-type">{{ formatType(item.type) }}</span>
             </div>
+            <p class="priority-message">{{ item.message }}</p>
           </div>
-          <p v-if="!alertesFiltrees(['conges_non_pris']).length" class="empty">Aucune alerte</p>
         </div>
-      </div>
-    </div>
+
+        <div class="rh-notes-card">
+          <h3>Repères rapides</h3>
+          <ul>
+            <li>Les alertes critiques doivent être traitées avant les alertes informatives.</li>
+            <li>Le centre d’alertes et la page de configuration sont maintenant cohérents visuellement.</li>
+            <li>Les liens rapides renvoient directement vers les écrans métier utiles.</li>
+          </ul>
+        </div>
+      </aside>
+    </section>
   </div>
 </template>
 
 <script setup>
-import { onMounted, ref, computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import api from '../services/api'
+import AppIcon from '../components/ui/AppIcon.vue'
 
 const alertes = ref([])
+
 const fetchAlertes = async () => {
   const { data } = await api.get('/v1/alertes')
   alertes.value = data.data || []
 }
 
-const alertesFiltrees = (types) => alertes.value.filter((a) => types.includes(a.type))
+const alertesFiltrees = (types) => alertes.value.filter((item) => types.includes(item.type))
 
 const stats = computed(() => {
   const total = alertes.value.length
@@ -173,108 +176,297 @@ const stats = computed(() => {
   const absences = alertesFiltrees(['absences_maladie', 'absences_exceptionnelles']).length
   const contrats = alertesFiltrees(['fin_contrat']).length
   const soldes = alertesFiltrees(['conges_non_pris']).length
-  const critiques = alertes.value.filter((a) => a.level === 'danger').length
+  const critiques = alertes.value.filter((item) => item.level === 'danger').length
   return { total, conges, absences, contrats, soldes, critiques }
 })
+
+const alertSections = computed(() => [
+  {
+    key: 'conges',
+    kicker: 'Congés',
+    title: 'En attente / Proches',
+    copy: 'Demandes à traiter et départs imminents visibles dans un seul bloc.',
+    items: alertesFiltrees(['conge_en_attente', 'conge_proche']),
+  },
+  {
+    key: 'absences',
+    kicker: 'Absences',
+    title: 'Absences répétées',
+    copy: 'Suivi rapide des récurrences et des signaux comportementaux.',
+    items: alertesFiltrees(['absences_maladie', 'absences_exceptionnelles']),
+  },
+  {
+    key: 'contrats',
+    kicker: 'Contrats',
+    title: 'Fin de contrat proche',
+    copy: 'Échéances à anticiper pour éviter les ruptures non préparées.',
+    items: alertesFiltrees(['fin_contrat']),
+  },
+  {
+    key: 'soldes',
+    kicker: 'Soldes',
+    title: 'Congés non pris',
+    copy: 'Repérage des soldes à arbitrer avant clôture de période.',
+    items: alertesFiltrees(['conges_non_pris']),
+  },
+])
+
+const activeSections = computed(() => alertSections.value.filter((section) => section.items.length).length)
+
+const priorityAlerts = computed(() =>
+  [...alertes.value]
+    .sort((left, right) => {
+      const score = { danger: 0, warning: 1, info: 2 }
+      return (score[left.level] ?? 3) - (score[right.level] ?? 3)
+    })
+    .slice(0, 4),
+)
+
+const metricCards = computed(() => [
+  {
+    label: 'Alertes totales',
+    value: stats.value.total,
+    caption: 'Volume global actuellement détecté',
+    tag: 'All',
+  },
+  {
+    label: 'Congés & demandes',
+    value: stats.value.conges,
+    caption: 'Demandes en attente ou départs proches',
+    tag: 'Leave',
+  },
+  {
+    label: 'Absences',
+    value: stats.value.absences,
+    caption: 'Maladie ou absences exceptionnelles',
+    tag: 'Absence',
+  },
+  {
+    label: 'Critiques',
+    value: stats.value.critiques,
+    caption: 'Alertes de niveau danger',
+    tag: 'Priority',
+  },
+])
+
+const overviewCards = computed(() => [
+  {
+    label: 'Contrats proches',
+    value: stats.value.contrats,
+    copy: 'Échéances contractuelles à surveiller.',
+    tag: 'Contracts',
+  },
+  {
+    label: 'Soldes à traiter',
+    value: stats.value.soldes,
+    copy: 'Congés non pris signalés par le moteur.',
+    tag: 'Balances',
+  },
+  {
+    label: 'Sections actives',
+    value: activeSections.value,
+    copy: 'Catégories qui contiennent actuellement des alertes.',
+    tag: 'Sections',
+  },
+  {
+    label: 'Priorité dominante',
+    value: stats.value.critiques ? 'Critique' : stats.value.total ? 'Surveillance' : 'Stable',
+    copy: 'Lecture rapide du niveau de tension RH.',
+    tag: 'State',
+  },
+])
 
 const levelClass = (level) => {
   switch (level) {
     case 'danger':
       return 'danger'
+    case 'info':
+      return 'info'
     case 'warning':
     default:
       return 'warning'
   }
 }
 
+const formatType = (type) => {
+  const types = {
+    fin_contrat: 'Contrat',
+    conges_non_pris: 'Congés',
+    absences_maladie: 'Maladie',
+    absences_exceptionnelles: 'Absences',
+    conge_en_attente: 'Demande',
+    conge_proche: 'Congé urgent',
+  }
+  return types[type] || type
+}
+
 onMounted(fetchAlertes)
 </script>
 
 <style scoped>
-.alertes-page {
+.main-column {
+  min-width: 0;
+}
+
+.alerts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.timeline {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 12px;
 }
 
-.alertes-grid {
+.timeline-item {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 18px;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
 }
 
-.hero {
+.timeline-item:last-child {
+  border-bottom: none;
+}
+
+.bullet {
+  width: 12px;
+  height: 12px;
+  margin-top: 5px;
+  border-radius: 999px;
+  background: rgba(247, 144, 9, 0.95);
+  box-shadow: 0 0 0 6px rgba(247, 144, 9, 0.16);
+}
+
+.bullet.danger {
+  background: rgba(240, 68, 56, 0.95);
+  box-shadow: 0 0 0 6px rgba(240, 68, 56, 0.16);
+}
+
+.bullet.info {
+  background: rgba(59, 130, 246, 0.95);
+  box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.16);
+}
+
+.timeline-copy {
+  min-width: 0;
+}
+
+.timeline-top {
   display: flex;
-  gap: 16px;
-  justify-content: space-between;
-  align-items: flex-start;
-  padding: 18px 20px;
-  border-radius: 16px;
-  background: var(--panel);
-  color: var(--text);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-lg);
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
 }
-.hero h1 { margin: 4px 0; font-size: 26px; }
-.subtitle { color: var(--muted); margin: 0; }
-.eyebrow { font-size: 12px; letter-spacing: 0.08em; color: var(--brand-500); text-transform: uppercase; margin: 0; }
-.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-.pill {
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: rgba(148, 163, 184, 0.12);
-  color: var(--text);
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  font-size: 12px;
-}
-.pill-green { background: #ecfdf3; color: #15803d; border-color: #a6f4c5; }
-.pill-blue { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
-.pill-red { background: #fef2f2; color: #b91c1c; border-color: #fecdd3; }
-.hero-actions .btn { background: #22c55e; color: #0b172a; border: none; }
 
-.card.glass {
-  border: 1px solid var(--border);
-  background: var(--panel);
-  box-shadow: var(--shadow-sm);
-  backdrop-filter: none;
+.message {
+  font-weight: 700;
+  color: var(--text);
 }
-.section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-.section-header h3 { margin: 0; font-size: 18px; }
-.timeline { display: flex; flex-direction: column; gap: 12px; }
-.timeline-item { display: grid; grid-template-columns: 18px 1fr; gap: 10px; align-items: start; padding: 10px 0; border-bottom: 1px solid var(--border); }
-.timeline-item:last-child { border-bottom: none; }
-.bullet { width: 12px; height: 12px; border-radius: 50%; margin-top: 4px; background: rgba(234,179,8,0.9); box-shadow: 0 0 0 6px rgba(234,179,8,0.18); }
-.bullet.danger { background: rgba(248,113,113,0.95); box-shadow: 0 0 0 6px rgba(248,113,113,0.16); }
-.bullet.warning { background: rgba(234,179,8,0.95); box-shadow: 0 0 0 6px rgba(234,179,8,0.16); }
-.content .title { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.message { font-weight: 600; color: var(--text); }
-.meta { display: flex; gap: 10px; color: var(--muted); font-size: 12px; margin-top: 4px; }
-.type-tag { background: rgba(148, 163, 184, 0.12); padding: 2px 8px; border-radius: 999px; color: var(--text); border: 1px solid rgba(148, 163, 184, 0.25); }
-.link { font-size: 12px; color: #22c55e; margin-top: 6px; display: inline-block; }
-.empty { color: #94a3b8; font-size: 13px; text-align: center; padding: 12px 0; }
-.badge {
-  background: rgba(59, 130, 246, 0.12);
-  color: #1d4ed8;
-  border: 1px solid rgba(59, 130, 246, 0.2);
-  border-radius: 999px;
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.type-tag {
+  display: inline-flex;
+  align-items: center;
   padding: 4px 8px;
-  font-size: 12px;
+  border-radius: 999px;
+  background: rgba(79, 70, 229, 0.08);
+  border: 1px solid rgba(79, 70, 229, 0.12);
+  color: var(--brand-600);
+  font-weight: 600;
 }
 
-.btn {
-  padding: 10px 14px;
-  border-radius: 10px;
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  background: linear-gradient(120deg, var(--brand-500), var(--brand-600));
-  color: #fff;
-  cursor: pointer;
+.link {
+  display: inline-flex;
+  margin-top: 10px;
+  color: var(--brand-600);
+  font-size: 0.86rem;
+  font-weight: 600;
 }
-.btn:hover { border-color: rgba(148, 163, 184, 0.5); box-shadow: var(--shadow-sm); }
-.muted, .subtitle, .meta, .type-tag, .pill { transition: color 0.2s ease, background 0.2s ease; }
 
-@media (max-width: 1024px) {
-  .hero { flex-direction: column; }
-  .timeline-item { grid-template-columns: 12px 1fr; }
-  .alertes-grid { grid-template-columns: 1fr; }
+.priority-list {
+  display: grid;
+  gap: 12px;
+}
+
+.priority-item {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.76);
+}
+
+body[data-theme='dark'] .priority-item {
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.priority-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+.priority-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.priority-pill.danger {
+  background: var(--danger-100);
+  color: var(--danger-500);
+}
+
+.priority-pill.warning {
+  background: var(--warning-100);
+  color: var(--warning-500);
+}
+
+.priority-pill.info {
+  background: rgba(59, 130, 246, 0.1);
+  color: #2563eb;
+}
+
+.priority-type {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.priority-message {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--text);
+}
+
+.compact {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+@media (max-width: 960px) {
+  .alerts-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

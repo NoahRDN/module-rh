@@ -1,146 +1,343 @@
 <template>
-  <div class="page-header">
-    <div class="page-title">
-      <h1>Contrats</h1>
-      <span>Contrats actifs / historiques</span>
-    </div>
-    <div class="flex items-center gap-2">
-      <RouterLink class="btn btn-secondary whitespace-nowrap" to="/contrats-historiques">Historique</RouterLink>
-      <select class="select" v-model="filterEmploye" @change="debouncedFetchContrats">
-        <option value="">Tous les employés</option>
-        <option v-for="emp in employes" :key="emp.id" :value="emp.id">{{ emp.matricule }} - {{ emp.nom }}</option>
-      </select>
-      <RouterLink class="btn whitespace-nowrap" to="/contrats/nouveau">+ Nouveau contrat</RouterLink>
-    </div>
-  </div>
+  <div class="contrats-page">
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="hero-kicker">Contract management</p>
+        <h1>Contrats</h1>
+        <p class="hero-subtitle">
+          Pilotez les contrats actifs et leurs renouvellements avec une vue claire sur les échéances,
+          statuts et rattachements organisationnels.
+        </p>
 
-  <p class="text-sm text-emerald-600" v-if="banner">{{ banner }}</p>
-
-  <div class="grid gap-2 md:grid-cols-3 lg:grid-cols-6 mb-3 filters-card">
-    <input class="input" placeholder="Numéro" v-model="filters.numero" />
-    <input class="input" placeholder="Matricule" v-model="filters.matricule" />
-    <input class="input" placeholder="Nom" v-model="filters.nom" />
-    <input class="input" placeholder="Type" v-model="filters.type" />
-    <input class="input" placeholder="Département" v-model="filters.departement" />
-    <input class="input" placeholder="Poste" v-model="filters.poste" />
-  </div>
-  <div class="flex justify-end items-center mb-3">
-    <button class="btn btn-secondary btn-xs" @click="resetFilters">Réinitialiser</button>
-  </div>
-
-  <div v-if="loading" class="loading-overlay">
-    <div class="spinner-big"></div>
-    <p>Chargement des contrats...</p>
-  </div>
-
-  <div v-else class="card">
-    <table class="table">
-      <thead>
-        <tr>
-          <th class="cursor-pointer" @click="setSort('id')">ID {{ sortLabel('id') }}</th>
-          <th class="cursor-pointer" @click="setSort('numero')">Numéro {{ sortLabel('numero') }}</th>
-          <th class="cursor-pointer" @click="setSort('matricule')">Matricule {{ sortLabel('matricule') }}</th>
-          <th class="cursor-pointer" @click="setSort('nom')">Nom & Prénom {{ sortLabel('nom') }}</th>
-          <th class="cursor-pointer" @click="setSort('type')">Type {{ sortLabel('type') }}</th>
-          <th>Durée</th>
-          <th class="cursor-pointer" @click="setSort('date_debut')">Dates contrat {{ sortLabel('date_debut') }}</th>
-          <th>Période d'essai</th>
-          <th class="cursor-pointer" @click="setSort('renouvellement')">Date renouvellement {{ sortLabel('renouvellement') }}</th>
-          <th>Renouvelable</th>
-          <th class="cursor-pointer" @click="setSort('statut')">Statut {{ sortLabel('statut') }}</th>
-          <th>Actions</th>
-          <th class="cursor-pointer" @click="setSort('departement')">Département {{ sortLabel('departement') }}</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-if="loading">
-          <td colspan="10" class="muted">Chargement...</td>
-        </tr>
-        <tr v-else v-for="c in contratsFiltres" :key="c.id">
-          <td>{{ c.id }}</td>
-          <td>{{ c.numero || '—' }}</td>
-          <td>{{ c.employe?.matricule || '—' }}</td>
-          <td>{{ c.employe ? `${c.employe.nom} ${c.employe.prenom}` : '—' }}</td>
-          <td>{{ c.type_contrat }}</td>
-          <td>{{ duree(c) }}</td>
-          <td>
-            <div>Début : {{ formatDate(c.date_debut) || '—' }}</div>
-            <div>Fin : {{ formatDate(c.date_fin) || '—' }}</div>
-          </td>
-          <td>
-            <div>
-              <div>Début : {{ formatDate(c.periode_essai_debut) || '—' }}</div>
-              <div>Fin : {{ formatDate(c.periode_essai_fin) || '—' }}</div>
-            </div>
-          </td>
-          <td>{{ formatDate(currentEnd(c)) || '—' }}</td>
-          <td>
-            <span class="chip" :class="c.renouvelable ? '' : 'muted'">{{ c.renouvelable ? 'Oui' : 'Non' }}</span>
-          </td>
-          <td>
-            <span class="chip" :class="c.statut === 'en_cours' ? '' : 'muted'">{{ c.statut || '—' }}</span>
-          </td>
-          <td class="space-x-2">
-            <button class="btn btn-secondary text-xs" style="padding:6px 10px;" @click="ouvrirCloture(c)">Clore</button>
-            <button class="btn btn-secondary text-xs" style="padding:6px 10px;" @click="ouvrirRenouv(c)">Renouveler</button>
-            <RouterLink class="btn btn-secondary text-xs" style="padding:6px 10px;" :to="`/contrats/${c.id}`">Fiche</RouterLink>
-            <button class="btn btn-secondary text-xs" style="padding:6px 10px;" @click="telechargerPdf(c.id)">PDF</button>
-            <div v-if="renouvellementId === c.id" class="mt-2 flex flex-col gap-2 p-3 rounded-lg border border-slate-200 bg-slate-50/60 dark:bg-slate-800/40">
-              <p class="text-sm font-semibold">Prolongation</p>
-              <label class="text-xs text-slate-500">
-                Cible
-                <select class="select mt-1" v-model="renouvellementCible">
-                  <option value="contrat">Contrat</option>
-                  <option value="essai">Période d'essai</option>
-                </select>
-              </label>
-              <div style="display:flex; gap:8px; align-items:flex-end; flex-wrap:nowrap;">
-                <label class="text-xs text-slate-500 flex flex-col gap-1" style="width:80px;">
-                  Jours
-                  <input class="input" type="number" min="0" v-model.number="renouvellement.duree_jours" />
-                </label>
-                <label class="text-xs text-slate-500 flex flex-col gap-1" style="width:80px;">
-                  Mois
-                  <input class="input" type="number" min="0" v-model.number="renouvellement.duree_mois" />
-                </label>
-                <label class="text-xs text-slate-500 flex flex-col gap-1" style="width:90px;">
-                  Années
-                  <input class="input" type="number" min="0" v-model.number="renouvellement.duree_ans" />
-                </label>
-              </div>
-              <div class="flex gap-2">
-                <button class="btn btn-secondary text-xs" style="padding:6px 10px;" @click="confirmerRenouv(c)">Confirmer</button>
-                <button class="btn btn-secondary text-xs" style="padding:6px 10px;" @click="annulerRenouv">Annuler</button>
-              </div>
-              <p class="text-xs text-red-500" v-if="message">{{ message }}</p>
-            </div>
-            <div v-if="clotureId === c.id" class="mt-2 flex flex-col gap-2 p-3 rounded-lg border border-rose-200 bg-rose-50/60 dark:bg-slate-800/40">
-              <p class="text-sm font-semibold text-rose-700">Clôturer ce contrat</p>
-              <label class="text-xs text-slate-500">
-                Date de fin
-                <input class="input mt-1" type="date" v-model="clotureDate" />
-              </label>
-              <div class="flex gap-2">
-                <button class="btn btn-secondary text-xs" style="padding:6px 10px;" @click="confirmerCloture(c)">Clore</button>
-                <button class="btn btn-secondary text-xs" style="padding:6px 10px;" @click="annulerCloture">Annuler</button>
-              </div>
-              <p class="text-xs text-red-500" v-if="messageCloture">{{ messageCloture }}</p>
-            </div>
-          </td>
-          <td>{{ c.employe?.departement?.nom || '—' }}</td>
-        </tr>
-        <tr v-if="!contratsFiltres.length && !loading">
-          <td colspan="10" class="muted">Aucun contrat</td>
-        </tr>
-      </tbody>
-    </table>
-    <div class="flex items-center justify-between mt-3 text-sm text-slate-400">
-      <span>Page {{ pagination.page }} / {{ pagination.last_page }} — {{ pagination.total }} lignes</span>
-      <div class="flex items-center gap-2">
-        <button class="btn btn-secondary text-xs" :disabled="pagination.page <= 1" @click="prevPage">Précédent</button>
-        <button class="btn btn-secondary text-xs" :disabled="pagination.page >= pagination.last_page" @click="nextPage">Suivant</button>
+        <div class="hero-pills">
+          <span class="pill">Contrats actifs</span>
+          <span class="pill">Renouvellements</span>
+          <span class="pill">Traçabilité RH</span>
+        </div>
       </div>
-    </div>
+
+      <div class="hero-actions">
+        <div class="filters-panel">
+          <div class="action-row">
+            <button class="btn btn-secondary" type="button" @click="refreshData" :disabled="loading">
+              <AppIcon name="refresh" :size="18" />
+              <span>{{ loading ? 'Actualisation...' : 'Actualiser' }}</span>
+            </button>
+
+            <RouterLink class="btn btn-secondary" to="/contrats-historiques">
+              <AppIcon name="history" :size="18" />
+              <span>Historique</span>
+            </RouterLink>
+          </div>
+
+          <div class="action-row">
+            <RouterLink class="btn" to="/contrats/nouveau">
+              <AppIcon name="plus" :size="18" />
+              <span>Nouveau contrat</span>
+            </RouterLink>
+          </div>
+
+          <label class="field-card">
+            <span class="field-label">Employé</span>
+            <select class="select" v-model="filterEmploye" @change="debouncedFetchContrats">
+              <option value="">Tous les employés</option>
+              <option v-for="emp in employes" :key="emp.id" :value="emp.id">
+                {{ emp.matricule }} - {{ emp.nom }}
+              </option>
+            </select>
+          </label>
+
+          <div class="hero-meta-list">
+            <p class="hero-meta">
+              Total contrats:
+              <strong>{{ formatInteger(pagination.total || contrats.length) }}</strong>
+            </p>
+            <p class="hero-meta">
+              Dernière synchro:
+              <strong>{{ lastSyncedLabel }}</strong>
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <p class="banner-success" v-if="banner">{{ banner }}</p>
+
+    <section class="metric-grid">
+      <article v-for="metric in metricCards" :key="metric.label" class="metric-card">
+        <span class="metric-chip">{{ metric.tag }}</span>
+        <p class="metric-label">{{ metric.label }}</p>
+        <p class="metric-value">{{ metric.value }}</p>
+        <p class="metric-caption">{{ metric.caption }}</p>
+      </article>
+    </section>
+
+    <template v-if="loading && !contrats.length">
+      <div class="card loading-card">
+        <p class="loading-title">Chargement des contrats…</p>
+        <p class="muted">Les données contractuelles sont en cours de synchronisation.</p>
+      </div>
+    </template>
+
+    <template v-else>
+      <section class="card section-card controls-card">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Directory controls</p>
+            <h2>Recherche et filtres</h2>
+          </div>
+          <button class="btn btn-secondary btn-sm" type="button" @click="resetFilters" :disabled="!hasFilters">
+            Réinitialiser
+          </button>
+        </div>
+
+        <p class="section-copy">
+          Combinez les filtres pour retrouver rapidement un contrat par numéro, collaborateur, type,
+          poste ou département.
+        </p>
+
+        <div class="controls-grid">
+          <label class="field-card">
+            <span class="field-label">Numéro</span>
+            <input class="input" placeholder="CTR-2026-001" v-model="filters.numero" />
+          </label>
+
+          <label class="field-card">
+            <span class="field-label">Matricule</span>
+            <input class="input" placeholder="EMP-001" v-model="filters.matricule" />
+          </label>
+
+          <label class="field-card">
+            <span class="field-label">Nom</span>
+            <input class="input" placeholder="Nom ou prénom" v-model="filters.nom" />
+          </label>
+
+          <label class="field-card">
+            <span class="field-label">Type</span>
+            <input class="input" placeholder="CDI, CDD..." v-model="filters.type" />
+          </label>
+
+          <label class="field-card">
+            <span class="field-label">Département</span>
+            <input class="input" placeholder="Structure" v-model="filters.departement" />
+          </label>
+
+          <label class="field-card">
+            <span class="field-label">Poste</span>
+            <input class="input" placeholder="Fonction" v-model="filters.poste" />
+          </label>
+        </div>
+      </section>
+
+      <section class="content-grid">
+        <article class="card section-card table-card">
+          <div class="section-heading">
+            <div>
+              <p class="section-kicker">Contract list</p>
+              <h2>Contrats en cours et suivis</h2>
+            </div>
+            <span class="section-chip">{{ formatInteger(contratsFiltres.length) }} visibles</span>
+          </div>
+
+          <p class="section-copy">
+            Suivez l’état des contrats, les dates clés et les actions de gestion dans un seul tableau.
+          </p>
+
+          <div class="table-shell">
+            <table class="table contrats-table">
+              <thead>
+                <tr>
+                  <th>
+                    <button class="sort-button" type="button" @click="setSort('id')">
+                      ID
+                      <span>{{ sortLabel('id') }}</span>
+                    </button>
+                  </th>
+                  <th>
+                    <button class="sort-button" type="button" @click="setSort('numero')">
+                      Numéro
+                      <span>{{ sortLabel('numero') }}</span>
+                    </button>
+                  </th>
+                  <th>
+                    <button class="sort-button" type="button" @click="setSort('matricule')">
+                      Matricule
+                      <span>{{ sortLabel('matricule') }}</span>
+                    </button>
+                  </th>
+                  <th>
+                    <button class="sort-button" type="button" @click="setSort('nom')">
+                      Collaborateur
+                      <span>{{ sortLabel('nom') }}</span>
+                    </button>
+                  </th>
+                  <th>
+                    <button class="sort-button" type="button" @click="setSort('type')">
+                      Type
+                      <span>{{ sortLabel('type') }}</span>
+                    </button>
+                  </th>
+                  <th>Durée</th>
+                  <th>
+                    <button class="sort-button" type="button" @click="setSort('date_debut')">
+                      Dates contrat
+                      <span>{{ sortLabel('date_debut') }}</span>
+                    </button>
+                  </th>
+                  <th>Période d'essai</th>
+                  <th>
+                    <button class="sort-button" type="button" @click="setSort('renouvellement')">
+                      Renouvellement
+                      <span>{{ sortLabel('renouvellement') }}</span>
+                    </button>
+                  </th>
+                  <th>Renouvelable</th>
+                  <th>
+                    <button class="sort-button" type="button" @click="setSort('statut')">
+                      Statut
+                      <span>{{ sortLabel('statut') }}</span>
+                    </button>
+                  </th>
+                  <th>
+                    <button class="sort-button" type="button" @click="setSort('departement')">
+                      Département
+                      <span>{{ sortLabel('departement') }}</span>
+                    </button>
+                  </th>
+                  <th class="actions-col">Actions</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                <tr v-for="c in contratsFiltres" :key="c.id">
+                  <td>{{ c.id }}</td>
+                  <td>{{ c.numero || '—' }}</td>
+                  <td>{{ c.employe?.matricule || '—' }}</td>
+                  <td>{{ c.employe ? `${c.employe.nom} ${c.employe.prenom}` : '—' }}</td>
+                  <td>{{ c.type_contrat || '—' }}</td>
+                  <td>{{ duree(c) }}</td>
+                  <td>
+                    <div>Début : {{ formatDate(c.date_debut) || '—' }}</div>
+                    <div>Fin : {{ formatDate(c.date_fin) || '—' }}</div>
+                  </td>
+                  <td>
+                    <div>Début : {{ formatDate(c.periode_essai_debut) || '—' }}</div>
+                    <div>Fin : {{ formatDate(c.periode_essai_fin) || '—' }}</div>
+                  </td>
+                  <td>{{ formatDate(currentEnd(c)) || '—' }}</td>
+                  <td>
+                    <span class="chip" :class="c.renouvelable ? '' : 'muted'">{{ c.renouvelable ? 'Oui' : 'Non' }}</span>
+                  </td>
+                  <td>
+                    <span class="chip" :class="c.statut === 'en_cours' ? '' : 'muted'">{{ c.statut || '—' }}</span>
+                  </td>
+                  <td>{{ c.employe?.departement?.nom || '—' }}</td>
+                  <td class="actions-col">
+                    <div class="row-actions">
+                      <button class="btn btn-secondary btn-xs" @click="ouvrirCloture(c)">Clore</button>
+                      <button class="btn btn-secondary btn-xs" @click="ouvrirRenouv(c)">Renouveler</button>
+                      <RouterLink class="btn btn-secondary btn-xs" :to="`/contrats/${c.id}`">Fiche</RouterLink>
+                      <button class="btn btn-secondary btn-xs" @click="telechargerPdf(c.id)">PDF</button>
+                    </div>
+
+                    <div v-if="renouvellementId === c.id" class="inline-panel">
+                      <p class="inline-title">Prolongation</p>
+                      <label class="field-card compact">
+                        <span class="field-label">Cible</span>
+                        <select class="select" v-model="renouvellementCible">
+                          <option value="contrat">Contrat</option>
+                          <option value="essai">Période d'essai</option>
+                        </select>
+                      </label>
+                      <div class="duration-grid">
+                        <label class="field-card compact">
+                          <span class="field-label">Jours</span>
+                          <input class="input" type="number" min="0" v-model.number="renouvellement.duree_jours" />
+                        </label>
+                        <label class="field-card compact">
+                          <span class="field-label">Mois</span>
+                          <input class="input" type="number" min="0" v-model.number="renouvellement.duree_mois" />
+                        </label>
+                        <label class="field-card compact">
+                          <span class="field-label">Années</span>
+                          <input class="input" type="number" min="0" v-model.number="renouvellement.duree_ans" />
+                        </label>
+                      </div>
+                      <div class="row-actions">
+                        <button class="btn btn-secondary btn-xs" @click="confirmerRenouv(c)">Confirmer</button>
+                        <button class="btn btn-secondary btn-xs" @click="annulerRenouv">Annuler</button>
+                      </div>
+                      <p class="error-inline" v-if="message">{{ message }}</p>
+                    </div>
+
+                    <div v-if="clotureId === c.id" class="inline-panel danger">
+                      <p class="inline-title">Clôturer ce contrat</p>
+                      <label class="field-card compact">
+                        <span class="field-label">Date de fin</span>
+                        <input class="input" type="date" v-model="clotureDate" />
+                      </label>
+                      <div class="row-actions">
+                        <button class="btn btn-secondary btn-xs" @click="confirmerCloture(c)">Clore</button>
+                        <button class="btn btn-secondary btn-xs" @click="annulerCloture">Annuler</button>
+                      </div>
+                      <p class="error-inline" v-if="messageCloture">{{ messageCloture }}</p>
+                    </div>
+                  </td>
+                </tr>
+
+                <tr v-if="!contratsFiltres.length">
+                  <td colspan="13" class="empty-state">
+                    <p>Aucun contrat ne correspond à la sélection actuelle.</p>
+                    <span>Ajustez les filtres ou créez un nouveau contrat.</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="table-footer">
+            <p class="table-meta">
+              Page <strong>{{ pagination.page }}</strong> sur <strong>{{ pagination.last_page }}</strong>
+              · {{ formatInteger(pagination.total) }} lignes
+            </p>
+
+            <div class="table-actions">
+              <button class="btn btn-secondary btn-sm" :disabled="pagination.page <= 1" @click="prevPage">Précédent</button>
+              <button class="btn btn-secondary btn-sm" :disabled="pagination.page >= pagination.last_page" @click="nextPage">Suivant</button>
+            </div>
+          </div>
+        </article>
+
+        <aside class="card section-card insights-card">
+          <div class="section-heading compact">
+            <div>
+              <p class="section-kicker">Overview</p>
+              <h2>Résumé contrats</h2>
+            </div>
+          </div>
+
+          <p class="summary-intro">
+            Lecture synthétique pour suivre la santé contractuelle et anticiper les actions à venir.
+          </p>
+
+          <div class="overview-grid">
+            <article v-for="card in overviewCards" :key="card.label" class="overview-card">
+              <span class="overview-chip">{{ card.tag }}</span>
+              <p class="overview-label">{{ card.label }}</p>
+              <p class="overview-value">{{ card.value }}</p>
+              <p class="overview-copy">{{ card.copy }}</p>
+            </article>
+          </div>
+
+          <div class="notes-card">
+            <h3>Repères rapides</h3>
+            <ul>
+              <li v-for="note in notes" :key="note">{{ note }}</li>
+            </ul>
+          </div>
+        </aside>
+      </section>
+    </template>
   </div>
 </template>
 
@@ -148,6 +345,9 @@
 import { onMounted, ref, computed } from 'vue'
 import api from '../services/api'
 import { debounce } from '../utils/debounce'
+import { parseISO, intervalToDuration, formatDuration } from 'date-fns'
+import { fr } from 'date-fns/locale'
+import AppIcon from '../components/ui/AppIcon.vue'
 
 const contrats = ref([])
 const employes = ref([])
@@ -156,6 +356,7 @@ const message = ref('')
 const banner = ref('')
 const typeOptions = ['CDI', 'CDD', 'Stage', 'Interim', 'Consultant', 'Apprenti']
 const loading = ref(false)
+const lastRefreshedAt = ref(null)
 const renouvellementId = ref(null)
 const renouvellement = ref({ duree_jours: 0, duree_mois: 0, duree_ans: 0 })
 const renouvellementCible = ref('contrat')
@@ -170,6 +371,18 @@ const messageCloture = ref('')
 const statutId = ref(null)
 const nouveauStatut = ref('en_cours')
 const messageStatut = ref('')
+
+const hasFilters = computed(() =>
+  Boolean(
+    filterEmploye.value ||
+    filters.value.numero ||
+    filters.value.matricule ||
+    filters.value.nom ||
+    filters.value.type ||
+    filters.value.departement ||
+    filters.value.poste,
+  ),
+)
 
 const formatDate = (d) => {
   if (!d) return ''
@@ -230,9 +443,6 @@ const confirmerRenouv = async (c) => {
   }
 }
 
-import { parseISO, intervalToDuration, formatDuration } from 'date-fns'
-import { fr } from 'date-fns/locale'
-
 function duree(c) {
   const start = c.periode_essai_debut || c.date_debut
   const end   = c.periode_essai_fin   || c.date_fin
@@ -250,23 +460,27 @@ function duree(c) {
 
 const fetchContrats = async () => {
   loading.value = true
-  const params = filterEmploye.value ? { employe_id: filterEmploye.value, page: pagination.value.page } : { page: pagination.value.page }
-  const { data } = await api.get('/v1/contrats', { params })
-  contrats.value = data.data || []
-  if (data.meta) {
-    pagination.value = {
-      page: data.meta.current_page,
-      last_page: data.meta.last_page,
-      total: data.meta.total
+  try {
+    const params = filterEmploye.value ? { employe_id: filterEmploye.value, page: pagination.value.page } : { page: pagination.value.page }
+    const { data } = await api.get('/v1/contrats', { params })
+    contrats.value = data.data || []
+    if (data.meta) {
+      pagination.value = {
+        page: data.meta.current_page,
+        last_page: data.meta.last_page,
+        total: data.meta.total
+      }
+    } else if (data.current_page !== undefined) {
+      pagination.value = {
+        page: data.current_page,
+        last_page: data.last_page,
+        total: data.total
+      }
     }
-  } else if (data.current_page !== undefined) {
-    pagination.value = {
-      page: data.current_page,
-      last_page: data.last_page,
-      total: data.total
-    }
+    lastRefreshedAt.value = new Date()
+  } finally {
+    loading.value = false
   }
-  loading.value = false
 }
 
 const debouncedFetchContrats = debounce(fetchContrats, 300)
@@ -459,7 +673,114 @@ const setSort = (key) => {
 const sortLabel = (key) => (sortKey.value === key ? (sortDir.value === 'asc' ? '▲' : '▼') : '')
 
 const resetFilters = () => {
+  filterEmploye.value = ''
   filters.value = { numero: '', matricule: '', nom: '', type: '', departement: '', poste: '' }
+  sortKey.value = 'id'
+  sortDir.value = 'asc'
+}
+
+const formatInteger = (value) =>
+  new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(Number(value) || 0)
+
+const lastSyncedLabel = computed(() => {
+  if (!lastRefreshedAt.value) return 'Jamais'
+  return new Intl.DateTimeFormat('fr-FR', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(lastRefreshedAt.value)
+})
+
+const actifsCount = computed(() => contrats.value.filter((c) => c.statut === 'en_cours').length)
+const renouvelablesCount = computed(() => contrats.value.filter((c) => Boolean(c.renouvelable)).length)
+const cddCount = computed(() =>
+  contrats.value.filter((c) => String(c.type_contrat || '').toLowerCase().includes('cdd')).length,
+)
+const expiringSoonCount = computed(() => {
+  const now = new Date()
+  const threshold = new Date(now)
+  threshold.setDate(threshold.getDate() + 30)
+
+  return contrats.value.filter((c) => {
+    const end = currentEnd(c)
+    if (!end) return false
+    const endDate = new Date(end)
+    if (Number.isNaN(endDate.getTime())) return false
+    return endDate >= now && endDate <= threshold
+  }).length
+})
+
+const metricCards = computed(() => [
+  {
+    label: 'Contrats actifs',
+    value: formatInteger(actifsCount.value),
+    caption: `${formatInteger(Math.max(contrats.value.length - actifsCount.value, 0))} hors statut en cours`,
+    tag: 'Active',
+  },
+  {
+    label: 'Renouvelables',
+    value: formatInteger(renouvelablesCount.value),
+    caption: 'Contrats autorisant une prolongation',
+    tag: 'Renew',
+  },
+  {
+    label: 'CDD',
+    value: formatInteger(cddCount.value),
+    caption: 'Contrats à durée déterminée visibles',
+    tag: 'Type',
+  },
+  {
+    label: 'Échéance 30 jours',
+    value: formatInteger(expiringSoonCount.value),
+    caption: 'Contrats arrivant bientôt à terme',
+    tag: 'Alert',
+  },
+])
+
+const topDepartement = computed(() => {
+  const counter = new Map()
+  contrats.value.forEach((item) => {
+    const key = item.employe?.departement?.nom || ''
+    if (!key) return
+    counter.set(key, (counter.get(key) || 0) + 1)
+  })
+  return [...counter.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || 'Non défini'
+})
+
+const topType = computed(() => {
+  const counter = new Map()
+  contrats.value.forEach((item) => {
+    const key = item.type_contrat || ''
+    if (!key) return
+    counter.set(key, (counter.get(key) || 0) + 1)
+  })
+  return [...counter.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || 'Non défini'
+})
+
+const overviewCards = computed(() => [
+  {
+    label: 'Type dominant',
+    value: topType.value,
+    copy: 'Type de contrat le plus représenté actuellement',
+    tag: 'Type',
+  },
+  {
+    label: 'Département dominant',
+    value: topDepartement.value,
+    copy: 'Structure concentrant le plus de contrats',
+    tag: 'Dept',
+  },
+])
+
+const notes = computed(() => [
+  `${formatInteger(contratsFiltres.value.length)} contrats visibles sur la page.`,
+  `${formatInteger(expiringSoonCount.value)} contrats expirent sous 30 jours.`,
+  `${formatInteger(renouvelablesCount.value)} contrats sont renouvelables.`,
+])
+
+const refreshData = async () => {
+  await fetchContrats()
 }
 
 const nextPage = () => {
@@ -482,51 +803,475 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.filters-card {
-  background: #fff;
-  padding: 10px;
-  border-radius: 10px;
-  border: 1px solid #e2e8f0;
-}
-.loading {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #94a3b8;
-  font-size: 14px;
-}
-.spinner {
-  width: 18px;
-  height: 18px;
-  border: 2px solid #e2e8f0;
-  border-top: 2px solid #0ea5e9;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-.loading-overlay {
-  position: relative;
-  min-height: 240px;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  background: #fff;
+.contrats-page {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  gap: 20px;
+  padding-bottom: 24px;
+}
+
+.hero {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 28px;
+  border: 1px solid rgba(79, 70, 229, 0.14);
+  border-radius: 30px;
+  background:var(--purple-100);
+  box-shadow: var(--shadow-lg);
+}
+
+body[data-theme='dark'] .hero {
+  background:
+    linear-gradient(135deg, rgba(79, 70, 229, 0.18), rgba(15, 23, 42, 0)),
+    rgba(15, 23, 42, 0.88);
+}
+
+.hero-copy {
+  max-width: 760px;
+}
+
+.hero-kicker,
+.section-kicker,
+.metric-label,
+.metric-caption,
+.hero-meta,
+.summary-intro,
+.overview-label,
+.overview-copy,
+.empty-state span {
+  margin: 0;
+}
+
+.hero-kicker,
+.section-kicker {
+  color: var(--brand-600);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.hero h1,
+.section-heading h2 {
+  margin: 8px 0 0;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+
+.hero h1 {
+  font-size: clamp(2rem, 3vw, 2.9rem);
+}
+
+.hero-subtitle {
+  margin: 12px 0 0;
+  max-width: 700px;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+.hero-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.hero-actions {
+  display: flex;
+  min-width: 320px;
+  max-width: 420px;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.filters-panel {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.76);
+}
+
+body[data-theme='dark'] .filters-panel {
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.action-row {
+  display: flex;
   gap: 10px;
 }
-.spinner-big {
-  width: 46px;
-  height: 46px;
-  border: 4px solid #e2e8f0;
-  border-top: 4px solid #0ea5e9;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+
+.action-row > * {
+  flex: 1;
 }
-@keyframes spin {
-  to { transform: rotate(360deg); }
+
+.hero-meta-list {
+  display: grid;
+  gap: 6px;
+}
+
+.hero-meta {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.banner-success {
+  margin: 0;
+  color: #16a34a;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.metric-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: var(--panel);
+  box-shadow: var(--shadow-sm);
+}
+
+.metric-chip,
+.section-chip,
+.overview-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(79, 70, 229, 0.12);
+  background: rgba(79, 70, 229, 0.1);
+  color: var(--brand-600);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.metric-label {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.metric-value {
+  margin: 10px 0 8px;
+  font-size: 1.82rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+
+.metric-caption {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.loading-card {
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+}
+
+.loading-title,
+.overview-value,
+.empty-state p {
+  margin: 0;
+}
+
+.loading-title {
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.section-card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.section-heading.compact {
+  margin-bottom: 2px;
+}
+
+.section-heading h2 {
+  font-size: 1.48rem;
+}
+
+.section-copy {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.65;
+}
+
+.controls-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.field-card {
+  display: grid;
+  gap: 8px;
+}
+
+.field-card.compact {
+  gap: 4px;
+}
+
+.field-label {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.content-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(320px, 0.9fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.table-shell {
+  overflow: auto;
+}
+
+.sort-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.sort-button span {
+  color: var(--brand-600);
+  font-size: 0.72rem;
+}
+
+.contrats-table td {
+  vertical-align: top;
+}
+
+.actions-col {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.inline-panel {
+  margin-top: 10px;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(248, 250, 252, 0.84);
+}
+
+body[data-theme='dark'] .inline-panel {
+  background: rgba(15, 23, 42, 0.52);
+}
+
+.inline-panel.danger {
+  border-color: rgba(239, 68, 68, 0.26);
+  background: rgba(254, 242, 242, 0.84);
+}
+
+body[data-theme='dark'] .inline-panel.danger {
+  background: rgba(127, 29, 29, 0.2);
+}
+
+.inline-title {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+.duration-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.error-inline {
+  margin: 0;
+  color: #dc2626;
+  font-size: 0.78rem;
+}
+
+.table-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.table-meta {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.insights-card {
+  position: sticky;
+  top: 18px;
+}
+
+.summary-intro {
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.overview-card {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: rgba(248, 250, 252, 0.82);
+}
+
+body[data-theme='dark'] .overview-card {
+  background: rgba(15, 23, 42, 0.46);
+}
+
+.overview-label {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.overview-value {
+  font-size: 1.22rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.overview-copy {
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.notes-card {
+  padding: 18px 18px 20px;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: rgba(248, 250, 252, 0.84);
+}
+
+body[data-theme='dark'] .notes-card {
+  background: rgba(15, 23, 42, 0.56);
+}
+
+.notes-card h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.notes-card ul {
+  margin: 14px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+  display: grid;
+  gap: 10px;
+}
+
+.empty-state {
+  padding: 26px 14px;
+  text-align: center;
+}
+
+.empty-state p {
+  font-weight: 700;
+}
+
+@media (max-width: 1300px) {
+  .metric-grid,
+  .controls-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .insights-card {
+    position: static;
+  }
+}
+
+@media (max-width: 900px) {
+  .hero {
+    padding: 22px;
+  }
+
+  .hero-actions {
+    min-width: 100%;
+    max-width: none;
+  }
+
+  .controls-grid,
+  .overview-grid,
+  .duration-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 680px) {
+  .metric-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .action-row,
+  .section-heading,
+  .table-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 </style>

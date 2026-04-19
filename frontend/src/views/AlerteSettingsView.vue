@@ -1,121 +1,177 @@
 <template>
-  <div class="alerte-settings">
-    <div class="card">
-      <div class="page-header">
-        <div class="page-title">
-          <h1>Configuration des alertes</h1>
-          <span>Personnalisez les seuils et paramètres des alertes RH</span>
+  <div class="rh-page alerte-settings-page">
+    <section class="rh-hero">
+      <div class="rh-hero-copy">
+        <p class="rh-hero-kicker">Monitoring rules</p>
+        <h1>Paramètres d'alertes</h1>
+        <p class="rh-hero-subtitle">
+          Ajustez les seuils, les fenêtres d’analyse et les niveaux de criticité avec la même
+          structure visuelle que les autres pages de pilotage RH.
+        </p>
+
+        <div class="rh-hero-pills">
+          <span class="pill">Règles actives</span>
+          <span class="pill">Seuils métier</span>
+          <span class="pill">Criticité</span>
         </div>
       </div>
 
-      <div class="settings-list">
-        <div v-for="setting in settings" :key="setting.id" class="setting-card" :class="{ inactive: !setting.actif }">
-          <div class="setting-header">
-            <div class="setting-info">
-              <div class="setting-status">
-                <label class="toggle">
+      <div class="rh-hero-actions">
+        <div class="rh-panel">
+          <div class="rh-action-row">
+            <button class="btn btn-secondary" @click="loadSettings">
+              <AppIcon name="refresh" :size="18" />
+              <span>Recharger règles</span>
+            </button>
+            <button class="btn" @click="loadAlertes">
+              <AppIcon name="bell" :size="18" />
+              <span>Rafraîchir alertes</span>
+            </button>
+          </div>
+
+          <div class="rh-hero-meta-list">
+            <p class="rh-hero-meta">
+              Règles actives:
+              <strong>{{ activeCount }}</strong>
+            </p>
+            <p class="rh-hero-meta">
+              Alertes remontées:
+              <strong>{{ alertes.length }}</strong>
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="rh-metric-grid">
+      <article v-for="metric in metricCards" :key="metric.label" class="rh-metric-card">
+        <span class="rh-metric-chip">{{ metric.tag }}</span>
+        <p class="rh-metric-label">{{ metric.label }}</p>
+        <p class="rh-metric-value">{{ metric.value }}</p>
+        <p class="rh-metric-caption">{{ metric.caption }}</p>
+      </article>
+    </section>
+
+    <section class="rh-content-grid">
+      <article class="card rh-section-card">
+        <div class="rh-section-heading">
+          <div>
+            <p class="rh-section-kicker">Rule catalog</p>
+            <h2>Configuration des règles</h2>
+          </div>
+          <span class="rh-section-chip">{{ settings.length }} règles</span>
+        </div>
+
+        <p class="rh-section-copy">
+          Activez, désactivez et ajustez les paramètres de chaque alerte sans quitter l’écran de
+          configuration.
+        </p>
+
+        <div class="settings-list">
+          <article v-for="setting in settings" :key="setting.id" class="setting-card" :class="{ inactive: !setting.actif }">
+            <div class="setting-header">
+              <div class="setting-info">
+                <label class="switch">
                   <input type="checkbox" v-model="setting.actif" @change="updateSetting(setting)" />
                   <span class="slider"></span>
                 </label>
+
+                <div class="setting-copy">
+                  <div class="setting-top">
+                    <h3>{{ setting.libelle }}</h3>
+                    <span class="niveau-badge" :class="'niveau-' + setting.niveau">{{ setting.niveau }}</span>
+                  </div>
+                  <p>{{ setting.description }}</p>
+                </div>
               </div>
-              <div>
-                <h3>{{ setting.libelle }}</h3>
-                <p>{{ setting.description }}</p>
-              </div>
-            </div>
-            <span class="niveau-badge" :class="'niveau-' + setting.niveau">
-              {{ setting.niveau }}
-            </span>
-          </div>
-
-          <div class="setting-params" v-if="setting.actif">
-            <div class="param-group" v-if="setting.seuil_jours !== null">
-              <label>Seuil (jours)</label>
-              <input 
-                type="number" 
-                v-model.number="setting.seuil_jours" 
-                min="1"
-                @blur="updateSetting(setting)"
-              />
-              <span class="param-hint">
-                {{ getSeuilJoursHint(setting.code) }}
-              </span>
             </div>
 
-            <div class="param-group" v-if="setting.seuil_nombre !== null">
-              <label>Seuil (nombre)</label>
-              <input 
-                type="number" 
-                v-model.number="setting.seuil_nombre" 
-                min="1"
-                @blur="updateSetting(setting)"
-              />
-              <span class="param-hint">
-                {{ getSeuilNombreHint(setting.code) }}
-              </span>
-            </div>
+            <div class="setting-params" v-if="setting.actif">
+              <label class="rh-field-card" v-if="setting.seuil_jours !== null">
+                <span class="rh-field-label">Seuil en jours</span>
+                <input class="input" type="number" v-model.number="setting.seuil_jours" min="1" @blur="updateSetting(setting)" />
+                <span class="param-hint">{{ getSeuilJoursHint(setting.code) }}</span>
+              </label>
 
-            <div class="param-group" v-if="setting.periode_jours !== null">
-              <label>Période d'analyse (jours)</label>
-              <input 
-                type="number" 
-                v-model.number="setting.periode_jours" 
-                min="1"
-                @blur="updateSetting(setting)"
-              />
-              <span class="param-hint">Fenêtre de temps pour le calcul</span>
-            </div>
+              <label class="rh-field-card" v-if="setting.seuil_nombre !== null">
+                <span class="rh-field-label">Seuil numérique</span>
+                <input class="input" type="number" v-model.number="setting.seuil_nombre" min="1" @blur="updateSetting(setting)" />
+                <span class="param-hint">{{ getSeuilNombreHint(setting.code) }}</span>
+              </label>
 
-            <div class="param-group">
-              <label>Niveau de criticité</label>
-              <select v-model="setting.niveau" @change="updateSetting(setting)">
-                <option value="info">Information</option>
-                <option value="warning">Avertissement</option>
-                <option value="danger">Critique</option>
-              </select>
+              <label class="rh-field-card" v-if="setting.periode_jours !== null">
+                <span class="rh-field-label">Fenêtre d'analyse</span>
+                <input class="input" type="number" v-model.number="setting.periode_jours" min="1" @blur="updateSetting(setting)" />
+                <span class="param-hint">Nombre de jours utilisés pour le calcul.</span>
+              </label>
+
+              <label class="rh-field-card">
+                <span class="rh-field-label">Niveau de criticité</span>
+                <select class="select" v-model="setting.niveau" @change="updateSetting(setting)">
+                  <option value="info">Information</option>
+                  <option value="warning">Avertissement</option>
+                  <option value="danger">Critique</option>
+                </select>
+                <span class="param-hint">Impact visuel et ordre de priorité dans le centre d’alertes.</span>
+              </label>
             </div>
+          </article>
+        </div>
+      </article>
+
+      <aside class="card rh-section-card rh-side-card">
+        <div class="rh-section-heading compact">
+          <div>
+            <p class="rh-section-kicker">Overview</p>
+            <h2>Aperçu opérationnel</h2>
           </div>
         </div>
-      </div>
-    </div>
 
-    <!-- Aperçu des alertes actives -->
-    <div class="card">
-      <div class="page-header">
-        <div class="page-title">
-          <h1>Aperçu des alertes actives</h1>
-          <span>{{ alertes.length }} alerte(s) détectée(s) avec la configuration actuelle</span>
+        <p class="rh-summary-intro">
+          Vérifiez rapidement l’état des règles et l’impact immédiat sur les alertes remontées.
+        </p>
+
+        <div class="rh-overview-grid">
+          <article v-for="card in overviewCards" :key="card.label" class="rh-overview-card">
+            <span class="rh-overview-chip">{{ card.tag }}</span>
+            <p class="rh-overview-label">{{ card.label }}</p>
+            <p class="rh-overview-value">{{ card.value }}</p>
+            <p class="rh-overview-copy">{{ card.copy }}</p>
+          </article>
         </div>
-        <button class="btn btn-secondary" @click="loadAlertes">
-          🔄 Actualiser
-        </button>
-      </div>
 
-      <div class="alertes-preview" v-if="alertes.length">
-        <div 
-          v-for="(alerte, index) in alertes.slice(0, 10)" 
-          :key="index"
-          class="alerte-item"
-          :class="'alerte-' + alerte.level"
-        >
-          <span class="alerte-icon">
-            {{ alerte.level === 'danger' ? '🚨' : alerte.level === 'warning' ? '⚠️' : 'ℹ️' }}
-          </span>
-          <span class="alerte-message">{{ alerte.message }}</span>
-          <span class="alerte-type">{{ formatType(alerte.type) }}</span>
+        <div class="preview-list" v-if="alertes.length">
+          <div v-for="(alerte, index) in alertes.slice(0, 6)" :key="index" class="preview-item" :class="'preview-' + alerte.level">
+            <div class="preview-top">
+              <span class="preview-level" :class="'preview-level-' + alerte.level">{{ alerte.level }}</span>
+              <span class="preview-type">{{ formatType(alerte.type) }}</span>
+            </div>
+            <p class="preview-message">{{ alerte.message }}</p>
+          </div>
         </div>
-      </div>
 
-      <div class="empty-state" v-else>
-        <p>🎉 Aucune alerte active avec la configuration actuelle</p>
-      </div>
-    </div>
+        <div v-else class="rh-empty-state compact">
+          <p>Aucune alerte active</p>
+          <span>La configuration actuelle ne remonte aucun signal en cours.</span>
+        </div>
+
+        <div class="rh-notes-card">
+          <h3>Repères rapides</h3>
+          <ul>
+            <li>Les seuils sont appliqués dès la prochaine analyse d’alertes.</li>
+            <li>Le niveau de criticité change immédiatement la priorité visuelle des signaux.</li>
+            <li>Les règles inactives restent visibles mais n’alimentent plus le centre d’alertes.</li>
+          </ul>
+        </div>
+      </aside>
+    </section>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import api from '../services/api'
+import AppIcon from '../components/ui/AppIcon.vue'
 
 const settings = ref([])
 const alertes = ref([])
@@ -147,39 +203,96 @@ const updateSetting = async (setting) => {
       periode_jours: setting.periode_jours,
       niveau: setting.niveau,
     })
-    // Recharger les alertes pour voir l'impact
     loadAlertes()
   } catch (e) {
     console.error('Erreur:', e)
   }
 }
 
+const activeCount = computed(() => settings.value.filter((setting) => Boolean(setting.actif)).length)
+const criticalCount = computed(() => settings.value.filter((setting) => setting.niveau === 'danger').length)
+const warningCount = computed(() => settings.value.filter((setting) => setting.niveau === 'warning').length)
+
+const metricCards = computed(() => [
+  {
+    label: 'Règles disponibles',
+    value: settings.value.length,
+    caption: 'Catalogue complet de surveillance',
+    tag: 'Rules',
+  },
+  {
+    label: 'Actives',
+    value: activeCount.value,
+    caption: 'Règles actuellement utilisées',
+    tag: 'Active',
+  },
+  {
+    label: 'Critiques',
+    value: criticalCount.value,
+    caption: 'Niveau danger configuré',
+    tag: 'Danger',
+  },
+  {
+    label: 'Alertes remontées',
+    value: alertes.value.length,
+    caption: 'Impact visible sur le moteur',
+    tag: 'Preview',
+  },
+])
+
+const overviewCards = computed(() => [
+  {
+    label: 'Règles warning',
+    value: warningCount.value,
+    copy: 'Signalements de niveau intermédiaire.',
+    tag: 'Warn',
+  },
+  {
+    label: 'Inactives',
+    value: Math.max(settings.value.length - activeCount.value, 0),
+    copy: 'Règles visibles mais désactivées.',
+    tag: 'Off',
+  },
+  {
+    label: 'Alerte dominante',
+    value: alertes.value[0] ? formatType(alertes.value[0].type) : 'Aucune',
+    copy: 'Premier signal remonté dans la liste actuelle.',
+    tag: 'Top',
+  },
+  {
+    label: 'État global',
+    value: alertes.value.length ? 'Sous surveillance' : 'Stable',
+    copy: 'Lecture rapide du moteur d’alertes.',
+    tag: 'State',
+  },
+])
+
 const getSeuilJoursHint = (code) => {
   const hints = {
-    'fin_contrat': 'Jours avant expiration du contrat',
-    'conge_en_attente': 'Délai d\'attente en jours (converti en heures)',
-    'conge_proche': 'Jours avant début du congé',
+    fin_contrat: 'Jours avant expiration du contrat',
+    conge_en_attente: "Délai d'attente avant alerte",
+    conge_proche: 'Jours avant début du congé',
   }
   return hints[code] || 'Nombre de jours'
 }
 
 const getSeuilNombreHint = (code) => {
   const hints = {
-    'conges_non_pris': 'Nombre minimum de jours non pris',
-    'absences_maladie': 'Nombre d\'absences déclenchant l\'alerte',
-    'absences_exceptionnelles': 'Nombre de congés exceptionnels',
+    conges_non_pris: 'Nombre minimum de jours non pris',
+    absences_maladie: "Nombre d'absences déclenchant l'alerte",
+    absences_exceptionnelles: 'Nombre de congés exceptionnels',
   }
   return hints[code] || 'Seuil numérique'
 }
 
 const formatType = (type) => {
   const types = {
-    'fin_contrat': 'Contrat',
-    'conges_non_pris': 'Congés',
-    'absences_maladie': 'Maladie',
-    'absences_exceptionnelles': 'Absences',
-    'conge_en_attente': 'Demande',
-    'conge_proche': 'Congé urgent'
+    fin_contrat: 'Contrat',
+    conges_non_pris: 'Congés',
+    absences_maladie: 'Maladie',
+    absences_exceptionnelles: 'Absences',
+    conge_en_attente: 'Demande',
+    conge_proche: 'Congé urgent',
   }
   return types[type] || type
 }
@@ -191,63 +304,76 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.alerte-settings {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
 .settings-list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
   gap: 16px;
-  margin-top: 20px;
 }
 
 .setting-card {
   padding: 20px;
-  background: rgba(255, 255, 255, 0.02);
-  border-radius: 12px;
   border: 1px solid var(--border);
-  transition: opacity 0.2s;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.72);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+body[data-theme='dark'] .setting-card {
+  background: rgba(15, 23, 42, 0.72);
 }
 
 .setting-card.inactive {
-  opacity: 0.5;
+  opacity: 0.62;
+}
+
+.setting-header,
+.setting-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
 }
 
 .setting-header {
-  display: flex;
   justify-content: space-between;
-  align-items: flex-start;
 }
 
-.setting-info {
+.setting-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.setting-top {
   display: flex;
-  gap: 16px;
-  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
 }
 
-.setting-info h3 {
-  margin: 0 0 4px;
-  font-size: 16px;
-}
-
-.setting-info p {
+.setting-copy h3,
+.preview-message {
   margin: 0;
-  font-size: 13px;
+}
+
+.setting-copy h3 {
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.setting-copy p {
+  margin: 0;
   color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.55;
 }
 
-/* Toggle switch */
-.toggle {
+.switch {
   position: relative;
-  display: inline-block;
-  width: 44px;
-  height: 24px;
+  display: inline-flex;
+  width: 48px;
+  height: 28px;
+  flex: none;
 }
 
-.toggle input {
+.switch input {
   opacity: 0;
   width: 0;
   height: 0;
@@ -255,118 +381,157 @@ onMounted(() => {
 
 .slider {
   position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(255, 255, 255, 0.1);
-  transition: 0.3s;
-  border-radius: 24px;
+  inset: 0;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.22);
+  transition: 0.2s ease;
 }
 
-.slider:before {
+.slider::before {
+  content: '';
   position: absolute;
-  content: "";
-  height: 18px;
-  width: 18px;
-  left: 3px;
-  bottom: 3px;
-  background-color: white;
-  transition: 0.3s;
-  border-radius: 50%;
+  left: 4px;
+  top: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: #ffffff;
+  transition: 0.2s ease;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.18);
 }
 
-input:checked + .slider {
-  background-color: #22c55e;
+.switch input:checked + .slider {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
 }
 
-input:checked + .slider:before {
+.switch input:checked + .slider::before {
   transform: translateX(20px);
 }
 
 .niveau-badge {
-  padding: 4px 12px;
-  border-radius: 12px;
-  font-size: 11px;
-  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 700;
   text-transform: uppercase;
 }
 
-.niveau-info { background: rgba(59, 130, 246, 0.2); color: #3b82f6; }
-.niveau-warning { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
-.niveau-danger { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+.niveau-info {
+  background: rgba(59, 130, 246, 0.1);
+  color: #2563eb;
+}
+
+.niveau-warning {
+  background: var(--warning-100);
+  color: var(--warning-500);
+}
+
+.niveau-danger {
+  background: var(--danger-100);
+  color: var(--danger-500);
+}
 
 .setting-params {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
   margin-top: 20px;
-  padding-top: 20px;
+  padding-top: 18px;
   border-top: 1px solid var(--border);
 }
 
-.param-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.param-group label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--muted);
-}
-
-.param-group input,
-.param-group select {
-  padding: 10px 14px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--card);
-  color: var(--text);
-  font-size: 14px;
-}
-
 .param-hint {
-  font-size: 11px;
   color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
 }
 
-/* Alertes preview */
-.alertes-preview {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 16px;
+.preview-list {
+  display: grid;
+  gap: 12px;
 }
 
-.alerte-item {
+.preview-item {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.76);
+}
+
+body[data-theme='dark'] .preview-item {
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.preview-danger {
+  border-color: rgba(240, 68, 56, 0.2);
+}
+
+.preview-warning {
+  border-color: rgba(247, 144, 9, 0.2);
+}
+
+.preview-info {
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+.preview-top {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.02);
+  justify-content: space-between;
+  gap: 10px;
 }
 
-.alerte-danger { border-left: 3px solid #ef4444; }
-.alerte-warning { border-left: 3px solid #f59e0b; }
-.alerte-info { border-left: 3px solid #3b82f6; }
+.preview-level,
+.preview-type {
+  font-size: 0.78rem;
+  font-weight: 700;
+}
 
-.alerte-icon { font-size: 18px; }
-.alerte-message { flex: 1; font-size: 13px; }
-.alerte-type {
-  font-size: 11px;
-  padding: 3px 8px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 4px;
+.preview-level {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 9px;
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+
+.preview-level-danger {
+  background: var(--danger-100);
+  color: var(--danger-500);
+}
+
+.preview-level-warning {
+  background: var(--warning-100);
+  color: var(--warning-500);
+}
+
+.preview-level-info {
+  background: rgba(59, 130, 246, 0.1);
+  color: #2563eb;
+}
+
+.preview-type {
   color: var(--muted);
 }
 
-.empty-state {
-  text-align: center;
-  padding: 40px;
-  color: var(--muted);
+.preview-message {
+  font-size: 0.92rem;
+  color: var(--text);
+  line-height: 1.55;
+}
+
+.compact {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+@media (max-width: 960px) {
+  .setting-params {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

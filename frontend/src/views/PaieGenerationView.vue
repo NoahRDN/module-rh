@@ -1,107 +1,277 @@
 <template>
-  <div class="page">
-    <div class="hero">
-      <div>
-        <p class="eyebrow">Payroll</p>
+  <div class="rh-page paie-generation-page">
+    <section class="rh-hero">
+      <div class="rh-hero-copy">
+        <p class="rh-hero-kicker">Payroll engine</p>
         <h1>Génération de la paie</h1>
-        <p class="subtitle">Calculez brut / net, heures sup et retenues en un clic.</p>
-        <div class="chips">
+        <p class="rh-hero-subtitle">
+          Lancez le calcul d’un bulletin mensuel avec une lecture claire du brut, du net, des heures
+          supplémentaires et des retenues sociales.
+        </p>
+
+        <div class="rh-hero-pills">
           <span class="pill">Bulletins PDF</span>
-          <span class="pill pill-blue">IRSA / CNAPS / OSTIE</span>
-          <span class="pill pill-green">Heures sup gérées</span>
+          <span class="pill">CNAPS / OSTIE / IRSA</span>
+          <span class="pill">Calcul mensuel</span>
         </div>
       </div>
+
+      <div class="rh-hero-actions">
+        <div class="rh-panel">
+          <div class="rh-action-row">
+            <button class="btn btn-secondary" type="button" @click="fetchEmployes">
+              <AppIcon name="refresh" :size="18" />
+              <span>Actualiser employés</span>
+            </button>
+            <button class="btn" type="button" @click="generer" :disabled="generating">
+              <AppIcon name="save" :size="18" />
+              <span>{{ generating ? 'Calcul en cours...' : 'Générer' }}</span>
+            </button>
+          </div>
+
+          <div class="rh-hero-meta-list">
+            <p class="rh-hero-meta">
+              Employés disponibles:
+              <strong>{{ formatInteger(employes.length) }}</strong>
+            </p>
+            <p class="rh-hero-meta">
+              Bulletin actif:
+              <strong>{{ paie ? 'Oui' : 'Non' }}</strong>
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div v-if="message" class="rh-status-banner" :class="paie ? 'success' : 'danger'">
+      <span class="rh-status-dot"></span>
+      <span>{{ message }}</span>
     </div>
 
-    <div class="grid gap-4 lg:grid-cols-3">
-      <div class="card glass">
-        <div class="card-header">
+    <section class="rh-metric-grid">
+      <article v-for="metric in metrics" :key="metric.label" class="rh-metric-card">
+        <span class="rh-metric-chip">{{ metric.tag }}</span>
+        <p class="rh-metric-label">{{ metric.label }}</p>
+        <p class="rh-metric-value">{{ metric.value }}</p>
+        <p class="rh-metric-caption">{{ metric.caption }}</p>
+      </article>
+    </section>
+
+    <section class="rh-content-grid">
+      <article class="card rh-section-card">
+        <div class="rh-section-heading">
           <div>
-            <p class="eyebrow">Paramètres</p>
-            <h3>Employé & mois</h3>
+            <p class="rh-section-kicker">Payroll input</p>
+            <h2>Employé et période</h2>
           </div>
-          <button class="btn-ghost" @click="fetchEmployes">↻</button>
         </div>
-        <form class="form" @submit.prevent="generer">
-          <label class="field">
-            <span>Employé</span>
-            <select class="input" v-model="form.employe_id" required>
+
+        <p class="rh-section-copy">
+          Sélectionnez le collaborateur et le mois à traiter, puis lancez le calcul du bulletin.
+        </p>
+
+        <form class="form-grid" @submit.prevent="generer">
+          <label class="rh-field-card">
+            <span class="rh-field-label">Employé</span>
+            <select class="select" v-model="form.employe_id" required>
               <option value="">Sélectionner</option>
-              <option v-for="emp in employes" :key="emp.id" :value="emp.id">{{ emp.matricule }} - {{ emp.nom }}</option>
+              <option v-for="emp in employes" :key="emp.id" :value="emp.id">
+                {{ emp.matricule }} - {{ emp.nom }}
+              </option>
             </select>
           </label>
-          <label class="field">
-            <span>Mois</span>
+
+          <label class="rh-field-card">
+            <span class="rh-field-label">Mois</span>
             <input class="input" type="month" v-model="form.mois" required />
           </label>
-          <button class="btn" type="submit">Générer</button>
-          <p class="muted" v-if="message">{{ message }}</p>
+
+          <div class="rh-action-row submit-row">
+            <button class="btn" type="submit" :disabled="generating">
+              <AppIcon name="wallet" :size="18" />
+              <span>{{ generating ? 'Calcul en cours...' : 'Lancer le calcul' }}</span>
+            </button>
+          </div>
         </form>
-      </div>
+      </article>
 
-      <div class="card glass lg:col-span-2" v-if="paie">
-        <div class="card-header">
+      <aside class="card rh-section-card rh-side-card">
+        <div class="rh-section-heading compact">
           <div>
-            <p class="eyebrow">Résultat</p>
-            <h3>{{ paie.employe?.nom || 'Bulletin' }} — {{ paie.mois }}</h3>
-          </div>
-          <button class="btn" @click="downloadPdf" :disabled="downloading">
-            {{ downloading ? 'Téléchargement...' : 'Télécharger le PDF' }}
-          </button>
-        </div>
-        <div class="stats-grid">
-          <div class="stat">
-            <p class="label">Salaire brut</p>
-            <p class="value">{{ paie.total_brut }}</p>
-          </div>
-          <div class="stat">
-            <p class="label">Net à payer</p>
-            <p class="value text-green-500">{{ paie.net_a_payer }}</p>
-          </div>
-          <div class="stat">
-            <p class="label">Heures supp.</p>
-            <p class="value">{{ paie.heures_supplementaires }} h</p>
-            <p class="muted small">Montant: {{ paie.montant_hs }}</p>
-          </div>
-          <div class="stat">
-            <p class="label">Retenues totales</p>
-            <p class="value">{{ paie.total_retenues }}</p>
-          </div>
-          <div class="stat">
-            <p class="label">CNAPS</p>
-            <p class="value">{{ paie.retenue_cnaps }}</p>
-          </div>
-          <div class="stat">
-            <p class="label">OSTIE</p>
-            <p class="value">{{ paie.retenue_ostie }}</p>
-          </div>
-          <div class="stat">
-            <p class="label">IRSA</p>
-            <p class="value">{{ paie.retenue_irsa }}</p>
+            <p class="rh-section-kicker">Overview</p>
+            <h2>Résumé de calcul</h2>
           </div>
         </div>
+
+        <p class="rh-summary-intro">
+          Contrôlez rapidement l’état de la génération, le collaborateur ciblé et le mois traité.
+        </p>
+
+        <div class="rh-overview-grid">
+          <article v-for="card in overviewCards" :key="card.label" class="rh-overview-card">
+            <span class="rh-overview-chip">{{ card.tag }}</span>
+            <p class="rh-overview-label">{{ card.label }}</p>
+            <p class="rh-overview-value">{{ card.value }}</p>
+            <p class="rh-overview-copy">{{ card.copy }}</p>
+          </article>
+        </div>
+
+        <div class="rh-notes-card">
+          <h3>Repères rapides</h3>
+          <ul>
+            <li>La génération doit être relancée après tout changement de collaborateur ou de mois.</li>
+            <li>Le PDF n’est disponible qu’après calcul réussi d’un bulletin.</li>
+            <li>Le panneau de droite résume l’état courant sans surcharger le formulaire.</li>
+          </ul>
+        </div>
+      </aside>
+    </section>
+
+    <article class="card rh-section-card" v-if="paie">
+      <div class="rh-section-heading">
+        <div>
+          <p class="rh-section-kicker">Payroll result</p>
+          <h2>{{ paie.employe?.nom || 'Bulletin généré' }} - {{ paie.mois }}</h2>
+        </div>
+        <button class="btn btn-secondary" type="button" @click="downloadPdf" :disabled="downloading">
+          <AppIcon name="download" :size="18" />
+          <span>{{ downloading ? 'Téléchargement...' : 'Télécharger PDF' }}</span>
+        </button>
       </div>
 
-      <div class="card glass lg:col-span-2 empty" v-else>
-        <p class="muted">Sélectionnez un employé et un mois puis cliquez sur “Générer”.</p>
+      <div class="stats-grid">
+        <article class="stat-box">
+          <p class="stat-label">Salaire brut</p>
+          <p class="stat-value">{{ paie.total_brut }}</p>
+        </article>
+        <article class="stat-box accent">
+          <p class="stat-label">Net à payer</p>
+          <p class="stat-value">{{ paie.net_a_payer }}</p>
+        </article>
+        <article class="stat-box">
+          <p class="stat-label">Heures supp.</p>
+          <p class="stat-value">{{ paie.heures_supplementaires }} h</p>
+          <p class="stat-copy">Montant: {{ paie.montant_hs }}</p>
+        </article>
+        <article class="stat-box">
+          <p class="stat-label">Retenues totales</p>
+          <p class="stat-value">{{ paie.total_retenues }}</p>
+        </article>
       </div>
-    </div>
+
+      <div class="rh-table-shell">
+        <table class="table detail-table">
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Montant</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>CNAPS</td>
+              <td>{{ paie.retenue_cnaps }}</td>
+            </tr>
+            <tr>
+              <td>OSTIE</td>
+              <td>{{ paie.retenue_ostie }}</td>
+            </tr>
+            <tr>
+              <td>IRSA</td>
+              <td>{{ paie.retenue_irsa }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </article>
+
+    <article class="card rh-section-card rh-empty-state" v-else>
+      <p>Aucun bulletin calculé</p>
+      <span>Lancez une génération pour afficher le détail de paie et activer l’export PDF.</span>
+    </article>
   </div>
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import api from '../services/api'
+import AppIcon from '../components/ui/AppIcon.vue'
 
 const employes = ref([])
 const paie = ref(null)
 const message = ref('')
 const downloading = ref(false)
+const generating = ref(false)
 
 const form = ref({
   employe_id: '',
-  mois: ''
+  mois: '',
 })
+
+const selectedEmploye = computed(
+  () => employes.value.find((item) => String(item.id) === String(form.value.employe_id)) || null,
+)
+
+const formatInteger = (value) => new Intl.NumberFormat('fr-FR').format(Number(value || 0))
+
+const metrics = computed(() => {
+  const hasPaie = Boolean(paie.value)
+  return [
+    {
+      tag: 'Coverage',
+      label: 'Employés chargés',
+      value: formatInteger(employes.value.length),
+      caption: 'Liste disponible pour la sélection',
+    },
+    {
+      tag: 'Gross',
+      label: 'Salaire brut',
+      value: hasPaie ? paie.value.total_brut : '—',
+      caption: hasPaie ? 'Dernier bulletin calculé' : 'Disponible après génération',
+    },
+    {
+      tag: 'Net',
+      label: 'Net à payer',
+      value: hasPaie ? paie.value.net_a_payer : '—',
+      caption: hasPaie ? 'Valeur finale collaborateur' : 'En attente de calcul',
+    },
+    {
+      tag: 'Deductions',
+      label: 'Retenues',
+      value: hasPaie ? paie.value.total_retenues : '—',
+      caption: hasPaie ? 'Somme des déductions sociales' : 'IRSA, CNAPS et OSTIE',
+    },
+  ]
+})
+
+const overviewCards = computed(() => [
+  {
+    label: 'Employé ciblé',
+    value: selectedEmploye.value?.matricule || 'Aucun',
+    copy: selectedEmploye.value
+      ? `${selectedEmploye.value.nom || ''} ${selectedEmploye.value.prenom || ''}`.trim()
+      : 'Aucun collaborateur sélectionné.',
+    tag: 'Person',
+  },
+  {
+    label: 'Mois traité',
+    value: form.value.mois || '—',
+    copy: form.value.mois ? 'Période actuellement préparée pour le calcul.' : 'Choisissez un mois de paie.',
+    tag: 'Period',
+  },
+  {
+    label: 'État',
+    value: paie.value ? 'Calculé' : 'En attente',
+    copy: paie.value ? 'Un bulletin est disponible à l’écran.' : 'Aucun bulletin encore généré.',
+    tag: 'State',
+  },
+  {
+    label: 'Export PDF',
+    value: paie.value ? 'Disponible' : 'Bloqué',
+    copy: paie.value ? 'Le téléchargement est activé.' : 'Le PDF nécessite un calcul valide.',
+    tag: 'PDF',
+  },
+])
 
 const fetchEmployes = async () => {
   const { data } = await api.get('/v1/employes', { params: { all: 1 } })
@@ -110,11 +280,15 @@ const fetchEmployes = async () => {
 
 const generer = async () => {
   try {
+    generating.value = true
     const { data } = await api.post('/v1/paies/generer', form.value)
     paie.value = data.paie
     message.value = data.message
   } catch (e) {
+    paie.value = null
     message.value = 'Erreur lors du calcul'
+  } finally {
+    generating.value = false
   }
 }
 
@@ -142,57 +316,70 @@ onMounted(fetchEmployes)
 </script>
 
 <style scoped>
-.page { display: flex; flex-direction: column; gap: 16px; }
-.hero {
-  padding: 18px 20px;
-  border-radius: 16px;
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  background: #ffffff;
-  color: #0f172a;
+.form-grid {
+  display: grid;
+  gap: 14px;
 }
-.hero h1 { margin: 6px 0; font-size: 26px; }
-.subtitle { margin: 0; color: #475569; }
-.eyebrow { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #2563eb; margin: 0; }
-.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-.pill { padding: 6px 10px; border-radius: 999px; background: rgba(148, 163, 184, 0.15); color: #0f172a; font-size: 12px; }
-.pill-blue { background: rgba(59, 130, 246, 0.12); color: #1d4ed8; }
-.pill-green { background: rgba(16, 185, 129, 0.12); color: #15803d; }
 
-.card.glass {
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  background: #ffffff;
+.submit-row {
+  justify-content: flex-start;
 }
-.card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-.form { display: flex; flex-direction: column; gap: 12px; }
-.field { display: flex; flex-direction: column; gap: 4px; font-size: 14px; color: #334155; }
-.input { border: 1px solid rgba(148, 163, 184, 0.6); border-radius: 10px; padding: 10px; background: #fff; color: #0f172a; }
-.input:focus { outline: 2px solid rgba(59,130,246,0.4); }
-.btn { padding: 10px 14px; border-radius: 10px; border: 1px solid rgba(148, 163, 184, 0.4); background: #22c55e; color: #0b172a; cursor: pointer; }
-.btn:hover { filter: brightness(1.05); }
-.btn-ghost { border: 1px solid rgba(148, 163, 184, 0.6); background: #f8fafc; color: #0f172a; border-radius: 10px; padding: 8px 10px; cursor: pointer; }
-.muted { color: #64748b; font-size: 13px; }
-.empty { display: flex; align-items: center; justify-content: center; min-height: 140px; }
 
-.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
-.stat { padding: 12px; border-radius: 12px; border: 1px solid rgba(148, 163, 184, 0.3); background: #f8fafc; }
-.label { color: #475569; font-size: 13px; margin: 0; }
-.value { margin: 2px 0 0; font-size: 18px; font-weight: 700; color: #0f172a; }
-.value.text-green-500 { color: #16a34a; }
-
-:deep(body[data-theme='dark']) .hero {
-  background: #0b1120;
-  color: #e2e8f0;
+.stats-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
-:deep(body[data-theme='dark']) .subtitle { color: #cbd5e1; }
-:deep(body[data-theme='dark']) .pill { color: #e2e8f0; background: rgba(148,163,184,0.25); }
-:deep(body[data-theme='dark']) .card.glass { background: rgba(15, 23, 42, 0.8); border-color: rgba(148,163,184,0.25); }
-:deep(body[data-theme='dark']) .input { background: rgba(15,23,42,0.6); color: #e2e8f0; border-color: rgba(148,163,184,0.3); }
-:deep(body[data-theme='dark']) .field { color: #cbd5e1; }
-:deep(body[data-theme='dark']) .muted { color: #94a3b8; }
-:deep(body[data-theme='dark']) .stat { background: rgba(255,255,255,0.04); border-color: rgba(148,163,184,0.25); }
-:deep(body[data-theme='dark']) .value { color: #e2e8f0; }
 
-@media (max-width: 1024px) {
-  .grid { grid-template-columns: 1fr !important; }
+.stat-box {
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.76);
+}
+
+body[data-theme='dark'] .stat-box {
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.stat-box.accent {
+  border-color: rgba(18, 183, 106, 0.18);
+  background: rgba(18, 183, 106, 0.08);
+}
+
+.stat-label,
+.stat-value,
+.stat-copy {
+  margin: 0;
+}
+
+.stat-label {
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.stat-value {
+  margin-top: 6px;
+  font-size: 1.28rem;
+  font-weight: 800;
+}
+
+.stat-copy {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+@media (max-width: 1100px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

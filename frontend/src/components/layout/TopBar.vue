@@ -1,81 +1,179 @@
 <template>
-<header class="topbar card">
-  <div>
-    <p class="title">Bonjour 👋</p>
-    <p class="muted">{{ subtitle }}</p>
-  </div>
-  <div class="actions">
-    <button class="toggle" @click="toggleTheme" :title="theme === 'dark' ? 'Passer en clair' : 'Passer en sombre'">
-      <svg
-        v-if="theme === 'dark'"
-        width="20"
-        height="20"
-        viewBox="0 0 20 20"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
+  <header class="topbar">
+    <div class="topbar-copy">
+      <button
+        class="menu-toggle"
+        type="button"
+        @click="$emit('toggle-sidebar')"
+        :title="sidebarOpen ? 'Masquer le menu' : 'Afficher le menu'"
+        :aria-label="sidebarOpen ? 'Masquer le menu' : 'Afficher le menu'"
       >
-        <path
-          fill-rule="evenodd"
-          clip-rule="evenodd"
-          d="M9.99998 1.5415C10.4142 1.5415 10.75 1.87729 10.75 2.2915V3.5415C10.75 3.95572 10.4142 4.2915 9.99998 4.2915C9.58577 4.2915 9.24998 3.95572 9.24998 3.5415V2.2915C9.24998 1.87729 9.58577 1.5415 9.99998 1.5415ZM10.0009 6.79327C8.22978 6.79327 6.79402 8.22904 6.79402 10.0001C6.79402 11.7712 8.22978 13.207 10.0009 13.207C11.772 13.207 13.2078 11.7712 13.2078 10.0001C13.2078 8.22904 11.772 6.79327 10.0009 6.79327ZM5.29402 10.0001C5.29402 7.40061 7.40135 5.29327 10.0009 5.29327C12.6004 5.29327 14.7078 7.40061 14.7078 10.0001C14.7078 12.5997 12.6004 14.707 10.0009 14.707C7.40135 14.707 5.29402 12.5997 5.29402 10.0001ZM15.9813 5.08035C16.2742 4.78746 16.2742 4.31258 15.9813 4.01969C15.6884 3.7268 15.2135 3.7268 14.9207 4.01969L14.0368 4.90357C13.7439 5.19647 13.7439 5.67134 14.0368 5.96423C14.3297 6.25713 14.8045 6.25713 15.0974 5.96423L15.9813 5.08035ZM18.4577 10.0001C18.4577 10.4143 18.1219 10.7501 17.7077 10.7501H16.4577C16.0435 10.7501 15.7077 10.4143 15.7077 10.0001C15.7077 9.58592 16.0435 9.25013 16.4577 9.25013H17.7077C18.1219 9.25013 18.4577 9.58592 18.4577 10.0001ZM14.9207 15.9806C15.2135 16.2735 15.6884 16.2735 15.9813 15.9806C16.2742 15.6877 16.2742 15.2128 15.9813 14.9199L15.0974 14.036C14.8045 13.7431 14.3297 13.7431 14.0368 14.036C13.7439 14.3289 13.7439 14.8038 14.0368 15.0967L14.9207 15.9806ZM9.99998 15.7088C10.4142 15.7088 10.75 16.0445 10.75 16.4588V17.7088C10.75 18.123 10.4142 18.4588 9.99998 18.4588C9.58577 18.4588 9.24998 18.123 9.24998 17.7088V16.4588C9.24998 16.0445 9.58577 15.7088 9.99998 15.7088ZM5.96356 15.0972C6.25646 14.8043 6.25646 14.3295 5.96356 14.0366C5.67067 13.7437 5.1958 13.7437 4.9029 14.0366L4.01902 14.9204C3.72613 15.2133 3.72613 15.6882 4.01902 15.9811C4.31191 16.274 4.78679 16.274 5.07968 15.9811L5.96356 15.0972ZM4.29224 10.0001C4.29224 10.4143 3.95645 10.7501 3.54224 10.7501H2.29224C1.87802 10.7501 1.54224 10.4143 1.54224 10.0001C1.54224 9.58592 1.87802 9.25013 2.29224 9.25013H3.54224C3.95645 9.25013 4.29224 9.58592 4.29224 10.0001ZM4.9029 5.9637C5.1958 6.25659 5.67067 6.25659 5.96356 5.9637C6.25646 5.6708 6.25646 5.19593 5.96356 4.90303L5.07968 4.01915C4.78679 3.72626 4.31191 3.72626 4.01902 4.01915C3.72613 4.31204 3.72613 4.78692 4.01902 5.07981L4.9029 5.9637Z"
-          fill="currentColor"
-        />
-      </svg>
-      <svg
-        v-else
-        width="20"
-        height="20"
-        viewBox="0 0 20 20"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
+        <AppIcon name="grid" :size="18" />
+      </button>
+
+      <div>
+        <p class="topbar-eyebrow">Navigation</p>
+        <p class="topbar-title">{{ subtitle || 'Pilotage RH' }}</p>
+      </div>
+    </div>
+
+    <div class="topbar-actions">
+      <button
+        class="theme-toggle"
+        type="button"
+        @click="toggleTheme"
+        :title="theme === 'dark' ? 'Passer en clair' : 'Passer en sombre'"
+        :aria-label="theme === 'dark' ? 'Passer en clair' : 'Passer en sombre'"
       >
-        <path
-          d="M17.4547 11.97L18.1799 12.1611C18.265 11.8383 18.1265 11.4982 17.8401 11.3266C17.5538 11.1551 17.1885 11.1934 16.944 11.4207L17.4547 11.97ZM8.0306 2.5459L8.57989 3.05657C8.80718 2.81209 8.84554 2.44682 8.67398 2.16046C8.50243 1.8741 8.16227 1.73559 7.83948 1.82066L8.0306 2.5459ZM12.9154 13.0035C9.64678 13.0035 6.99707 10.3538 6.99707 7.08524H5.49707C5.49707 11.1823 8.81835 14.5035 12.9154 14.5035V13.0035ZM16.944 11.4207C15.8869 12.4035 14.4721 13.0035 12.9154 13.0035V14.5035C14.8657 14.5035 16.6418 13.7499 17.9654 12.5193L16.944 11.4207ZM16.7295 11.7789C15.9437 14.7607 13.2277 16.9586 10.0003 16.9586V18.4586C13.9257 18.4586 17.2249 15.7853 18.1799 12.1611L16.7295 11.7789ZM10.0003 16.9586C6.15734 16.9586 3.04199 13.8433 3.04199 10.0003H1.54199C1.54199 14.6717 5.32892 18.4586 10.0003 18.4586V16.9586ZM3.04199 10.0003C3.04199 6.77289 5.23988 4.05695 8.22173 3.27114L7.83948 1.82066C4.21532 2.77574 1.54199 6.07486 1.54199 10.0003H3.04199ZM6.99707 7.08524C6.99707 5.52854 7.5971 4.11366 8.57989 3.05657L7.48132 2.03522C6.25073 3.35885 5.49707 5.13487 5.49707 7.08524H6.99707Z"
-          fill="currentColor"
-        />
-      </svg>
-      {{ theme === 'dark' ? 'Mode clair' : 'Mode sombre' }}
-    </button>
-    <button class="btn btn-secondary" @click="logout">Déconnexion</button>
-  </div>
-</header>
+        <AppIcon :name="theme === 'dark' ? 'sun' : 'moon'" :size="18" />
+      </button>
+
+      <div class="profile-menu" ref="menuRef">
+        <button
+          class="profile-trigger"
+          type="button"
+          @click="toggleMenu"
+          aria-haspopup="menu"
+          :aria-expanded="String(menuOpen)"
+        >
+          <span class="avatar">{{ initials }}</span>
+          <span class="profile-copy">
+            <span class="profile-name">{{ displayName }}</span>
+            <span class="profile-meta">
+              <span v-if="profileHandle" class="profile-handle">{{ profileHandle }}</span>
+              <span class="profile-role">{{ roleLabel }}</span>
+            </span>
+          </span>
+          <span class="profile-caret" :class="{ open: menuOpen }"></span>
+        </button>
+
+        <transition name="menu">
+          <div v-if="menuOpen" class="profile-dropdown" role="menu">
+            <div class="dropdown-profile">
+              <span class="avatar large">{{ initials }}</span>
+              <div class="dropdown-copy">
+                <p class="dropdown-name">{{ displayName }}</p>
+                <p class="dropdown-meta">
+                  <span v-if="profileHandle">{{ profileHandle }}</span>
+                  <span>{{ roleLabel }}</span>
+                </p>
+              </div>
+            </div>
+            <button class="menu-item" type="button" @click="logout">
+              <AppIcon name="logout" :size="16" />
+              <span>Déconnexion</span>
+            </button>
+          </div>
+        </transition>
+      </div>
+    </div>
+  </header>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../../services/api'
+import AppIcon from '../ui/AppIcon.vue'
 
 defineProps({
   subtitle: {
     type: String,
-    default: ''
-  }
+    default: '',
+  },
+  sidebarOpen: {
+    type: Boolean,
+    default: true,
+  },
 })
+defineEmits(['toggle-sidebar'])
 
 const router = useRouter()
-const theme = ref(localStorage.getItem('theme') || 'dark')
+const theme = ref(localStorage.getItem('theme') || 'light')
+const menuOpen = ref(false)
+const menuRef = ref(null)
+const userName = ref(localStorage.getItem('user_name') || '')
+const userIdentifiant = ref(localStorage.getItem('user_identifiant') || '')
+const userRole = ref(localStorage.getItem('role') || '')
+
+const roleMap = {
+  admin: 'Administrateur',
+  rh: 'RH',
+  manager: 'Manager',
+  employe: 'Employé',
+}
+
+const displayName = computed(() => {
+  if (userName.value?.trim()) return userName.value.trim()
+
+  const identifiant = userIdentifiant.value?.trim()
+  if (!identifiant) return 'Utilisateur RH'
+
+  const base = identifiant.includes('@') ? identifiant.split('@')[0] : identifiant
+  return base.replace(/[._-]+/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
+})
+
+const roleLabel = computed(() => roleMap[userRole.value] || 'Compte connecté')
+
+const profileHandle = computed(() => {
+  const identifiant = userIdentifiant.value?.trim()
+  if (!identifiant) return ''
+
+  const base = identifiant.includes('@') ? identifiant.split('@')[0] : identifiant
+  return `@${base.replace(/\s+/g, '').toLowerCase()}`
+})
+
+const initials = computed(() => {
+  const source = displayName.value.trim()
+  if (!source) return 'U'
+
+  const parts = source.split(/\s+/).filter(Boolean)
+  return parts
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() || '')
+    .join('')
+})
+
+const closeMenu = () => {
+  menuOpen.value = false
+}
+
+const onDocumentClick = (event) => {
+  if (!menuRef.value?.contains(event.target)) {
+    closeMenu()
+  }
+}
+
+const toggleMenu = async () => {
+  menuOpen.value = !menuOpen.value
+  if (menuOpen.value) {
+    await nextTick()
+  }
+}
 
 const logout = async () => {
   try {
     await api.post('/logout')
-  } catch (e) {
-    // ignore
+  } catch (error) {
+    // ignore logout failures and clear the local session anyway
   }
+
   localStorage.removeItem('token')
   localStorage.removeItem('role')
+  localStorage.removeItem('user_identifiant')
+  localStorage.removeItem('user_name')
   router.push('/login')
 }
 
 const applyTheme = () => {
-  const target = document.documentElement || document.body
-  if (theme.value === 'light') {
-    target.setAttribute('data-theme', 'light')
-    document.body.setAttribute('data-theme', 'light')
+  const targets = [document.documentElement, document.body]
+
+  if (theme.value === 'dark') {
+    targets.forEach((node) => node?.setAttribute('data-theme', 'dark'))
   } else {
-    target.removeAttribute('data-theme')
-    document.body.removeAttribute('data-theme')
+    targets.forEach((node) => node?.removeAttribute('data-theme'))
   }
+
   localStorage.setItem('theme', theme.value)
 }
 
@@ -84,26 +182,402 @@ const toggleTheme = () => {
   applyTheme()
 }
 
-onMounted(applyTheme)
+const loadProfile = async () => {
+  if (!localStorage.getItem('token')) return
+  if (userName.value && userIdentifiant.value) return
+
+  try {
+    const { data } = await api.get('/me')
+    userName.value = data?.name || userName.value
+    userIdentifiant.value = data?.email || data?.identifiant || userIdentifiant.value
+    userRole.value = data?.role || userRole.value
+
+    localStorage.setItem('user_name', userName.value)
+    localStorage.setItem('user_identifiant', userIdentifiant.value)
+    localStorage.setItem('role', userRole.value)
+  } catch (error) {
+    // ignore profile fetch failures and keep local fallbacks
+  }
+}
+
+onMounted(() => {
+  applyTheme()
+  loadProfile()
+  document.addEventListener('click', onDocumentClick)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', onDocumentClick)
+})
 </script>
 
 <style scoped>
 .topbar {
+  position: relative;
+  z-index: 120;
+  isolation: isolate;
+  overflow: visible;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 16px;
+  padding: 18px 22px;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  border-top: 0;
+  border-right: 0;
+  background: var(--panel);
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(18px);
 }
 
-.title {
+.topbar-copy,
+.topbar-actions {
+  display: flex;
+  align-items: center;
+}
+
+.topbar-copy {
+  gap: 16px;
+  min-width: 0;
+}
+
+.menu-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.74);
+  color: var(--text);
+  cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    transform 0.18s ease;
+}
+
+body[data-theme='dark'] .menu-toggle {
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.menu-toggle:hover {
+  transform: translateY(-1px);
+  border-color: var(--border-strong);
+  background: var(--panel-solid);
+}
+
+.topbar-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(79, 70, 229, 0.12);
+  background: rgba(79, 70, 229, 0.08);
+  color: var(--brand-600);
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.topbar-eyebrow,
+.topbar-title,
+.profile-name,
+.profile-role {
   margin: 0;
-  font-size: 16px;
+}
+
+.topbar-eyebrow {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.topbar-title {
+  margin-top: 4px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.topbar-actions {
+  gap: 10px;
+}
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.74);
+  color: var(--text);
+  cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    transform 0.18s ease;
+}
+
+body[data-theme='dark'] .theme-toggle {
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.theme-toggle:hover {
+  transform: translateY(-1px);
+  border-color: var(--border-strong);
+  background: var(--panel-solid);
+}
+
+.profile-menu {
+  position: relative;
+  z-index: 160;
+}
+
+.profile-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  min-width: 220px;
+  max-width: 280px;
+  padding: 8px 12px 8px 8px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--text);
+  cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+body[data-theme='dark'] .profile-trigger {
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.profile-trigger:hover {
+  transform: translateY(-1px);
+  border-color: var(--border-strong);
+  background: var(--panel-solid);
+  box-shadow: var(--shadow-sm);
+}
+
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  flex: none;
+  background: linear-gradient(135deg, #14b8a6, #0f766e);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.avatar.large {
+  width: 42px;
+  height: 42px;
+  font-size: 0.88rem;
+}
+
+.profile-copy {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 3px;
+  text-align: left;
+}
+
+.profile-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.profile-meta {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.profile-handle,
+.profile-role {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.profile-handle {
+  color: #0f766e;
   font-weight: 700;
 }
 
-.actions {
+body[data-theme='dark'] .profile-handle {
+  color: #2dd4bf;
+}
+
+.profile-caret {
+  width: 8px;
+  height: 8px;
+  border-right: 1.8px solid currentColor;
+  border-bottom: 1.8px solid currentColor;
+  transform: rotate(45deg);
+  color: var(--muted);
+  margin-right: 2px;
+  transition: transform 0.18s ease;
+}
+
+.profile-caret.open {
+  transform: rotate(225deg);
+}
+
+.profile-dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 220;
+  min-width: 240px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16);
+}
+
+body[data-theme='dark'] .profile-dropdown {
+  background: #0f172a;
+}
+
+.dropdown-profile {
   display: flex;
   align-items: center;
+  gap: 12px;
+  padding: 10px 10px 12px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.dropdown-copy {
+  min-width: 0;
+}
+
+.dropdown-name,
+.dropdown-meta {
+  margin: 0;
+}
+
+.dropdown-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.dropdown-meta {
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 40px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+.menu-item:hover {
+  background: rgba(240, 68, 56, 0.08);
+  color: var(--danger-500);
+}
+
+.menu-enter-active,
+.menu-leave-active {
+  transition: opacity 0.16s ease, transform 0.16s ease;
+}
+
+.menu-enter-from,
+.menu-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+@media (max-width: 900px) {
+  .topbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .topbar-copy,
+  .topbar-actions {
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 680px) {
+  .topbar-copy,
+  .topbar-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .topbar-copy {
+    gap: 12px;
+  }
+
+  .topbar-actions {
+    flex-direction: row;
+    justify-content: space-between;
+  }
+
+  .profile-trigger {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .profile-dropdown {
+    left: 0;
+    right: 0;
+  }
 }
 </style>

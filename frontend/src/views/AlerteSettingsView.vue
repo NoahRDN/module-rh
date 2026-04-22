@@ -1,23 +1,23 @@
 <template>
   <div class="rh-page alerte-settings-page">
-    <section class="rh-hero">
-      <div class="rh-hero-copy">
-        <p class="rh-hero-kicker">Monitoring rules</p>
+    <section class="rh-hero hero hero-band hero-shared">
+      <div class="rh-hero-copy hero-copy">
+        <p class="rh-hero-kicker hero-kicker">Monitoring rules</p>
         <h1>Paramètres d'alertes</h1>
-        <p class="rh-hero-subtitle">
+        <p class="rh-hero-subtitle hero-subtitle">
           Ajustez les seuils, les fenêtres d’analyse et les niveaux de criticité avec la même
           structure visuelle que les autres pages de pilotage RH.
         </p>
 
-        <div class="rh-hero-pills">
+        <div class="rh-hero-pills hero-pills">
           <span class="pill">Règles actives</span>
           <span class="pill">Seuils métier</span>
           <span class="pill">Criticité</span>
         </div>
       </div>
 
-      <div class="rh-hero-actions">
-        <div class="rh-panel">
+      <div class="rh-hero-actions hero-actions">
+        <div class="rh-panel filters-panel">
           <div class="rh-action-row">
             <button class="btn btn-secondary" @click="loadSettings">
               <AppIcon name="refresh" :size="18" />
@@ -29,12 +29,12 @@
             </button>
           </div>
 
-          <div class="rh-hero-meta-list">
-            <p class="rh-hero-meta">
+          <div class="rh-hero-meta-list hero-meta-list">
+            <p class="rh-hero-meta hero-meta">
               Règles actives:
               <strong>{{ activeCount }}</strong>
             </p>
-            <p class="rh-hero-meta">
+            <p class="rh-hero-meta hero-meta">
               Alertes remontées:
               <strong>{{ alertes.length }}</strong>
             </p>
@@ -272,6 +272,8 @@ const getSeuilJoursHint = (code) => {
     fin_contrat: 'Jours avant expiration du contrat',
     conge_en_attente: "Délai d'attente avant alerte",
     conge_proche: 'Jours avant début du congé',
+    ferie_proche: 'Jours avant le jour férié',
+    evenement_rh_proche: "Jours avant l'événement RH",
   }
   return hints[code] || 'Nombre de jours'
 }
@@ -293,6 +295,8 @@ const formatType = (type) => {
     absences_exceptionnelles: 'Absences',
     conge_en_attente: 'Demande',
     conge_proche: 'Congé urgent',
+    ferie_proche: 'Férié proche',
+    evenement_rh_proche: 'Événement RH',
   }
   return types[type] || type
 }

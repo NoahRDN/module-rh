@@ -1,23 +1,23 @@
 <template>
   <div class="rh-page feries-page">
-    <section class="rh-hero">
-      <div class="rh-hero-copy">
-        <p class="rh-hero-kicker">Legal calendar</p>
+    <section class="rh-hero hero hero-band hero-shared">
+      <div class="rh-hero-copy hero-copy">
+        <p class="rh-hero-kicker hero-kicker">Legal calendar</p>
         <h1>Jours fériés</h1>
-        <p class="rh-hero-subtitle">
+        <p class="rh-hero-subtitle hero-subtitle">
           Maintenez le calendrier légal utilisé par les absences, la présence et les calculs de paie
           dans une vue alignée avec le reste du module RH.
         </p>
 
-        <div class="rh-hero-pills">
+        <div class="rh-hero-pills hero-pills">
           <span class="pill">Calendrier légal</span>
           <span class="pill">Base paie</span>
           <span class="pill">Référentiel présence</span>
         </div>
       </div>
 
-      <div class="rh-hero-actions">
-        <div class="rh-panel">
+      <div class="rh-hero-actions hero-actions">
+        <div class="rh-panel filters-panel">
           <div class="rh-action-row">
             <button class="btn btn-secondary" @click="fetchFeries" :disabled="loading">
               <AppIcon name="refresh" :size="18" />
@@ -29,12 +29,12 @@
             </RouterLink>
           </div>
 
-          <div class="rh-hero-meta-list">
-            <p class="rh-hero-meta">
+          <div class="rh-hero-meta-list hero-meta-list">
+            <p class="rh-hero-meta hero-meta">
               Total calendrier:
               <strong>{{ formatInteger(feries.length) }}</strong>
             </p>
-            <p class="rh-hero-meta">
+            <p class="rh-hero-meta hero-meta">
               Dernière synchro:
               <strong>{{ lastSyncedLabel }}</strong>
             </p>

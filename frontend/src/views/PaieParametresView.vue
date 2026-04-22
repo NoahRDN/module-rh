@@ -1,6 +1,6 @@
 <template>
   <div class="payroll-settings-page">
-    <section class="hero">
+    <section class="hero hero-band hero-shared">
       <div class="hero-copy">
         <p class="hero-kicker">Payroll settings</p>
         <h1>Paramètres paie</h1>
@@ -17,26 +17,30 @@
       </div>
 
       <div class="hero-actions">
-        <div v-if="status.text" class="status-banner" :class="status.type">
-          <span class="status-dot"></span>
-          <span>{{ status.text }}</span>
-        </div>
+        <div class="filters-panel">
+          <div v-if="status.text" class="status-banner" :class="status.type">
+            <span class="status-dot"></span>
+            <span>{{ status.text }}</span>
+          </div>
 
-        <div class="action-row">
-          <button class="btn btn-secondary" type="button" @click="reload" :disabled="loading || saving">
-            <AppIcon name="refresh" :size="18" />
-            <span>Reload</span>
-          </button>
-          <button class="btn" type="button" @click="save" :disabled="loading || saving || !hasChanges">
-            <AppIcon name="save" :size="18" />
-            <span>{{ saving ? 'Saving...' : 'Save changes' }}</span>
-          </button>
-        </div>
+          <div class="action-row">
+            <button class="btn btn-secondary" type="button" @click="reload" :disabled="loading || saving">
+              <AppIcon name="refresh" :size="18" />
+              <span>Reload</span>
+            </button>
+            <button class="btn" type="button" @click="save" :disabled="loading || saving || !hasChanges">
+              <AppIcon name="save" :size="18" />
+              <span>{{ saving ? 'Saving...' : 'Save changes' }}</span>
+            </button>
+          </div>
 
-        <p class="hero-meta">
-          Dernière synchro:
-          <strong>{{ lastSyncedLabel }}</strong>
-        </p>
+          <div class="hero-meta-list">
+            <p class="hero-meta">
+              Dernière synchro:
+              <strong>{{ lastSyncedLabel }}</strong>
+            </p>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -698,28 +702,6 @@ onMounted(() => {
   padding-bottom: 110px;
 }
 
-.hero {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 18px;
-  padding: 28px;
-  border: 1px solid rgba(79, 70, 229, 0.14);
-  border-radius: 30px;
-  background:var(--purple-100);
-  box-shadow: var(--shadow-lg);
-}
-
-body[data-theme='dark'] .hero {
-  background:
-    linear-gradient(135deg, rgba(79, 70, 229, 0.18), rgba(15, 23, 42, 0)),
-    rgba(15, 23, 42, 0.88);
-}
-
-.hero-copy {
-  max-width: 740px;
-}
-
 .hero-kicker,
 .section-kicker,
 .metric-label,
@@ -729,59 +711,6 @@ body[data-theme='dark'] .hero {
 .new-row-subtitle,
 .savebar-subtitle {
   margin: 0;
-}
-
-.hero-kicker,
-.section-kicker {
-  color: var(--brand-600);
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.hero h1,
-.section-heading h2 {
-  margin: 8px 0 0;
-  font-weight: 800;
-  letter-spacing: -0.04em;
-}
-
-.hero h1 {
-  font-size: clamp(2rem, 3vw, 2.9rem);
-}
-
-.hero-subtitle {
-  margin: 12px 0 0;
-  max-width: 680px;
-  color: var(--muted);
-  font-size: 1rem;
-  line-height: 1.7;
-}
-
-.hero-pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 18px;
-}
-
-.hero-actions {
-  display: flex;
-  min-width: 280px;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 12px;
-}
-
-.action-row {
-  display: flex;
-  gap: 10px;
-}
-
-.hero-meta {
-  color: var(--muted);
-  font-size: 0.86rem;
 }
 
 .status-banner {
@@ -1294,25 +1223,6 @@ body[data-theme='dark'] .savebar {
 }
 
 @media (max-width: 860px) {
-  .hero {
-    padding: 22px;
-  }
-
-  .hero-actions {
-    align-items: stretch;
-    width: 100%;
-  }
-
-  .action-row,
-  .savebar-actions {
-    width: 100%;
-  }
-
-  .action-row > *,
-  .savebar-actions > * {
-    flex: 1;
-  }
-
   .fields-grid,
   .new-row-grid,
   .overview-grid {

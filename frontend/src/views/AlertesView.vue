@@ -1,24 +1,26 @@
 <template>
   <div class="rh-page alertes-page">
-    <section class="rh-hero">
-      <div class="rh-hero-copy">
-        <p class="rh-hero-kicker">Continuous monitoring</p>
+    <section class="rh-hero hero hero-band hero-shared">
+      <div class="rh-hero-copy hero-copy">
+        <p class="rh-hero-kicker hero-kicker">Continuous monitoring</p>
         <h1>Alertes automatiques</h1>
-        <p class="rh-hero-subtitle">
-          Surveillez les demandes de congé, les absences répétées, les fins de contrat et les soldes à
-          traiter dans une vue plus cohérente avec le reste du module RH.
+        <p class="rh-hero-subtitle hero-subtitle">
+          Surveillez les demandes de congé, les absences répétées, les fins de contrat, les jours
+          fériés proches et les événements RH à venir dans une vue plus cohérente avec le reste du
+          module RH.
         </p>
 
-        <div class="rh-hero-pills">
+        <div class="rh-hero-pills hero-pills">
           <span class="pill">{{ stats.total }} alertes</span>
           <span class="pill green">{{ stats.conges }} congés</span>
           <span class="pill">{{ stats.contrats }} contrats</span>
+          <span class="pill">{{ stats.calendrier }} calendrier</span>
           <span class="pill red">{{ stats.critiques }} critiques</span>
         </div>
       </div>
 
-      <div class="rh-hero-actions">
-        <div class="rh-panel">
+      <div class="rh-hero-actions hero-actions">
+        <div class="rh-panel filters-panel">
           <div class="rh-action-row">
             <button class="btn btn-secondary" @click="fetchAlertes">
               <AppIcon name="refresh" :size="18" />
@@ -30,12 +32,12 @@
             </RouterLink>
           </div>
 
-          <div class="rh-hero-meta-list">
-            <p class="rh-hero-meta">
+          <div class="rh-hero-meta-list hero-meta-list">
+            <p class="rh-hero-meta hero-meta">
               Alertes critiques:
               <strong>{{ stats.critiques }}</strong>
             </p>
-            <p class="rh-hero-meta">
+            <p class="rh-hero-meta hero-meta">
               Catégories actives:
               <strong>{{ activeSections }}</strong>
             </p>
@@ -68,7 +70,7 @@
             <p class="rh-section-copy">{{ section.copy }}</p>
 
             <div class="timeline" v-if="section.items.length">
-              <div v-for="item in section.items" :key="section.key + (item.demande_id || item.contrat_id || item.employe_id || item.type)" class="timeline-item">
+              <div v-for="item in section.items" :key="section.key + (item.demande_id || item.contrat_id || item.evenement_id || item.employe_id || item.date_debut || item.type)" class="timeline-item">
                 <div class="bullet" :class="levelClass(item.level)"></div>
                 <div class="timeline-copy">
                   <div class="timeline-top">
@@ -79,7 +81,9 @@
                   <div class="meta">
                     <span v-if="item.demande_id">Demande #{{ item.demande_id }}</span>
                     <span v-if="item.contrat_id">Contrat #{{ item.contrat_id }}</span>
+                    <span v-if="item.evenement_id">Événement #{{ item.evenement_id }}</span>
                     <span v-if="item.date_fin">Fin le {{ item.date_fin }}</span>
+                    <span v-if="item.date_debut">Prévu le {{ item.date_debut }}</span>
                     <span v-if="item.solde">Solde {{ item.solde }} jours</span>
                     <span class="type-tag">{{ formatType(item.type) }}</span>
                   </div>
@@ -98,6 +102,14 @@
                     :to="{ name: 'contrat-detail', params: { id: item.contrat_id } }"
                   >
                     Ouvrir le contrat
+                  </RouterLink>
+
+                  <RouterLink
+                    v-else-if="item.type === 'ferie_proche' || item.type === 'evenement_rh_proche'"
+                    class="link"
+                    to="/calendrier-evenements"
+                  >
+                    Ouvrir le calendrier
                   </RouterLink>
                 </div>
               </div>
@@ -175,9 +187,10 @@ const stats = computed(() => {
   const conges = alertesFiltrees(['conge_en_attente', 'conge_proche']).length
   const absences = alertesFiltrees(['absences_maladie', 'absences_exceptionnelles']).length
   const contrats = alertesFiltrees(['fin_contrat']).length
+  const calendrier = alertesFiltrees(['ferie_proche', 'evenement_rh_proche']).length
   const soldes = alertesFiltrees(['conges_non_pris']).length
   const critiques = alertes.value.filter((item) => item.level === 'danger').length
-  return { total, conges, absences, contrats, soldes, critiques }
+  return { total, conges, absences, contrats, calendrier, soldes, critiques }
 })
 
 const alertSections = computed(() => [
@@ -208,6 +221,13 @@ const alertSections = computed(() => [
     title: 'Congés non pris',
     copy: 'Repérage des soldes à arbitrer avant clôture de période.',
     items: alertesFiltrees(['conges_non_pris']),
+  },
+  {
+    key: 'calendrier',
+    kicker: 'Calendrier',
+    title: 'Fériés et événements RH proches',
+    copy: 'Signaux à venir visibles en amont pour préparer la communication et l’organisation.',
+    items: alertesFiltrees(['ferie_proche', 'evenement_rh_proche']),
   },
 ])
 
@@ -269,10 +289,10 @@ const overviewCards = computed(() => [
     tag: 'Sections',
   },
   {
-    label: 'Priorité dominante',
-    value: stats.value.critiques ? 'Critique' : stats.value.total ? 'Surveillance' : 'Stable',
-    copy: 'Lecture rapide du niveau de tension RH.',
-    tag: 'State',
+    label: 'Signaux calendrier',
+    value: stats.value.calendrier,
+    copy: 'Fériés proches et événements RH à venir.',
+    tag: 'Calendar',
   },
 ])
 
@@ -296,6 +316,8 @@ const formatType = (type) => {
     absences_exceptionnelles: 'Absences',
     conge_en_attente: 'Demande',
     conge_proche: 'Congé urgent',
+    ferie_proche: 'Férié proche',
+    evenement_rh_proche: 'Événement RH',
   }
   return types[type] || type
 }

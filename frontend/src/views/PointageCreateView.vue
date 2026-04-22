@@ -1,41 +1,84 @@
 <template>
-  <div class="max-w-3xl mx-auto space-y-4">
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-2xl font-semibold">Ajouter un pointage</h1>
-        <p class="text-sm text-slate-500">Entrée, sortie ou pause</p>
-      </div>
-      <RouterLink class="btn btn-secondary" to="/pointages">← Retour</RouterLink>
-    </div>
+  <div class="create-page">
+    <section class="hero hero-band hero-shared hero-compact">
+      <div class="hero-copy">
+        <p class="hero-kicker">Attendance tracking</p>
+        <h1>Nouveau pointage</h1>
+        <p class="hero-subtitle">Ajoutez une entree/sortie ou un pointage de pause pour un employe.</p>
 
-    <div class="card">
-      <form class="grid gap-3" @submit.prevent="createPointage">
-        <div class="grid gap-1">
-          <label class="text-sm text-slate-400">Employé</label>
+        <div class="hero-pills">
+          <span class="pill">Employe</span>
+          <span class="pill">Type</span>
+          <span class="pill">Horodatage</span>
+        </div>
+      </div>
+
+      <div class="hero-actions">
+        <div class="filters-panel">
+          <div class="action-row">
+            <RouterLink class="btn btn-secondary" to="/pointages">Retour</RouterLink>
+            <button class="btn" type="button" @click="createPointage" :disabled="saving">
+              {{ saving ? 'Enregistrement...' : 'Enregistrer' }}
+            </button>
+          </div>
+
+          <div v-if="message" class="status-banner danger">
+            <span class="status-dot"></span>
+            <span>{{ message }}</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card section-card">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">Punch form</p>
+          <h2>Informations</h2>
+        </div>
+        <span class="section-chip">Creation</span>
+      </div>
+
+      <form class="fields-grid" @submit.prevent="createPointage">
+        <label class="field-card full">
+          <span class="field-label">Employe</span>
           <select class="select" v-model="form.employe_id" required>
-            <option value="">Employé</option>
+            <option value="">Selectionner</option>
             <option v-for="emp in employes" :key="emp.id" :value="emp.id">{{ emp.matricule }} - {{ emp.nom }}</option>
           </select>
-        </div>
-        <div class="grid gap-1">
-          <label class="text-sm text-slate-400">Type</label>
+        </label>
+
+        <label class="field-card">
+          <span class="field-label">Type</span>
           <select class="select" v-model="form.type" required>
-            <option value="entree">Entrée</option>
+            <option value="entree">Entree</option>
             <option value="sortie">Sortie</option>
-            <option value="pause_debut">Pause début</option>
+            <option value="pause_debut">Pause debut</option>
             <option value="pause_fin">Pause fin</option>
           </select>
-        </div>
-        <div class="grid gap-1">
-          <label class="text-sm text-slate-400">Date/heure</label>
+        </label>
+
+        <label class="field-card">
+          <span class="field-label">Date/heure</span>
           <input class="input" type="datetime-local" v-model="form.pointe_a" required />
+        </label>
+
+        <label class="field-card">
+          <span class="field-label">Source</span>
+          <input class="input" v-model="form.source" placeholder="Badgeuse, manuel..." />
+        </label>
+
+        <label class="field-card full">
+          <span class="field-label">Commentaire</span>
+          <input class="input" v-model="form.commentaire" placeholder="Commentaire" />
+        </label>
+
+        <div class="submit-row">
+          <button class="btn" type="submit" :disabled="saving">{{ saving ? 'Enregistrement...' : 'Enregistrer' }}</button>
+          <RouterLink class="btn btn-secondary" to="/pointages">Annuler</RouterLink>
         </div>
-        <input class="input" v-model="form.source" placeholder="Source (badgeuse, manuel...)" />
-        <input class="input" v-model="form.commentaire" placeholder="Commentaire" />
-        <button class="btn" type="submit">Enregistrer</button>
-        <p class="muted" v-if="message">{{ message }}</p>
       </form>
-    </div>
+    </section>
   </div>
 </template>
 
@@ -47,6 +90,7 @@ import api from '../services/api'
 const router = useRouter()
 const employes = ref([])
 const message = ref('')
+const saving = ref(false)
 
 const form = ref({
   employe_id: '',
@@ -62,11 +106,15 @@ const fetchEmployes = async () => {
 }
 
 const createPointage = async () => {
+  if (saving.value) return
+  saving.value = true
   try {
     await api.post('/v1/pointages', form.value)
     router.push('/pointages')
   } catch (e) {
     message.value = e.response?.data?.message || 'Erreur lors de l’enregistrement'
+  } finally {
+    saving.value = false
   }
 }
 

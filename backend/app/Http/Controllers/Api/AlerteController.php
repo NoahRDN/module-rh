@@ -4,9 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\AlerteSetting;
+use App\Models\CalendrierEvenement;
 use App\Models\Contrat;
 use App\Models\DemandeConge;
-use App\Models\SoldeConge;
+use App\Models\JourFerie;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
@@ -18,23 +19,26 @@ class AlerteController extends Controller
         try {
             $alerts = [];
             $now = Carbon::now();
+            $today = $now->copy()->startOfDay();
 
-            // Charger tous les paramètres d'alertes actifs
-            $settings = AlerteSetting::where('actif', true)->get()->keyBy('code');
+            // Charger tous les paramètres pour permettre un fallback par défaut si certains codes manquent.
+            $settings = AlerteSetting::query()->get()->keyBy('code');
 
             // 1. Alertes de fin de contrat
-            if ($settings->has('fin_contrat')) {
-                $setting = $settings->get('fin_contrat');
+            if ($setting = $this->resolveSetting($settings, 'fin_contrat', [
+                'seuil_jours' => 30,
+                'niveau' => 'warning',
+            ])) {
                 $seuilJours = $setting->seuil_jours ?? 30;
                 
                 $contratsExpirants = Contrat::with('employe')
                     ->whereNotNull('date_fin')
-                    ->whereDate('date_fin', '<=', $now->copy()->addDays($seuilJours))
-                    ->whereDate('date_fin', '>=', $now)
+                    ->whereDate('date_fin', '<=', $today->copy()->addDays($seuilJours)->toDateString())
+                    ->whereDate('date_fin', '>=', $today->toDateString())
                     ->get();
                 
                 foreach ($contratsExpirants as $contrat) {
-                    $joursRestants = $now->diffInDays($contrat->date_fin);
+                    $joursRestants = $today->diffInDays($contrat->date_fin->copy()->startOfDay());
                     $alerts[] = [
                         'type' => 'fin_contrat',
                         'level' => $joursRestants <= 7 ? 'danger' : $setting->niveau,
@@ -47,8 +51,10 @@ class AlerteController extends Controller
             }
 
             // 2. Congés non pris
-            if ($settings->has('conges_non_pris')) {
-                $setting = $settings->get('conges_non_pris');
+            if ($setting = $this->resolveSetting($settings, 'conges_non_pris', [
+                'seuil_nombre' => 15,
+                'niveau' => 'info',
+            ])) {
                 $seuilJours = $setting->seuil_nombre ?? 15;
                 
                 // Utiliser la vue solde_conges si elle existe
@@ -72,8 +78,10 @@ class AlerteController extends Controller
             }
 
             // 3. Demandes en attente depuis X heures
-            if ($settings->has('conge_en_attente')) {
-                $setting = $settings->get('conge_en_attente');
+            if ($setting = $this->resolveSetting($settings, 'conge_en_attente', [
+                'seuil_jours' => 2,
+                'niveau' => 'warning',
+            ])) {
                 $seuilHeures = ($setting->seuil_jours ?? 2) * 24;
                 
                 $pending = DemandeConge::with('employe')
@@ -87,25 +95,22 @@ class AlerteController extends Controller
                         'level' => $setting->niveau,
                         'message' => "Demande en attente >{$seuilHeures}h pour {$d->employe?->nom} {$d->employe?->prenom}",
                         'demande_id' => $d->id,
-                        'employe' => $d->employe ? [
-                            'id' => $d->employe->id,
-                            'matricule' => $d->employe->matricule,
-                            'nom' => $d->employe->nom,
-                            'prenom' => $d->employe->prenom,
-                        ] : null,
+                        'employe' => $this->employePayload($d->employe),
                     ];
                 }
             }
 
             // 4. Congés qui commencent bientôt mais non validés
-            if ($settings->has('conge_proche')) {
-                $setting = $settings->get('conge_proche');
+            if ($setting = $this->resolveSetting($settings, 'conge_proche', [
+                'seuil_jours' => 2,
+                'niveau' => 'danger',
+            ])) {
                 $seuilJours = $setting->seuil_jours ?? 2;
                 
                 $startingSoon = DemandeConge::with('employe')
                     ->whereNot('statut', 'rh_valide')
-                    ->whereDate('date_debut', '<=', $now->copy()->addDays($seuilJours)->toDateString())
-                    ->whereDate('date_debut', '>=', $now->toDateString())
+                    ->whereDate('date_debut', '<=', $today->copy()->addDays($seuilJours)->toDateString())
+                    ->whereDate('date_debut', '>=', $today->toDateString())
                     ->get();
                 
                 foreach ($startingSoon as $d) {
@@ -114,19 +119,17 @@ class AlerteController extends Controller
                         'level' => $setting->niveau,
                         'message' => "Le congé de {$d->employe?->nom} {$d->employe?->prenom} débute bientôt et n'est pas validé",
                         'demande_id' => $d->id,
-                        'employe' => $d->employe ? [
-                            'id' => $d->employe->id,
-                            'matricule' => $d->employe->matricule,
-                            'nom' => $d->employe->nom,
-                            'prenom' => $d->employe->prenom,
-                        ] : null,
+                        'employe' => $this->employePayload($d->employe),
                     ];
                 }
             }
 
             // 5. Absences maladie fréquentes
-            if ($settings->has('absences_maladie')) {
-                $setting = $settings->get('absences_maladie');
+            if ($setting = $this->resolveSetting($settings, 'absences_maladie', [
+                'seuil_nombre' => 4,
+                'periode_jours' => 60,
+                'niveau' => 'warning',
+            ])) {
                 $seuilNombre = $setting->seuil_nombre ?? 4;
                 $periodeJours = $setting->periode_jours ?? 60;
                 
@@ -147,20 +150,18 @@ class AlerteController extends Controller
                             'level' => $setting->niveau,
                             'message' => "{$emp?->nom} {$emp?->prenom} a {$list->count()} congés maladie sur {$periodeJours} jours",
                             'employe_id' => $empId,
-                            'employe' => $emp ? [
-                                'id' => $emp->id,
-                                'matricule' => $emp->matricule,
-                                'nom' => $emp->nom,
-                                'prenom' => $emp->prenom,
-                            ] : null,
+                            'employe' => $this->employePayload($emp),
                         ];
                     }
                 }
             }
 
             // 6. Congés exceptionnels fréquents
-            if ($settings->has('absences_exceptionnelles')) {
-                $setting = $settings->get('absences_exceptionnelles');
+            if ($setting = $this->resolveSetting($settings, 'absences_exceptionnelles', [
+                'seuil_nombre' => 3,
+                'periode_jours' => 90,
+                'niveau' => 'warning',
+            ])) {
                 $seuilNombre = $setting->seuil_nombre ?? 3;
                 $periodeJours = $setting->periode_jours ?? 90;
                 
@@ -181,14 +182,89 @@ class AlerteController extends Controller
                             'level' => $setting->niveau,
                             'message' => "{$emp?->nom} {$emp?->prenom} a {$list->count()} congés exceptionnels sur {$periodeJours} jours",
                             'employe_id' => $empId,
-                            'employe' => $emp ? [
-                                'id' => $emp->id,
-                                'matricule' => $emp->matricule,
-                                'nom' => $emp->nom,
-                                'prenom' => $emp->prenom,
-                            ] : null,
+                            'employe' => $this->employePayload($emp),
                         ];
                     }
+                }
+            }
+
+            // 7. Jours fériés proches
+            if ($setting = $this->resolveSetting($settings, 'ferie_proche', [
+                'seuil_jours' => 7,
+                'niveau' => 'info',
+            ])) {
+                $seuilJours = $setting->seuil_jours ?? 7;
+                $until = $today->copy()->addDays($seuilJours);
+
+                $feriesPonctuels = JourFerie::query()
+                    ->where('recurrent', false)
+                    ->whereDate('date', '>=', $today->toDateString())
+                    ->whereDate('date', '<=', $until->toDateString())
+                    ->get();
+
+                foreach ($feriesPonctuels as $ferie) {
+                    $joursRestants = $today->diffInDays($ferie->date->copy()->startOfDay());
+                    $alerts[] = [
+                        'type' => 'ferie_proche',
+                        'level' => $this->proximityLevel($setting->niveau, $joursRestants),
+                        'message' => "Jour férié \"{$ferie->nom}\" dans {$joursRestants} jour(s)",
+                        'date_debut' => $ferie->date->format('Y-m-d'),
+                        'description' => $ferie->nom,
+                    ];
+                }
+
+                $feriesRecurrents = JourFerie::query()
+                    ->where('recurrent', true)
+                    ->get();
+
+                foreach ($feriesRecurrents as $ferie) {
+                    $occurrence = $this->nextRecurringOccurrence($ferie->date, $today);
+                    if (!$occurrence || $occurrence->gt($until)) {
+                        continue;
+                    }
+
+                    $joursRestants = $today->diffInDays($occurrence->copy()->startOfDay());
+                    $alerts[] = [
+                        'type' => 'ferie_proche',
+                        'level' => $this->proximityLevel($setting->niveau, $joursRestants),
+                        'message' => "Jour férié \"{$ferie->nom}\" dans {$joursRestants} jour(s)",
+                        'date_debut' => $occurrence->format('Y-m-d'),
+                        'description' => $ferie->nom,
+                    ];
+                }
+            }
+
+            // 8. Événements RH proches
+            if ($setting = $this->resolveSetting($settings, 'evenement_rh_proche', [
+                'seuil_jours' => 7,
+                'niveau' => 'warning',
+            ])) {
+                $seuilJours = $setting->seuil_jours ?? 7;
+
+                $rhEvents = CalendrierEvenement::with('employe')
+                    ->where('type', 'rh')
+                    ->whereDate('date_debut', '>=', $today->toDateString())
+                    ->whereDate('date_debut', '<=', $today->copy()->addDays($seuilJours)->toDateString())
+                    ->orderBy('date_debut')
+                    ->get();
+
+                foreach ($rhEvents as $event) {
+                    $joursRestants = $today->diffInDays($event->date_debut->copy()->startOfDay());
+                    $eventLabel = $event->description ?: 'Événement RH';
+                    $targetLabel = $event->employe
+                        ? " pour {$event->employe->nom} {$event->employe->prenom}"
+                        : '';
+
+                    $alerts[] = [
+                        'type' => 'evenement_rh_proche',
+                        'level' => $this->proximityLevel($setting->niveau, $joursRestants),
+                        'message' => "Événement RH \"{$eventLabel}\" prévu{$targetLabel} dans {$joursRestants} jour(s)",
+                        'evenement_id' => $event->id,
+                        'date_debut' => $event->date_debut->format('Y-m-d'),
+                        'description' => $eventLabel,
+                        'employe_id' => $event->employe_id,
+                        'employe' => $this->employePayload($event->employe),
+                    ];
                 }
             }
 
@@ -203,5 +279,70 @@ class AlerteController extends Controller
             Log::error('Erreur generation alertes', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return response()->json(['message' => 'Erreur serveur'], 500);
         }
+    }
+
+    private function resolveSetting($settings, string $code, array $defaults): ?object
+    {
+        if ($settings->has($code)) {
+            $setting = $settings->get($code);
+            return $setting->actif ? $setting : null;
+        }
+
+        return (object) array_merge([
+            'code' => $code,
+            'seuil_jours' => null,
+            'seuil_nombre' => null,
+            'periode_jours' => null,
+            'niveau' => 'warning',
+            'actif' => true,
+        ], $defaults);
+    }
+
+    private function employePayload($employe): ?array
+    {
+        if (!$employe) {
+            return null;
+        }
+
+        return [
+            'id' => $employe->id,
+            'matricule' => $employe->matricule,
+            'nom' => $employe->nom,
+            'prenom' => $employe->prenom,
+        ];
+    }
+
+    private function proximityLevel(?string $baseLevel, int $days): string
+    {
+        if ($days <= 1) {
+            return 'danger';
+        }
+
+        if ($days <= 3 && $baseLevel === 'info') {
+            return 'warning';
+        }
+
+        return $baseLevel ?: 'warning';
+    }
+
+    private function nextRecurringOccurrence(Carbon $template, Carbon $reference): ?Carbon
+    {
+        $referenceStart = $reference->copy()->startOfDay();
+
+        foreach ([$referenceStart->year, $referenceStart->year + 1] as $year) {
+            try {
+                $candidate = Carbon::createFromDate($year, (int) $template->format('m'), (int) $template->format('d'));
+            } catch (\Throwable $e) {
+                continue;
+            }
+
+            if ($candidate->lt($referenceStart)) {
+                continue;
+            }
+
+            return $candidate->startOfDay();
+        }
+
+        return null;
     }
 }

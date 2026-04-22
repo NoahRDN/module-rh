@@ -50,7 +50,25 @@ if [[ -f .env ]] && ! grep -qE '^APP_KEY=base64:' .env; then
   run_as_app php artisan key:generate
 fi
 
-# 6) Run the container command as app
+# 6) Optional database bootstrap for Docker development
+fresh_db=0
+if [[ "${RUN_SEEDERS_ON_FRESH_DB:-false}" == "true" ]]; then
+  if ! run_as_app php artisan migrate:status >/dev/null 2>&1; then
+    fresh_db=1
+  fi
+fi
+
+if [[ "${RUN_MIGRATIONS:-false}" == "true" ]]; then
+  run_as_app php artisan migrate --force
+fi
+
+if [[ "${RUN_SEEDERS:-false}" == "true" ]]; then
+  run_as_app php artisan db:seed --force
+elif [[ "${RUN_SEEDERS_ON_FRESH_DB:-false}" == "true" && "${fresh_db}" == "1" ]]; then
+  run_as_app php artisan db:seed --force
+fi
+
+# 7) Run the container command as app
 if [[ "$(id -u)" -eq 0 ]] && command -v gosu >/dev/null 2>&1; then
   exec gosu app "$@"
 fi

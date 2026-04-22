@@ -19,6 +19,77 @@ git clone <votre-url> module-rh
 cd module-rh
 ```
 
+## Démarrage avec Docker (recommandé)
+Prérequis : Docker Desktop (ou Docker Engine) + le plugin `docker compose`.
+
+### Nom du “stack” (project name)
+Le nom est défini par `COMPOSE_PROJECT_NAME` dans `.env` (à la racine). Pour le modifier, changez cette valeur, puis relancez.
+Astuce : si vous aviez déjà lancé l'ancien nom, il faut arrêter avec l'ancien project name, ex : `docker compose -p ancien_nom down`.
+
+### Lancer backend + frontend + PostgreSQL
+À la racine du dépôt :
+```bash
+docker compose up --build
+```
+
+Pour lancer en arrière-plan lors d'une relance classique du projet :
+```bash
+docker compose up -d
+```
+
+Ensuite :
+- API : `http://localhost:8000/api`
+- Frontend : `http://localhost:5173`
+
+Note :
+- Le frontend Vite est exposé sur `5173` et non `5473`.
+- Si `http://localhost:5173` retourne `ERR_CONNECTION_REFUSED`, vérifiez d'abord les ports publiés :
+  ```bash
+  docker compose ps
+  ```
+- La ligne du service `frontend` doit contenir `0.0.0.0:5173->5173/tcp`. Si ce port n'apparaît pas, recréez le conteneur frontend :
+  ```bash
+  docker compose up -d --force-recreate frontend
+  ```
+- Pour vérifier que Vite tourne bien dans le conteneur :
+  ```bash
+  docker compose logs --tail=50 frontend
+  ```
+
+### Initialiser la base (premier lancement)
+Dans un autre terminal :
+```bash
+docker compose exec backend php artisan migrate
+docker compose exec backend php artisan db:seed
+docker compose exec backend php artisan storage:link
+```
+
+Remarque :
+- `php artisan db:seed` est à lancer sur une base vide pour créer les données de démonstration et les comptes de connexion par défaut.
+- Si vous conservez les volumes Docker entre deux relances, il n'est généralement pas nécessaire de reseed.
+
+### Comptes de connexion de démonstration
+Après le seeding, l'écran de connexion accepte les comptes suivants.
+
+Le champ `Identifiant` correspond à l'email du compte :
+
+| Rôle | Identifiant | Mot de passe |
+| --- | --- | --- |
+| Admin | `admin@rh.test` | `password` |
+| RH | `rh@rh.test` | `password` |
+| Manager | `manager@rh.test` | `password` |
+
+Note :
+- Des comptes employés supplémentaires sont aussi générés par le seeder, avec des emails aléatoires.
+- Leur mot de passe par défaut est `password` sauf si la variable d'environnement `DEFAULT_USER_PASSWORD` a été modifiée.
+
+### Arrêter / repartir de zéro
+```bash
+docker compose down
+docker compose down -v   # supprime aussi les volumes (Postgres, vendor, storage, node_modules)
+```
+
+## Démarrage manuel
 ### 1. Initialiser l'API Laravel (`backend/`)
 ```bash
 cd backend
@@ -102,76 +173,6 @@ npm run build
 2. Construire la SPA : `cd frontend && npm run build`.
 3. Configurer l'environnement (`APP_URL`, `APP_ENV=production`, caches via `php artisan config:cache route:cache`, etc.).
 4. Assurez-vous d'exécuter `php artisan migrate --force` lors des mises à jour.
-
-## Docker (docker compose)
-Prérequis : Docker Desktop (ou Docker Engine) + le plugin `docker compose`.
-
-### Nom du “stack” (project name)
-Le nom est défini par `COMPOSE_PROJECT_NAME` dans `.env` (à la racine). Pour le modifier, changez cette valeur, puis relancez.
-Astuce : si vous aviez déjà lancé l'ancien nom, il faut arrêter avec l'ancien project name, ex : `docker compose -p ancien_nom down`.
-
-### Lancer backend + frontend + PostgreSQL
-À la racine du dépôt :
-```bash
-docker compose up --build
-```
-
-Pour lancer en arrière-plan lors d'une relance classique du projet :
-```bash
-docker compose up -d
-```
-
-Ensuite :
-- API : `http://localhost:8000/api`
-- Frontend : `http://localhost:5173`
-
-Note :
-- Le frontend Vite est exposé sur `5173` et non `5473`.
-- Si `http://localhost:5173` retourne `ERR_CONNECTION_REFUSED`, vérifiez d'abord les ports publiés :
-  ```bash
-  docker compose ps
-  ```
-- La ligne du service `frontend` doit contenir `0.0.0.0:5173->5173/tcp`. Si ce port n'apparaît pas, recréez le conteneur frontend :
-  ```bash
-  docker compose up -d --force-recreate frontend
-  ```
-- Pour vérifier que Vite tourne bien dans le conteneur :
-  ```bash
-  docker compose logs --tail=50 frontend
-  ```
-
-### Initialiser la base (premier lancement)
-Dans un autre terminal :
-```bash
-docker compose exec backend php artisan migrate
-docker compose exec backend php artisan db:seed
-docker compose exec backend php artisan storage:link
-```
-
-Remarque :
-- `php artisan db:seed` est à lancer sur une base vide pour créer les données de démonstration et les comptes de connexion par défaut.
-- Si vous conservez les volumes Docker entre deux relances, il n'est généralement pas nécessaire de reseed.
-
-### Comptes de connexion de démonstration
-Après le seeding, l'écran de connexion accepte les comptes suivants.
-
-Le champ `Identifiant` correspond à l'email du compte :
-
-| Rôle | Identifiant | Mot de passe |
-| --- | --- | --- |
-| Admin | `admin@rh.test` | `password` |
-| RH | `rh@rh.test` | `password` |
-| Manager | `manager@rh.test` | `password` |
-
-Note :
-- Des comptes employés supplémentaires sont aussi générés par le seeder, avec des emails aléatoires.
-- Leur mot de passe par défaut est `password` sauf si la variable d'environnement `DEFAULT_USER_PASSWORD` a été modifiée.
-
-### Arrêter / repartir de zéro
-```bash
-docker compose down
-docker compose down -v   # supprime aussi les volumes (Postgres, vendor, storage, node_modules)
-```
 
 ## Ressources supplémentaires
 - `backend/database/*.sql` : scripts PG pour créer la base `rh`, insérer les données métiers, vues, index et resynchroniser les séquences.

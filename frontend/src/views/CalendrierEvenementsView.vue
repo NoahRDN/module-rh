@@ -1,23 +1,23 @@
 <template>
   <div class="rh-page calendrier-page">
-    <section class="rh-hero">
-      <div class="rh-hero-copy">
-        <p class="rh-hero-kicker">Company calendar</p>
+    <section class="rh-hero hero hero-band hero-shared">
+      <div class="rh-hero-copy hero-copy">
+        <p class="rh-hero-kicker hero-kicker">Company calendar</p>
         <h1>Calendrier entreprise</h1>
-        <p class="rh-hero-subtitle">
+        <p class="rh-hero-subtitle hero-subtitle">
           Visualisez les congés, absences, jours fériés et événements RH dans une interface plus
           structurée, alignée avec le tableau de bord et les autres vues métier.
         </p>
 
-        <div class="rh-hero-pills">
+        <div class="rh-hero-pills hero-pills">
           <span class="pill">Vue mois</span>
           <span class="pill">Vue semaine</span>
           <span class="pill">Vue jour</span>
         </div>
       </div>
 
-      <div class="rh-hero-actions">
-        <div class="rh-panel">
+      <div class="rh-hero-actions hero-actions">
+        <div class="rh-panel filters-panel">
           <div class="rh-controls-grid filters-grid">
             <label class="rh-field-card">
               <span class="rh-field-label">Type</span>
@@ -45,9 +45,21 @@
             <button class="btn btn-secondary" @click="resetFilters">Réinitialiser</button>
             <button class="btn" @click="fetchEvents">Actualiser</button>
           </div>
+
+          <button type="button" class="btn create-event-btn" @click="openCreateModal">
+            <AppIcon name="plus" :size="18" />
+            <span>Nouvel événement RH</span>
+          </button>
         </div>
       </div>
     </section>
+
+    <p v-if="statusMessage" class="calendar-status-banner success">
+      {{ statusMessage }}
+    </p>
+    <p v-if="errorMessage" class="calendar-status-banner danger">
+      {{ errorMessage }}
+    </p>
 
     <section class="rh-metric-grid">
       <article v-for="metric in metricCards" :key="metric.label" class="rh-metric-card">
@@ -100,21 +112,25 @@
             v-for="cell in monthCells"
             :key="cell.dateStr"
             class="calendar-cell"
-            :class="{ today: cell.isToday, muted: cell.isOtherMonth }"
+            :class="{ today: cell.isToday, muted: cell.isOtherMonth, clickable: eventsByDate(cell.dateStr).length }"
+            @click="openDateDetails(cell.dateStr)"
           >
             <div class="cell-top">
               <span>{{ cell.day }}</span>
             </div>
 
             <div class="cell-events">
-              <div v-for="evt in eventsByDate(cell.dateStr)" :key="eventKey(evt)" class="event-pill" :class="badgeClass(evt.type)">
-                <template v-if="evt.type === 'ferie'">
-                  Férié · {{ evt.description || '—' }}
-                </template>
-                <template v-else>
-                  {{ formatType(evt.type) }} · {{ evt.employe?.matricule || 'RH' }}
-                  <span v-if="evt.meta?.type_conge_libelle"> · {{ evt.meta.type_conge_libelle }}</span>
-                </template>
+              <div
+                v-for="evt in monthPreviewEvents(cell.dateStr)"
+                :key="eventKey(evt)"
+                class="event-pill event-pill-compact"
+                :class="badgeClass(evt.type)"
+              >
+                <span class="event-pill-main">{{ monthEventLabel(evt) }}</span>
+              </div>
+
+              <div v-if="hiddenEventCount(cell.dateStr)" class="more-events-pill">
+                +{{ hiddenEventCount(cell.dateStr) }} autre<span v-if="hiddenEventCount(cell.dateStr) > 1">s</span>
               </div>
             </div>
           </div>
@@ -131,10 +147,17 @@
             </div>
 
             <div class="agenda-list" v-if="eventsByDate(day.dateStr).length">
-              <div v-for="evt in eventsByDate(day.dateStr)" :key="eventKey(evt)" class="event-pill agenda-pill" :class="badgeClass(evt.type)">
+              <button
+                v-for="evt in eventsByDate(day.dateStr)"
+                :key="eventKey(evt)"
+                type="button"
+                class="event-pill agenda-pill event-button"
+                :class="badgeClass(evt.type)"
+                @click="openDateDetails(day.dateStr)"
+              >
                 <span>{{ formatType(evt.type) }}</span>
-                <span>{{ evt.employe?.matricule || evt.description || 'Événement RH' }}</span>
-              </div>
+                <span>{{ compactEventLabel(evt) }}</span>
+              </button>
             </div>
 
             <div v-else class="rh-empty-state compact">
@@ -154,14 +177,20 @@
           </div>
 
           <div class="agenda-list" v-if="eventsByDate(formatDate(currentDate)).length">
-            <div v-for="evt in eventsByDate(formatDate(currentDate))" :key="eventKey(evt)" class="day-row">
+            <button
+              v-for="evt in eventsByDate(formatDate(currentDate))"
+              :key="eventKey(evt)"
+              type="button"
+              class="day-row event-detail-trigger"
+              @click="openDateDetails(formatDate(currentDate))"
+            >
               <div class="day-badge" :class="badgeClass(evt.type)">{{ formatType(evt.type) }}</div>
               <div class="day-copy">
-                <p>{{ evt.description || evt.meta?.type_conge_libelle || 'Événement RH' }}</p>
+                <p>{{ compactEventLabel(evt) }}</p>
                 <span>{{ evt.date_debut }} → {{ evt.date_fin }}</span>
               </div>
               <span class="chip">{{ evt.employe?.matricule || 'Global' }}</span>
-            </div>
+            </button>
           </div>
 
           <div v-else class="rh-empty-state compact">
@@ -214,27 +243,154 @@
         </div>
       </aside>
     </section>
+
+    <div v-if="selectedDate" class="event-modal-backdrop" @click.self="closeEventDetails">
+      <article class="event-modal card">
+        <div class="event-modal-head">
+          <div>
+            <p class="rh-section-kicker">Day details</p>
+            <h2>{{ selectedDateLabel }}</h2>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" @click="closeEventDetails">Fermer</button>
+        </div>
+
+        <div class="event-modal-summary">
+          <span class="chip">{{ selectedDateEvents.length }} événement<span v-if="selectedDateEvents.length > 1">s</span></span>
+        </div>
+
+        <div class="event-date-list">
+          <article v-for="evt in selectedDateEvents" :key="eventKey(evt)" class="event-date-card">
+            <div class="event-date-top">
+              <span class="day-badge" :class="badgeClass(evt.type)">{{ formatType(evt.type) }}</span>
+              <span class="chip">{{ evt.employe?.matricule || 'Global' }}</span>
+            </div>
+
+            <h3>{{ eventEmployeeName(evt) }}</h3>
+            <p>{{ evt.meta?.type_conge_libelle || evt.description || detailLine(evt) }}</p>
+
+            <div class="event-date-meta">
+              <span>{{ formatDate(evt.date_debut) }} → {{ formatDate(evt.date_fin) || '—' }}</span>
+              <span>{{ detailLine(evt) }}</span>
+            </div>
+
+            <div v-if="isEditableRhEvent(evt)" class="event-date-actions">
+              <button type="button" class="btn btn-secondary btn-sm" @click="openEditModal(evt)">Modifier</button>
+              <button type="button" class="btn btn-secondary btn-sm danger-action" @click="deleteRhEvent(evt)">
+                Supprimer
+              </button>
+            </div>
+          </article>
+        </div>
+      </article>
+    </div>
+
+    <div v-if="showCreateModal" class="event-modal-backdrop" @click.self="closeCreateModal">
+      <article class="event-modal card create-event-modal">
+        <div class="event-modal-head">
+          <div>
+            <p class="rh-section-kicker">Create event</p>
+            <h2>{{ isEditingEvent ? 'Modifier l’événement RH' : 'Nouvel événement RH' }}</h2>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" @click="closeCreateModal">Fermer</button>
+        </div>
+
+        <form class="create-event-form" @submit.prevent="submitRhEvent">
+          <label class="rh-field-card">
+            <span class="rh-field-label">Employé</span>
+            <select v-model="rhEventForm.employe_id" class="select" :disabled="loadingEmployes">
+              <option value="">Événement global</option>
+              <option v-for="emp in employes" :key="emp.id" :value="emp.id">
+                {{ emp.matricule }} - {{ emp.nom }} {{ emp.prenom }}
+              </option>
+            </select>
+          </label>
+
+          <label class="rh-field-card full">
+            <span class="rh-field-label">Description</span>
+            <input
+              v-model="rhEventForm.description"
+              class="input"
+              placeholder="Ex: Entretien annuel, réunion RH, session onboarding"
+              required
+            />
+          </label>
+
+          <label class="rh-field-card">
+            <span class="rh-field-label">Date de début</span>
+            <input v-model="rhEventForm.date_debut" class="input" type="date" required />
+          </label>
+
+          <label class="rh-field-card">
+            <span class="rh-field-label">Date de fin</span>
+            <input v-model="rhEventForm.date_fin" class="input" type="date" required />
+          </label>
+
+          <p v-if="createModalError" class="modal-message danger">{{ createModalError }}</p>
+
+          <div class="modal-actions">
+            <button type="submit" class="btn" :disabled="savingEvent">
+              <AppIcon name="save" :size="18" />
+              <span>
+                {{
+                  savingEvent
+                    ? isEditingEvent
+                      ? 'Mise à jour...'
+                      : 'Création...'
+                    : isEditingEvent
+                      ? 'Enregistrer les changements'
+                      : 'Créer l’événement'
+                }}
+              </span>
+            </button>
+            <button type="button" class="btn btn-secondary" @click="closeCreateModal">Annuler</button>
+          </div>
+        </form>
+      </article>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import api from '../services/api'
 import { debounce } from '../utils/debounce'
+import AppIcon from '../components/ui/AppIcon.vue'
+
+const toInputDate = (value = new Date()) => {
+  const date = new Date(value)
+  const tzOffset = date.getTimezoneOffset()
+  date.setMinutes(date.getMinutes() - tzOffset)
+  return date.toISOString().slice(0, 10)
+}
 
 const events = ref([])
+const employes = ref([])
 const filter = ref({ type: '', matricule: '', nom: '' })
 const viewMode = ref('month')
 const currentDate = ref(new Date())
+const selectedDate = ref('')
+const showCreateModal = ref(false)
+const loadingEmployes = ref(false)
+const savingEvent = ref(false)
+const editingEventId = ref(null)
+const statusMessage = ref('')
+const errorMessage = ref('')
+const createModalError = ref('')
 const weekDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+const rhEventForm = ref(defaultRhEventForm())
 
 const fetchEvents = async () => {
-  const params = {}
+  errorMessage.value = ''
+  const params = { ...visibleRange.value }
   if (filter.value.type) params.type = filter.value.type
   if (filter.value.matricule) params.matricule = filter.value.matricule
   if (filter.value.nom) params.nom = filter.value.nom
-  const { data } = await api.get('/v1/calendrier-evenements', { params })
-  events.value = data.data || []
+  try {
+    const { data } = await api.get('/v1/calendrier-evenements', { params })
+    events.value = data.data || []
+  } catch (error) {
+    errorMessage.value = error.response?.data?.message || 'Impossible de charger le calendrier.'
+  }
 }
 
 const debouncedFetchEvents = debounce(fetchEvents, 300)
@@ -260,6 +416,16 @@ const addDays = (date, days) => {
   const d = new Date(date)
   d.setDate(d.getDate() + days)
   return d
+}
+
+function defaultRhEventForm(date = null) {
+  const baseDate = date || toInputDate()
+  return {
+    employe_id: '',
+    description: '',
+    date_debut: baseDate,
+    date_fin: baseDate,
+  }
 }
 
 const monthCells = computed(() => {
@@ -310,6 +476,25 @@ const viewLabel = computed(() => {
   if (viewMode.value === 'month') return 'Vue mois'
   if (viewMode.value === 'week') return 'Vue semaine'
   return 'Vue jour'
+})
+
+const visibleRange = computed(() => {
+  if (viewMode.value === 'month') {
+    return {
+      from: monthCells.value[0]?.dateStr || formatDate(currentDate.value),
+      to: monthCells.value[monthCells.value.length - 1]?.dateStr || formatDate(currentDate.value),
+    }
+  }
+
+  if (viewMode.value === 'week') {
+    return {
+      from: weekRange.value[0]?.dateStr || formatDate(currentDate.value),
+      to: weekRange.value[weekRange.value.length - 1]?.dateStr || formatDate(currentDate.value),
+    }
+  }
+
+  const dateStr = formatDate(currentDate.value)
+  return { from: dateStr, to: dateStr }
 })
 
 const eventCounts = computed(() => {
@@ -412,6 +597,175 @@ const eventsByDate = (dateStr) =>
 const eventKey = (event) =>
   `${event.id || 'evt'}-${event.type || 'type'}-${event.date_debut || ''}-${event.date_fin || ''}`
 
+const monthPreviewEvents = (dateStr) => eventsByDate(dateStr).slice(0, 2)
+
+const hiddenEventCount = (dateStr) => Math.max(eventsByDate(dateStr).length - 2, 0)
+
+const selectedDateEvents = computed(() => (selectedDate.value ? eventsByDate(selectedDate.value) : []))
+
+const selectedDateLabel = computed(() => (selectedDate.value ? formatDisplayDate(selectedDate.value) : ''))
+const isEditingEvent = computed(() => editingEventId.value !== null)
+
+const monthEventLabel = (event) => event.employe?.matricule || 'Global'
+
+const compactEventLabel = (event) => {
+  if (event.type === 'ferie') return 'Férié'
+  return event.employe?.matricule || 'Global'
+}
+
+const eventEmployeeName = (event) => {
+  if (!event?.employe) return 'Événement global'
+  return `${event.employe.nom || ''} ${event.employe.prenom || ''}`.trim() || 'Employé non renseigné'
+}
+
+const detailLine = (event) => {
+  if (event.type === 'conge') return event.meta?.type_conge_libelle || 'Congé'
+  if (event.type === 'absence') return 'Absence'
+  if (event.type === 'ferie') return 'Jour férié'
+  return 'Événement RH'
+}
+
+const openDateDetails = (dateStr) => {
+  if (!eventsByDate(dateStr).length) return
+  selectedDate.value = dateStr
+  showCreateModal.value = false
+}
+
+const closeEventDetails = () => {
+  selectedDate.value = ''
+}
+
+const isEditableRhEvent = (event) => event?.type === 'rh' && typeof event?.id !== 'undefined'
+
+const fetchEmployes = async () => {
+  if (employes.value.length || loadingEmployes.value) return
+
+  loadingEmployes.value = true
+  try {
+    const { data } = await api.get('/v1/employes', {
+      params: { active_only: true, all: 1, sort: 'nom' },
+    })
+    employes.value = data.data || data || []
+  } catch (error) {
+    createModalError.value = error.response?.data?.message || 'Impossible de charger la liste des employés.'
+  } finally {
+    loadingEmployes.value = false
+  }
+}
+
+const openCreateModal = async () => {
+  const initialDate = selectedDate.value || formatDate(currentDate.value)
+  selectedDate.value = ''
+  editingEventId.value = null
+  createModalError.value = ''
+  statusMessage.value = ''
+  errorMessage.value = ''
+  rhEventForm.value = defaultRhEventForm(initialDate)
+  showCreateModal.value = true
+  await fetchEmployes()
+}
+
+const closeCreateModal = () => {
+  showCreateModal.value = false
+  editingEventId.value = null
+  createModalError.value = ''
+  rhEventForm.value = defaultRhEventForm()
+}
+
+const openEditModal = async (event) => {
+  if (!isEditableRhEvent(event)) return
+
+  editingEventId.value = event.id
+  createModalError.value = ''
+  statusMessage.value = ''
+  errorMessage.value = ''
+  rhEventForm.value = {
+    employe_id: event.employe_id || '',
+    description: event.description || '',
+    date_debut: toInputDate(event.date_debut),
+    date_fin: toInputDate(event.date_fin),
+  }
+  selectedDate.value = ''
+  showCreateModal.value = true
+  await fetchEmployes()
+}
+
+const submitRhEvent = async () => {
+  createModalError.value = ''
+  statusMessage.value = ''
+  errorMessage.value = ''
+
+  if (!rhEventForm.value.description.trim()) {
+    createModalError.value = 'La description est requise.'
+    return
+  }
+
+  if (rhEventForm.value.date_fin < rhEventForm.value.date_debut) {
+    createModalError.value = 'La date de fin doit être postérieure ou égale à la date de début.'
+    return
+  }
+
+  savingEvent.value = true
+
+  try {
+    const payload = {
+      employe_id: rhEventForm.value.employe_id || null,
+      date_debut: rhEventForm.value.date_debut,
+      date_fin: rhEventForm.value.date_fin,
+      description: rhEventForm.value.description.trim(),
+    }
+
+    if (isEditingEvent.value) {
+      await api.put(`/v1/calendrier-evenements/${editingEventId.value}`, payload)
+      statusMessage.value = 'Événement RH mis à jour.'
+    } else {
+      await api.post('/v1/calendrier-evenements', {
+        type: 'rh',
+        ...payload,
+      })
+      statusMessage.value = 'Événement RH ajouté au calendrier.'
+    }
+
+    showCreateModal.value = false
+    await fetchEvents()
+    openDateDetails(rhEventForm.value.date_debut)
+    editingEventId.value = null
+    rhEventForm.value = defaultRhEventForm()
+  } catch (error) {
+    createModalError.value =
+      error.response?.data?.message ||
+      (isEditingEvent.value
+        ? 'Impossible de modifier l’événement RH.'
+        : 'Impossible de créer l’événement RH.')
+  } finally {
+    savingEvent.value = false
+  }
+}
+
+const deleteRhEvent = async (event) => {
+  if (!isEditableRhEvent(event)) return
+  if (!window.confirm('Supprimer cet événement RH ?')) return
+
+  statusMessage.value = ''
+  errorMessage.value = ''
+
+  try {
+    await api.delete(`/v1/calendrier-evenements/${event.id}`)
+    const previousDate = selectedDate.value || formatDate(event.date_debut)
+    await fetchEvents()
+
+    if (eventsByDate(previousDate).length) {
+      selectedDate.value = previousDate
+    } else {
+      selectedDate.value = ''
+    }
+
+    statusMessage.value = 'Événement RH supprimé.'
+  } catch (error) {
+    errorMessage.value = error.response?.data?.message || 'Impossible de supprimer l’événement RH.'
+  }
+}
+
 const setView = (mode) => {
   viewMode.value = mode
 }
@@ -461,12 +815,59 @@ const formatType = (type) => {
   return 'RH'
 }
 
+watch(
+  () => [viewMode.value, formatDate(currentDate.value)],
+  () => {
+    fetchEvents()
+  },
+)
+
 onMounted(fetchEvents)
 </script>
 
 <style scoped>
+.calendar-status-banner {
+  margin: 0;
+  padding: 12px 16px;
+  border-radius: 18px;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.calendar-status-banner.success {
+  background: rgba(16, 185, 129, 0.12);
+  color: #047857;
+}
+
+.calendar-status-banner.danger {
+  background: rgba(239, 68, 68, 0.12);
+  color: #b91c1c;
+}
+
+.event-date-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.danger-action {
+  border-color: rgba(239, 68, 68, 0.18);
+  color: #dc2626;
+}
+
+.danger-action:hover {
+  border-color: rgba(239, 68, 68, 0.28);
+  background: rgba(239, 68, 68, 0.08);
+}
+
 .filters-grid {
   grid-template-columns: 1fr;
+}
+
+.create-event-btn {
+  width: 100%;
+  justify-content: center;
 }
 
 .calendar-toolbar,
@@ -548,15 +949,28 @@ body[data-theme='dark'] .legend-list {
 }
 
 .calendar-cell {
+  display: flex;
+  flex-direction: column;
   min-height: 140px;
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.76);
+  overflow: hidden;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 body[data-theme='dark'] .calendar-cell {
   background: rgba(15, 23, 42, 0.72);
+}
+
+.calendar-cell.clickable {
+  cursor: pointer;
+}
+
+.calendar-cell.clickable:hover {
+  border-color: rgba(79, 70, 229, 0.22);
+  box-shadow: 0 12px 24px rgba(79, 70, 229, 0.08);
 }
 
 .calendar-cell.today {
@@ -580,18 +994,60 @@ body[data-theme='dark'] .calendar-cell {
   display: grid;
   gap: 8px;
   margin-top: 10px;
+  align-content: start;
+}
+
+.cell-events {
+  min-width: 0;
+  overflow: hidden;
 }
 
 .event-pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
   width: 100%;
   padding: 7px 10px;
   border-radius: 12px;
   font-size: 0.8rem;
   font-weight: 700;
   line-height: 1.45;
+}
+
+.event-pill-compact {
+  white-space: nowrap;
+}
+
+.event-button {
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.event-pill-type {
+  flex: none;
+}
+
+.event-pill-main {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.more-events-pill {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .badge-conge {
@@ -677,6 +1133,14 @@ body[data-theme='dark'] .day-card {
   border-bottom: none;
 }
 
+.event-detail-trigger {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
 .day-badge {
   display: inline-flex;
   align-items: center;
@@ -728,6 +1192,123 @@ body[data-theme='dark'] .upcoming-item {
   font-weight: 600;
 }
 
+.event-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.42);
+  backdrop-filter: blur(6px);
+}
+
+.event-modal {
+  width: min(680px, 100%);
+  display: grid;
+  gap: 18px;
+  padding: 24px;
+  border-radius: 28px;
+  box-shadow: var(--shadow-lg);
+}
+
+.create-event-modal {
+  width: min(720px, 100%);
+}
+
+.event-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.event-modal-head h2 {
+  margin: 8px 0 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.event-modal-summary {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.create-event-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.create-event-form .full {
+  grid-column: 1 / -1;
+}
+
+.modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  grid-column: 1 / -1;
+}
+
+.modal-message {
+  margin: 0;
+  grid-column: 1 / -1;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.modal-message.danger {
+  color: #b91c1c;
+}
+
+.event-date-list {
+  display: grid;
+  gap: 14px;
+}
+
+.event-date-card {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: rgba(248, 250, 252, 0.82);
+}
+
+body[data-theme='dark'] .event-date-card {
+  background: rgba(15, 23, 42, 0.68);
+}
+
+.event-date-top,
+.event-date-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.event-date-card h3,
+.event-date-card p {
+  margin: 0;
+}
+
+.event-date-card h3 {
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.event-date-card p,
+.event-date-meta span {
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
 .compact {
   padding-top: 0;
   padding-bottom: 0;
@@ -748,6 +1329,10 @@ body[data-theme='dark'] .upcoming-item {
   .day-row {
     grid-template-columns: 1fr;
     align-items: stretch;
+  }
+
+  .create-event-form {
+    grid-template-columns: 1fr;
   }
 }
 </style>

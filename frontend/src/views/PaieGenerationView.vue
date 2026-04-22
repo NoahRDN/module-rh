@@ -1,23 +1,23 @@
 <template>
   <div class="rh-page paie-generation-page">
-    <section class="rh-hero">
-      <div class="rh-hero-copy">
-        <p class="rh-hero-kicker">Payroll engine</p>
+    <section class="rh-hero hero hero-band hero-shared">
+      <div class="rh-hero-copy hero-copy">
+        <p class="rh-hero-kicker hero-kicker">Payroll engine</p>
         <h1>Génération de la paie</h1>
-        <p class="rh-hero-subtitle">
+        <p class="rh-hero-subtitle hero-subtitle">
           Lancez le calcul d’un bulletin mensuel avec une lecture claire du brut, du net, des heures
           supplémentaires et des retenues sociales.
         </p>
 
-        <div class="rh-hero-pills">
+        <div class="rh-hero-pills hero-pills">
           <span class="pill">Bulletins PDF</span>
           <span class="pill">CNAPS / OSTIE / IRSA</span>
           <span class="pill">Calcul mensuel</span>
         </div>
       </div>
 
-      <div class="rh-hero-actions">
-        <div class="rh-panel">
+      <div class="rh-hero-actions hero-actions">
+        <div class="rh-panel filters-panel">
           <div class="rh-action-row">
             <button class="btn btn-secondary" type="button" @click="fetchEmployes">
               <AppIcon name="refresh" :size="18" />
@@ -29,12 +29,12 @@
             </button>
           </div>
 
-          <div class="rh-hero-meta-list">
-            <p class="rh-hero-meta">
+          <div class="rh-hero-meta-list hero-meta-list">
+            <p class="rh-hero-meta hero-meta">
               Employés disponibles:
               <strong>{{ formatInteger(employes.length) }}</strong>
             </p>
-            <p class="rh-hero-meta">
+            <p class="rh-hero-meta hero-meta">
               Bulletin actif:
               <strong>{{ paie ? 'Oui' : 'Non' }}</strong>
             </p>

@@ -1,23 +1,23 @@
 <template>
   <div class="rh-page worktime-page">
-    <section class="rh-hero">
-      <div class="rh-hero-copy">
-        <p class="rh-hero-kicker">Worktime settings</p>
+    <section class="rh-hero hero hero-band hero-shared">
+      <div class="rh-hero-copy hero-copy">
+        <p class="rh-hero-kicker hero-kicker">Worktime settings</p>
         <h1>Configuration des horaires</h1>
-        <p class="rh-hero-subtitle">
+        <p class="rh-hero-subtitle hero-subtitle">
           Définissez la semaine de travail, les seuils horaires et les majorations dans une interface
           plus cohérente avec les autres vues d’administration RH.
         </p>
 
-        <div class="rh-hero-pills">
+        <div class="rh-hero-pills hero-pills">
           <span class="pill">Planning hebdomadaire</span>
           <span class="pill">Heures supplémentaires</span>
           <span class="pill">Règles absences</span>
         </div>
       </div>
 
-      <div class="rh-hero-actions">
-        <div class="rh-panel">
+      <div class="rh-hero-actions hero-actions">
+        <div class="rh-panel filters-panel">
           <div class="rh-action-row">
             <button class="btn btn-secondary" type="button" @click="loadConfig" :disabled="loading">
               <AppIcon name="refresh" :size="18" />
@@ -29,12 +29,12 @@
             </button>
           </div>
 
-          <div class="rh-hero-meta-list">
-            <p class="rh-hero-meta">
+          <div class="rh-hero-meta-list hero-meta-list">
+            <p class="rh-hero-meta hero-meta">
               Jours actifs:
               <strong>{{ form.working_days?.length || 0 }}/7</strong>
             </p>
-            <p class="rh-hero-meta">
+            <p class="rh-hero-meta hero-meta">
               Mode samedi:
               <strong>{{ form.saturday_mode === 'hs' ? 'Heures sup' : 'Normal' }}</strong>
             </p>
@@ -162,19 +162,25 @@
 
           <div class="toggle-grid">
             <label class="toggle-row">
-              <input type="checkbox" v-model="form.deduct_from_leave_balance" />
-              <div>
+              <div class="toggle-copy">
                 <div class="toggle-title">Prélever sur le solde de congé</div>
                 <div class="toggle-sub">Aucun impact salaire tant que le solde couvre l'absence.</div>
               </div>
+              <span class="toggle-switch">
+                <input type="checkbox" v-model="form.deduct_from_leave_balance" />
+                <span class="toggle-slider" aria-hidden="true"></span>
+              </span>
             </label>
 
             <label class="toggle-row">
-              <input type="checkbox" v-model="form.deduct_from_salary" />
-              <div>
+              <div class="toggle-copy">
                 <div class="toggle-title">Prélever sur le salaire</div>
                 <div class="toggle-sub">Applique les taux journalier et horaire si le solde est insuffisant.</div>
               </div>
+              <span class="toggle-switch">
+                <input type="checkbox" v-model="form.deduct_from_salary" />
+                <span class="toggle-slider" aria-hidden="true"></span>
+              </span>
             </label>
           </div>
         </article>
@@ -398,20 +404,85 @@ body[data-theme='dark'] .chip-option {
 
 .toggle-row {
   display: flex;
-  gap: 14px;
-  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: center;
   padding: 16px;
   border: 1px solid var(--border);
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.76);
+  cursor: pointer;
 }
 
 body[data-theme='dark'] .toggle-row {
   background: rgba(15, 23, 42, 0.72);
 }
 
-.toggle-row input {
-  margin-top: 4px;
+.toggle-copy {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+}
+
+.toggle-switch input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.toggle-slider {
+  position: relative;
+  display: inline-flex;
+  width: 52px;
+  height: 32px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.28);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.toggle-slider::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.18);
+  transition: transform 0.2s ease;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background: rgba(79, 70, 229, 0.22);
+  border-color: rgba(79, 70, 229, 0.3);
+}
+
+.toggle-switch input:checked + .toggle-slider::after {
+  transform: translateX(20px);
+}
+
+.toggle-switch input:focus-visible + .toggle-slider {
+  outline: 2px solid rgba(79, 70, 229, 0.32);
+  outline-offset: 2px;
+}
+
+body[data-theme='dark'] .toggle-slider {
+  background: rgba(51, 65, 85, 0.72);
+  border-color: rgba(71, 85, 105, 0.7);
+}
+
+body[data-theme='dark'] .toggle-slider::after {
+  background: #e2e8f0;
 }
 
 .toggle-title,
@@ -427,5 +498,11 @@ body[data-theme='dark'] .toggle-row {
   color: var(--muted);
   font-size: 0.88rem;
   line-height: 1.55;
+}
+
+@media (max-width: 720px) {
+  .toggle-row {
+    align-items: flex-start;
+  }
 }
 </style>

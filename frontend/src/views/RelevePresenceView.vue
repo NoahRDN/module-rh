@@ -1,23 +1,23 @@
 <template>
   <div class="rh-page releve-page">
-    <section class="rh-hero">
-      <div class="rh-hero-copy">
-        <p class="rh-hero-kicker">Presence reporting</p>
+    <section class="rh-hero hero hero-band hero-shared">
+      <div class="rh-hero-copy hero-copy">
+        <p class="rh-hero-kicker hero-kicker">Presence reporting</p>
         <h1>Relevé de présence</h1>
-        <p class="rh-hero-subtitle">
+        <p class="rh-hero-subtitle hero-subtitle">
           Analysez les heures travaillées, retards, absences et heures supplémentaires avec une vue
           plus lisible, mieux hiérarchisée et cohérente avec le reste du module RH.
         </p>
 
-        <div class="rh-hero-pills">
+        <div class="rh-hero-pills hero-pills">
           <span class="pill">Journalier</span>
           <span class="pill">Hebdomadaire</span>
           <span class="pill">Mensuel</span>
         </div>
       </div>
 
-      <div class="rh-hero-actions">
-        <div class="rh-panel">
+      <div class="rh-hero-actions hero-actions">
+        <div class="rh-panel filters-panel">
           <div class="rh-action-row">
             <button class="btn btn-secondary" @click="fetchReleve">
               <AppIcon name="refresh" :size="18" />
@@ -29,12 +29,12 @@
             </RouterLink>
           </div>
 
-          <div class="rh-hero-meta-list">
-            <p class="rh-hero-meta">
+          <div class="rh-hero-meta-list hero-meta-list">
+            <p class="rh-hero-meta hero-meta">
               Collaborateur:
               <strong>{{ selectedEmployeLabel }}</strong>
             </p>
-            <p class="rh-hero-meta">
+            <p class="rh-hero-meta hero-meta">
               Mode:
               <strong>{{ modeLabel }}</strong>
             </p>
@@ -209,60 +209,78 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(w, idx) in semaines" :key="w.label">
-              <td>{{ idx + 1 }}</td>
-              <td>{{ w.label }}</td>
-              <td>{{ formatNumber(w.heures_travaillees) }}</td>
-              <td>{{ formatNumber(w.heures_supplementaires) }}</td>
-              <td>{{ formatNumber(w.hs_weekend) }}</td>
-              <td>{{ formatNumber(w.hs_ferie) }}</td>
-              <td>{{ formatNumber(w.retard_minutes) }}</td>
-              <td>{{ w.absences }}</td>
-              <td>{{ w.absences_justifiees }}</td>
-              <td>
-                <button class="btn btn-secondary btn-sm" @click="selectWeek(w)">Voir</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div v-if="weekDetails.length" class="detail-block">
-        <div class="rh-section-heading compact">
-          <div>
-            <p class="rh-section-kicker">Week details</p>
-            <h2>{{ selectedWeekLabel }}</h2>
-          </div>
-        </div>
-
-        <div class="rh-table-shell">
-          <table class="table">
-            <thead>
+            <template v-for="(w, idx) in semaines" :key="w.label">
               <tr>
-                <th>Jour</th>
-                <th>Heures</th>
-                <th>HS week-end</th>
-                <th>HS férié</th>
-                <th>Retard (min)</th>
-                <th>Statut</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="d in weekDetails" :key="d.jour">
-                <td>{{ d.jour }}</td>
-                <td>{{ formatNumber(d.heures_travaillees) }}</td>
-                <td>{{ formatNumber(d.hs_weekend) }}</td>
-                <td>{{ formatNumber(d.hs_ferie) }}</td>
-                <td>{{ formatNumber(d.retard_minutes) }}</td>
+                <td>{{ idx + 1 }}</td>
+                <td>{{ w.label }}</td>
+                <td>{{ formatNumber(w.heures_travaillees) }}</td>
+                <td>{{ formatNumber(w.heures_supplementaires) }}</td>
+                <td>{{ formatNumber(w.hs_weekend) }}</td>
+                <td>{{ formatNumber(w.hs_ferie) }}</td>
+                <td>{{ formatNumber(w.retard_minutes) }}</td>
+                <td>{{ w.absences }}</td>
+                <td>{{ w.absences_justifiees }}</td>
                 <td>
-                  <div class="chip-list">
-                    <span v-for="chip in chips(d)" :key="chip.label" class="chip" :style="chip.style">{{ chip.label }}</span>
+                  <button class="btn btn-secondary btn-sm" @click="selectWeek(w)">
+                    {{ selectedWeekLabel === w.label && weekDetails.length ? 'Masquer' : 'Voir' }}
+                  </button>
+                </td>
+              </tr>
+
+              <tr
+                v-if="selectedWeekLabel === w.label && weekDetails.length"
+                class="inline-detail-row"
+              >
+                <td colspan="10" class="inline-detail-cell">
+                  <div class="detail-block inline-detail-block">
+                    <div class="rh-section-heading compact">
+                      <div>
+                        <p class="rh-section-kicker">Week details</p>
+                        <h2>{{ selectedWeekLabel }}</h2>
+                      </div>
+                    </div>
+
+                    <div class="rh-table-shell nested-table-shell">
+                      <table class="table nested-table">
+                        <thead>
+                          <tr>
+                            <th>Jour</th>
+                            <th>Heures</th>
+                            <th>HS week-end</th>
+                            <th>HS férié</th>
+                            <th>Retard (min)</th>
+                            <th>Statut</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr v-for="d in weekDetails" :key="d.jour">
+                            <td>{{ d.jour }}</td>
+                            <td>{{ formatNumber(d.heures_travaillees) }}</td>
+                            <td>{{ formatNumber(d.hs_weekend) }}</td>
+                            <td>{{ formatNumber(d.hs_ferie) }}</td>
+                            <td>{{ formatNumber(d.retard_minutes) }}</td>
+                            <td>
+                              <div class="chip-list">
+                                <span
+                                  v-for="chip in chips(d)"
+                                  :key="chip.label"
+                                  class="chip"
+                                  :style="chip.style"
+                                >
+                                  {{ chip.label }}
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </td>
               </tr>
-            </tbody>
-          </table>
-        </div>
+            </template>
+          </tbody>
+        </table>
       </div>
     </article>
 
@@ -289,60 +307,69 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="item in monthsData" :key="item.label">
-              <td>{{ item.label }}</td>
-              <td>{{ formatNumber(item.totaux.heures_travaillees) }}</td>
-              <td>{{ formatNumber(item.totaux.heures_supplementaires) }}</td>
-              <td>{{ formatNumber(item.totaux.hs_weekend) }}</td>
-              <td>{{ formatNumber(item.totaux.hs_ferie) }}</td>
-              <td>{{ formatNumber(item.totaux.retard_minutes) }}</td>
-              <td>{{ item.totaux.absences }}</td>
-              <td>
-                <button class="btn btn-secondary btn-sm" @click="toggleMonthDetailsFor(item)">
-                  {{ selectedMonth === item.label && showMonthDetails ? 'Masquer' : 'Voir' }}
-                </button>
-              </td>
-            </tr>
+            <template v-for="item in monthsData" :key="item.label">
+              <tr>
+                <td>{{ item.label }}</td>
+                <td>{{ formatNumber(item.totaux.heures_travaillees) }}</td>
+                <td>{{ formatNumber(item.totaux.heures_supplementaires) }}</td>
+                <td>{{ formatNumber(item.totaux.hs_weekend) }}</td>
+                <td>{{ formatNumber(item.totaux.hs_ferie) }}</td>
+                <td>{{ formatNumber(item.totaux.retard_minutes) }}</td>
+                <td>{{ item.totaux.absences }}</td>
+                <td>
+                  <button class="btn btn-secondary btn-sm" @click="toggleMonthDetailsFor(item)">
+                    {{ selectedMonth === item.label && showMonthDetails ? 'Masquer' : 'Voir' }}
+                  </button>
+                </td>
+              </tr>
+
+              <tr
+                v-if="selectedMonth === item.label && showMonthDetails && selectedMonthWeeks.length"
+                class="inline-detail-row"
+              >
+                <td colspan="8" class="inline-detail-cell">
+                  <div class="detail-block inline-detail-block">
+                    <div class="rh-section-heading compact">
+                      <div>
+                        <p class="rh-section-kicker">Month details</p>
+                        <h2>{{ selectedMonth }}</h2>
+                      </div>
+                    </div>
+
+                    <div class="rh-table-shell nested-table-shell">
+                      <table class="table nested-table">
+                        <thead>
+                          <tr>
+                            <th>#</th>
+                            <th>Semaine</th>
+                            <th>Heures</th>
+                            <th>HS</th>
+                            <th>HS week-end</th>
+                            <th>HS férié</th>
+                            <th>Retards (min)</th>
+                            <th>Absences</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr v-for="(w, idx) in selectedMonthWeeks" :key="w.label">
+                            <td>{{ idx + 1 }}</td>
+                            <td>{{ w.label }}</td>
+                            <td>{{ formatNumber(w.heures_travaillees) }}</td>
+                            <td>{{ formatNumber(w.heures_supplementaires) }}</td>
+                            <td>{{ formatNumber(w.hs_weekend) }}</td>
+                            <td>{{ formatNumber(w.hs_ferie) }}</td>
+                            <td>{{ formatNumber(w.retard_minutes) }}</td>
+                            <td>{{ w.absences }}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            </template>
           </tbody>
         </table>
-      </div>
-
-      <div v-if="showMonthDetails && selectedMonthWeeks.length" class="detail-block">
-        <div class="rh-section-heading compact">
-          <div>
-            <p class="rh-section-kicker">Month details</p>
-            <h2>{{ selectedMonth }}</h2>
-          </div>
-        </div>
-
-        <div class="rh-table-shell">
-          <table class="table">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Semaine</th>
-                <th>Heures</th>
-                <th>HS</th>
-                <th>HS week-end</th>
-                <th>HS férié</th>
-                <th>Retards (min)</th>
-                <th>Absences</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(w, idx) in selectedMonthWeeks" :key="w.label">
-                <td>{{ idx + 1 }}</td>
-                <td>{{ w.label }}</td>
-                <td>{{ formatNumber(w.heures_travaillees) }}</td>
-                <td>{{ formatNumber(w.heures_supplementaires) }}</td>
-                <td>{{ formatNumber(w.hs_weekend) }}</td>
-                <td>{{ formatNumber(w.hs_ferie) }}</td>
-                <td>{{ formatNumber(w.retard_minutes) }}</td>
-                <td>{{ w.absences }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
       </div>
     </article>
 
@@ -679,6 +706,12 @@ const toggleDayDetails = () => {
 }
 
 const selectWeek = (week) => {
+  if (selectedWeekLabel.value === week.label && weekDetails.value.length) {
+    selectedWeekLabel.value = ''
+    weekDetails.value = []
+    return
+  }
+
   selectedWeekLabel.value = week.label
   weekDetails.value = week.days || []
 }
@@ -716,6 +749,39 @@ onMounted(fetchEmployes)
 .detail-block {
   display: grid;
   gap: 14px;
+}
+
+.inline-detail-row {
+  background: transparent;
+}
+
+.inline-detail-row:hover {
+  background: transparent;
+}
+
+.inline-detail-cell {
+  padding: 0 !important;
+  border-bottom: 1px solid var(--border);
+}
+
+.inline-detail-block {
+  padding: 18px 18px 6px;
+  background: rgba(79, 70, 229, 0.03);
+}
+
+body[data-theme='dark'] .inline-detail-block {
+  background: rgba(79, 70, 229, 0.08);
+}
+
+.nested-table-shell {
+  margin-top: 4px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.nested-table :deep(thead th) {
+  background: transparent;
 }
 
 .chip-list {

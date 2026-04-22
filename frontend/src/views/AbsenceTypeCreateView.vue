@@ -1,40 +1,128 @@
 <template>
-  <div class="page">
-    <div class="page-header">
-      <h1>Nouveau type d'absence</h1>
-      <RouterLink class="btn btn-secondary btn-sm" to="/absences-types">← Retour</RouterLink>
-    </div>
-    <div class="card">
-      <form class="grid gap-3" @submit.prevent="submit">
-        <input class="input" v-model="form.libelle" placeholder="Libellé (ex: Congé payé)" required />
-        <input class="input" v-model="form.code" placeholder="Code (ex: PAYE)" required />
-        <select class="select" v-model="form.frequence_id">
-          <option value="">Fréquence (optionnel)</option>
-          <option v-for="f in frequences" :key="f.id" :value="f.id">{{ f.code }} - {{ f.libelle }}</option>
-        </select>
-        <textarea class="input" rows="3" v-model="form.description" placeholder="Description"></textarea>
-        <label class="text-sm flex items-center gap-2"><input type="checkbox" v-model="form.paye" /> Payant</label>
-        <label class="text-sm flex items-center gap-2"><input type="checkbox" v-model="form.utilise_solde" /> Utilise un solde</label>
-        <label class="text-sm flex items-center gap-2"><input type="checkbox" v-model="form.cumulable" /> Cumulable</label>
-        <input class="input" type="number" min="0" v-model="form.jours_forfait" placeholder="Jours forfait (optionnel)" />
-        <input class="input" type="number" min="0" v-model="form.limite" placeholder="Limite (nombre, optionnel)" />
-        <select class="select" v-model="form.limite_frequence_id">
-          <option value="">Fréquence de limite (optionnel)</option>
-          <option v-for="f in frequences" :key="f.id" :value="f.id">{{ f.code }} - {{ f.libelle }}</option>
-        </select>
-        <div v-if="form.cumulable" class="grid gap-2 md:grid-cols-2">
-          <input class="input" type="number" min="0" v-model="form.cumulable_duree" placeholder="Durée de cumul" />
-          <select class="select" v-model="form.cumulable_frequence_id">
-            <option value="">Fréquence de cumul</option>
+  <div class="create-page">
+    <section class="hero hero-band hero-shared hero-compact">
+      <div class="hero-copy">
+        <p class="hero-kicker">Leave taxonomy</p>
+        <h1>Nouveau type d'absence</h1>
+        <p class="hero-subtitle">
+          Définissez les règles d’un type de congé (solde, cumul, limite, paiement) pour piloter le
+          workflow et les calculs associés.
+        </p>
+
+        <div class="hero-pills">
+          <span class="pill">Règles</span>
+          <span class="pill">Solde</span>
+          <span class="pill">Cumul</span>
+        </div>
+      </div>
+
+      <div class="hero-actions">
+        <div class="filters-panel">
+          <div class="action-row">
+            <RouterLink class="btn btn-secondary" to="/absences-types">Retour</RouterLink>
+            <button class="btn" type="button" @click="submit" :disabled="loading">
+              {{ loading ? 'Création...' : 'Enregistrer' }}
+            </button>
+          </div>
+
+          <div v-if="message" class="status-banner danger">
+            <span class="status-dot"></span>
+            <span>{{ message }}</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card section-card">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">Leave form</p>
+          <h2>Paramètres</h2>
+        </div>
+        <span class="section-chip">Création</span>
+      </div>
+
+      <form class="fields-grid" @submit.prevent="submit">
+        <label class="field-card">
+          <span class="field-label">Libellé</span>
+          <input class="input" v-model="form.libelle" placeholder="Ex: Congé payé" required />
+        </label>
+
+        <label class="field-card">
+          <span class="field-label">Code</span>
+          <input class="input" v-model="form.code" placeholder="Ex: PAYE" required />
+        </label>
+
+        <label class="field-card">
+          <span class="field-label">Fréquence</span>
+          <select class="select" v-model="form.frequence_id">
+            <option value="">(optionnel)</option>
             <option v-for="f in frequences" :key="f.id" :value="f.id">{{ f.code }} - {{ f.libelle }}</option>
           </select>
-        </div>
-        <div class="flex gap-2 items-center">
+        </label>
+
+        <label class="field-card full">
+          <span class="field-label">Description</span>
+          <textarea class="input" rows="4" v-model="form.description" placeholder="Description"></textarea>
+        </label>
+
+        <label class="field-card full">
+          <span class="field-label">Options</span>
+          <div class="chip-list">
+            <label class="inline-flex items-center gap-2">
+              <input type="checkbox" v-model="form.paye" />
+              <span>Payant</span>
+            </label>
+            <label class="inline-flex items-center gap-2">
+              <input type="checkbox" v-model="form.utilise_solde" />
+              <span>Utilise un solde</span>
+            </label>
+            <label class="inline-flex items-center gap-2">
+              <input type="checkbox" v-model="form.cumulable" />
+              <span>Cumulable</span>
+            </label>
+          </div>
+        </label>
+
+        <label class="field-card">
+          <span class="field-label">Jours forfait</span>
+          <input class="input" type="number" min="0" v-model="form.jours_forfait" placeholder="(optionnel)" />
+        </label>
+
+        <label class="field-card">
+          <span class="field-label">Limite</span>
+          <input class="input" type="number" min="0" v-model="form.limite" placeholder="(optionnel)" />
+        </label>
+
+        <label class="field-card">
+          <span class="field-label">Fréquence limite</span>
+          <select class="select" v-model="form.limite_frequence_id">
+            <option value="">(optionnel)</option>
+            <option v-for="f in frequences" :key="f.id" :value="f.id">{{ f.code }} - {{ f.libelle }}</option>
+          </select>
+        </label>
+
+        <template v-if="form.cumulable">
+          <label class="field-card">
+            <span class="field-label">Durée cumul</span>
+            <input class="input" type="number" min="0" v-model="form.cumulable_duree" placeholder="Durée" />
+          </label>
+
+          <label class="field-card">
+            <span class="field-label">Fréquence cumul</span>
+            <select class="select" v-model="form.cumulable_frequence_id">
+              <option value="">Sélectionner</option>
+              <option v-for="f in frequences" :key="f.id" :value="f.id">{{ f.code }} - {{ f.libelle }}</option>
+            </select>
+          </label>
+        </template>
+
+        <div class="submit-row">
           <button class="btn" type="submit" :disabled="loading">{{ loading ? 'Création...' : 'Enregistrer' }}</button>
-          <span class="muted" v-if="message">{{ message }}</span>
+          <RouterLink class="btn btn-secondary" to="/absences-types">Annuler</RouterLink>
         </div>
       </form>
-    </div>
+    </section>
   </div>
 </template>
 
@@ -82,13 +170,3 @@ const submit = async () => {
 
 onMounted(loadFreq)
 </script>
-
-<style scoped>
-.page { padding: 20px; max-width: 800px; margin: 0 auto; }
-.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-.card { border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; background: #fff; box-shadow: 0 6px 20px rgba(15,23,42,0.08); }
-.input, .select { border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; }
-.btn { padding: 10px 16px; border: none; border-radius: 10px; background: linear-gradient(135deg, #3b82f6, #2563eb); color: #fff; cursor: pointer; }
-.btn-secondary { background: #e2e8f0; color: #0f172a; }
-.muted { color: #94a3b8; }
-</style>

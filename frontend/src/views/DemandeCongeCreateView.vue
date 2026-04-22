@@ -1,53 +1,92 @@
 <template>
-  <div class="max-w-3xl mx-auto space-y-4">
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-2xl font-semibold">Nouvelle demande de congé</h1>
-        <p class="text-sm text-slate-500">Création côté administrateur/manager</p>
-      </div>
-      <RouterLink class="btn btn-secondary" to="/demandes-conges">← Retour à la liste</RouterLink>
-    </div>
+  <div class="create-page">
+    <section class="hero hero-band hero-shared hero-compact">
+      <div class="hero-copy">
+        <p class="hero-kicker">Leave workflow</p>
+        <h1>Nouvelle demande de conge</h1>
+        <p class="hero-subtitle">Creation cote administrateur/manager avec selection employe, type et dates.</p>
 
-    <div class="card">
-      <form class="grid gap-3" @submit.prevent="createDemande">
-        <div class="grid gap-1">
-          <label class="text-sm text-slate-400">Employé</label>
+        <div class="hero-pills">
+          <span class="pill">Employe</span>
+          <span class="pill">Type</span>
+          <span class="pill">Periode</span>
+        </div>
+      </div>
+
+      <div class="hero-actions">
+        <div class="filters-panel">
+          <div class="action-row">
+            <RouterLink class="btn btn-secondary" to="/demandes-conges">Retour</RouterLink>
+            <button class="btn" type="button" @click="createDemande" :disabled="saving">
+              {{ saving ? 'Creation...' : 'Creer' }}
+            </button>
+          </div>
+
+          <div v-if="message" class="status-banner danger">
+            <span class="status-dot"></span>
+            <span>{{ message }}</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card section-card">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">Leave request</p>
+          <h2>Informations</h2>
+        </div>
+        <span class="section-chip">Creation</span>
+      </div>
+
+      <form class="fields-grid" @submit.prevent="createDemande">
+        <label class="field-card full">
+          <span class="field-label">Employe</span>
           <select class="select" v-model="form.employe_id" required>
-            <option value="">Employé</option>
+            <option value="">Selectionner</option>
             <option v-for="emp in employes" :key="emp.id" :value="emp.id">{{ emp.matricule }} - {{ emp.nom }}</option>
           </select>
-        </div>
-        <div class="grid gap-1">
-          <label class="text-sm text-slate-400">Type de congé</label>
+        </label>
+
+        <label class="field-card full">
+          <span class="field-label">Type de conge</span>
           <select class="select" v-model="form.type_conge_id" required>
-            <option value="">Type</option>
+            <option value="">Selectionner</option>
             <option v-for="t in types" :key="t.id" :value="t.id">{{ t.libelle }}</option>
           </select>
-        </div>
-        <div class="grid gap-1">
-          <label class="text-sm text-slate-400">Date début</label>
+        </label>
+
+        <label class="field-card">
+          <span class="field-label">Date debut</span>
           <input class="input" type="date" v-model="form.date_debut" required />
-        </div>
-        <div class="grid gap-1" v-if="showDateFin">
-          <label class="text-sm text-slate-400">Date fin</label>
+        </label>
+
+        <label class="field-card" v-if="showDateFin">
+          <span class="field-label">Date fin</span>
           <input class="input" type="date" v-model="form.date_fin" />
-        </div>
-        <div class="grid gap-1">
-          <label class="text-sm text-slate-400">Motif (optionnel)</label>
-          <textarea class="input" rows="3" v-model="form.motif" placeholder="Motif (optionnel)"></textarea>
-        </div>
-        <div class="grid gap-1">
-          <label class="text-sm text-slate-400">Type de document (optionnel)</label>
-          <input class="input" placeholder="Justificatif congé" v-model="form.type_document" />
-        </div>
-        <div class="grid gap-1">
-          <label class="text-sm text-slate-400">Justificatif (PDF/IMG, 4 Mo max)</label>
+        </label>
+
+        <label class="field-card full">
+          <span class="field-label">Motif</span>
+          <textarea class="input" rows="4" v-model="form.motif" placeholder="(optionnel)"></textarea>
+        </label>
+
+        <label class="field-card">
+          <span class="field-label">Type de document</span>
+          <input class="input" placeholder="Justificatif conge" v-model="form.type_document" />
+        </label>
+
+        <label class="field-card full">
+          <span class="field-label">Justificatif</span>
           <input class="input" type="file" accept=".pdf,image/*" @change="onFileChange" />
+        </label>
+
+        <div class="submit-row">
+          <button class="btn" type="submit" :disabled="saving">{{ saving ? 'Creation...' : 'Creer' }}</button>
+          <RouterLink class="btn btn-secondary" to="/demandes-conges">Annuler</RouterLink>
         </div>
-        <button class="btn w-full" type="submit">Créer</button>
-        <p class="text-sm text-slate-500" v-if="message">{{ message }}</p>
       </form>
-    </div>
+    </section>
   </div>
 </template>
 
@@ -61,6 +100,7 @@ const router = useRouter()
 const types = ref([])
 const employes = ref([])
 const message = ref('')
+const saving = ref(false)
 const form = ref({
   employe_id: '',
   type_conge_id: '',
@@ -89,6 +129,8 @@ const fetchRefs = async () => {
 }
 
 const createDemande = async () => {
+  if (saving.value) return
+  saving.value = true
   try {
     const fd = new FormData()
     Object.entries(form.value).forEach(([key, val]) => {
@@ -106,6 +148,8 @@ const createDemande = async () => {
     const errMsg = e.response?.data?.message || e.message || 'Erreur lors de la création'
     const valErrors = e.response?.data?.errors
     message.value = valErrors ? `${errMsg} : ${Object.values(valErrors).flat().join(' | ')}` : errMsg
+  } finally {
+    saving.value = false
   }
 }
 

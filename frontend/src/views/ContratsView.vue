@@ -1,6 +1,6 @@
 <template>
   <div class="contrats-page">
-    <section class="hero">
+    <section class="hero hero-band hero-shared">
       <div class="hero-copy">
         <p class="hero-kicker">Contract management</p>
         <h1>Contrats</h1>
@@ -147,27 +147,21 @@
             <table class="table contrats-table">
               <thead>
                 <tr>
-                  <th>
+                  <th class="contract-col">
                     <button class="sort-button" type="button" @click="setSort('id')">
-                      ID
+                      Contrat
                       <span>{{ sortLabel('id') }}</span>
                     </button>
                   </th>
-                  <th>
+                  <th class="numero-col">
                     <button class="sort-button" type="button" @click="setSort('numero')">
                       Numéro
                       <span>{{ sortLabel('numero') }}</span>
                     </button>
                   </th>
-                  <th>
-                    <button class="sort-button" type="button" @click="setSort('matricule')">
-                      Matricule
-                      <span>{{ sortLabel('matricule') }}</span>
-                    </button>
-                  </th>
-                  <th>
+                  <th class="employee-col">
                     <button class="sort-button" type="button" @click="setSort('nom')">
-                      Collaborateur
+                      Employé
                       <span>{{ sortLabel('nom') }}</span>
                     </button>
                   </th>
@@ -177,31 +171,23 @@
                       <span>{{ sortLabel('type') }}</span>
                     </button>
                   </th>
-                  <th>Durée</th>
-                  <th>
+                  <th class="periode-col">
                     <button class="sort-button" type="button" @click="setSort('date_debut')">
-                      Dates contrat
+                      Période
                       <span>{{ sortLabel('date_debut') }}</span>
                     </button>
                   </th>
-                  <th>Période d'essai</th>
-                  <th>
+                  <th class="essai-col">Essai</th>
+                  <th class="renewal-col">
                     <button class="sort-button" type="button" @click="setSort('renouvellement')">
                       Renouvellement
                       <span>{{ sortLabel('renouvellement') }}</span>
                     </button>
                   </th>
-                  <th>Renouvelable</th>
-                  <th>
+                  <th class="status-col">
                     <button class="sort-button" type="button" @click="setSort('statut')">
                       Statut
                       <span>{{ sortLabel('statut') }}</span>
-                    </button>
-                  </th>
-                  <th>
-                    <button class="sort-button" type="button" @click="setSort('departement')">
-                      Département
-                      <span>{{ sortLabel('departement') }}</span>
                     </button>
                   </th>
                   <th class="actions-col">Actions</th>
@@ -210,30 +196,62 @@
 
               <tbody>
                 <tr v-for="c in contratsFiltres" :key="c.id">
-                  <td>{{ c.id }}</td>
-                  <td>{{ c.numero || '—' }}</td>
-                  <td>{{ c.employe?.matricule || '—' }}</td>
-                  <td>{{ c.employe ? `${c.employe.nom} ${c.employe.prenom}` : '—' }}</td>
-                  <td>{{ c.type_contrat || '—' }}</td>
-                  <td>{{ duree(c) }}</td>
-                  <td>
-                    <div>Début : {{ formatDate(c.date_debut) || '—' }}</div>
-                    <div>Fin : {{ formatDate(c.date_fin) || '—' }}</div>
+                  <td class="contract-col">
+                    <div class="contract-badge">
+                      <span class="contract-id">#{{ c.id }}</span>
+                      <span class="contract-meta">{{ contractMetaLabel(c) }}</span>
+                    </div>
+                  </td>
+                  <td class="numero-col">
+                    <span class="chip soft number-chip">{{ c.numero || '—' }}</span>
+                  </td>
+                  <td class="employee-col">
+                    <div class="employee-cell">
+                      <div class="employee-avatar">{{ initials(c.employe) }}</div>
+                      <div class="employee-copy">
+                        <span class="employee-name">{{ employeName(c.employe) }}</span>
+                        <span class="employee-meta">
+                          {{ c.employe?.matricule || 'Sans matricule' }}
+                          <template v-if="c.employe?.departement?.nom">
+                            · {{ c.employe.departement.nom }}
+                          </template>
+                        </span>
+                      </div>
+                    </div>
                   </td>
                   <td>
-                    <div>Début : {{ formatDate(c.periode_essai_debut) || '—' }}</div>
-                    <div>Fin : {{ formatDate(c.periode_essai_fin) || '—' }}</div>
+                    <span class="pill type-pill">{{ c.type_contrat || '—' }}</span>
                   </td>
-                  <td>{{ formatDate(currentEnd(c)) || '—' }}</td>
-                  <td>
-                    <span class="chip" :class="c.renouvelable ? '' : 'muted'">{{ c.renouvelable ? 'Oui' : 'Non' }}</span>
+                  <td class="periode-col">
+                    <div class="period-block">
+                      <span class="period-main">{{ formatRange(c.date_debut, c.date_fin) }}</span>
+                      <span class="period-sub">{{ contractDurationLabel(c.date_debut, c.date_fin) }}</span>
+                    </div>
                   </td>
-                  <td>
-                    <span class="chip" :class="c.statut === 'en_cours' ? '' : 'muted'">{{ c.statut || '—' }}</span>
+                  <td class="essai-col">
+                    <span class="chip soft trial-chip">
+                      {{ formatRange(c.periode_essai_debut, c.periode_essai_fin) }}
+                    </span>
                   </td>
-                  <td>{{ c.employe?.departement?.nom || '—' }}</td>
+                  <td class="renewal-col">
+                    <div class="renewal-block">
+                      <span class="renewal-main">{{ formatDate(currentEnd(c)) || '—' }}</span>
+                      <span class="renewal-sub">{{ renewalMeta(c) }}</span>
+                    </div>
+                  </td>
+                  <td class="status-col">
+                    <div class="status-stack">
+                      <span class="chip status-chip" :class="c.statut === 'en_cours' ? 'status-active' : 'status-muted'">
+                        {{ statutLabel(c.statut) }}
+                      </span>
+                      <span class="chip soft renewable-chip" :class="c.renouvelable ? 'renewable-yes' : 'renewable-no'">
+                        {{ c.renouvelable ? 'Renouvelable' : 'Non renouvelable' }}
+                      </span>
+                    </div>
+                  </td>
                   <td class="actions-col">
-                    <div class="row-actions">
+                    <div class="actions-stack">
+                    <div class="row-actions primary-actions">
                       <button class="btn btn-secondary btn-xs" @click="ouvrirCloture(c)">Clore</button>
                       <button class="btn btn-secondary btn-xs" @click="ouvrirRenouv(c)">Renouveler</button>
                       <RouterLink class="btn btn-secondary btn-xs" :to="`/contrats/${c.id}`">Fiche</RouterLink>
@@ -263,7 +281,7 @@
                           <input class="input" type="number" min="0" v-model.number="renouvellement.duree_ans" />
                         </label>
                       </div>
-                      <div class="row-actions">
+                      <div class="row-actions inline-actions">
                         <button class="btn btn-secondary btn-xs" @click="confirmerRenouv(c)">Confirmer</button>
                         <button class="btn btn-secondary btn-xs" @click="annulerRenouv">Annuler</button>
                       </div>
@@ -276,17 +294,18 @@
                         <span class="field-label">Date de fin</span>
                         <input class="input" type="date" v-model="clotureDate" />
                       </label>
-                      <div class="row-actions">
+                      <div class="row-actions inline-actions">
                         <button class="btn btn-secondary btn-xs" @click="confirmerCloture(c)">Clore</button>
                         <button class="btn btn-secondary btn-xs" @click="annulerCloture">Annuler</button>
                       </div>
                       <p class="error-inline" v-if="messageCloture">{{ messageCloture }}</p>
                     </div>
+                    </div>
                   </td>
                 </tr>
 
                 <tr v-if="!contratsFiltres.length">
-                  <td colspan="13" class="empty-state">
+                  <td colspan="9" class="empty-state">
                     <p>Aucun contrat ne correspond à la sélection actuelle.</p>
                     <span>Ajustez les filtres ou créez un nouveau contrat.</span>
                   </td>
@@ -390,6 +409,75 @@ const formatDate = (d) => {
 }
 
 const currentEnd = (c) => c.periode_essai_fin || c.date_fin
+
+const formatRange = (start, end) => {
+  const startValue = formatDate(start) || '—'
+  const endValue = formatDate(end) || '—'
+  return `${startValue} -> ${endValue}`
+}
+
+const employeName = (employe) => {
+  if (!employe) return 'Employé non renseigné'
+  return `${employe.nom || ''} ${employe.prenom || ''}`.trim() || 'Employé non renseigné'
+}
+
+const initials = (employe) => {
+  const label = employeName(employe)
+  return label
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join('') || 'RH'
+}
+
+const isExpiringSoonDate = (value, days = 30) => {
+  if (!value) return false
+  const now = new Date()
+  const threshold = new Date(now)
+  threshold.setDate(threshold.getDate() + days)
+  const endDate = new Date(value)
+  if (Number.isNaN(endDate.getTime())) return false
+  return endDate >= now && endDate <= threshold
+}
+
+const contractDurationLabel = (start, end) => {
+  if (!start && !end) return 'Période non renseignée'
+  if (start && !end) return 'Contrat sans fin définie'
+  if (!start || !end) return 'Période partielle'
+
+  const s = parseISO(start)
+  const e = parseISO(end)
+  if (isNaN(s) || isNaN(e) || e <= s) return 'Période renseignée'
+
+  const duration = intervalToDuration({ start: s, end: e })
+  return formatDuration(duration, { locale: fr }) || 'Période renseignée'
+}
+
+const statutLabel = (value) => {
+  const labels = {
+    en_cours: 'En cours',
+    termine: 'Terminé',
+    suspendu: 'Suspendu',
+    brouillon: 'Brouillon',
+  }
+
+  return labels[value] || value || '—'
+}
+
+const contractMetaLabel = (c) => {
+  if (c.statut && c.statut !== 'en_cours') return statutLabel(c.statut)
+  if (isExpiringSoonDate(currentEnd(c))) return 'Échéance proche'
+  if (!c.date_fin) return 'Sans fin définie'
+  return 'Suivi actif'
+}
+
+const renewalMeta = (c) => {
+  const end = currentEnd(c)
+  if (!end) return 'Sans échéance'
+  if (isExpiringSoonDate(end)) return 'Échéance proche'
+  return c.renouvelable ? 'Action possible' : 'Échéance fixée'
+}
 
 const ouvrirRenouv = (c) => {
   renouvellementId.value = c.id
@@ -698,17 +786,7 @@ const cddCount = computed(() =>
   contrats.value.filter((c) => String(c.type_contrat || '').toLowerCase().includes('cdd')).length,
 )
 const expiringSoonCount = computed(() => {
-  const now = new Date()
-  const threshold = new Date(now)
-  threshold.setDate(threshold.getDate() + 30)
-
-  return contrats.value.filter((c) => {
-    const end = currentEnd(c)
-    if (!end) return false
-    const endDate = new Date(end)
-    if (Number.isNaN(endDate.getTime())) return false
-    return endDate >= now && endDate <= threshold
-  }).length
+  return contrats.value.filter((c) => isExpiringSoonDate(currentEnd(c))).length
 })
 
 const metricCards = computed(() => [
@@ -803,122 +881,6 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.contrats-page {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  padding-bottom: 24px;
-}
-
-.hero {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 18px;
-  padding: 28px;
-  border: 1px solid rgba(79, 70, 229, 0.14);
-  border-radius: 30px;
-  background:var(--purple-100);
-  box-shadow: var(--shadow-lg);
-}
-
-body[data-theme='dark'] .hero {
-  background:
-    linear-gradient(135deg, rgba(79, 70, 229, 0.18), rgba(15, 23, 42, 0)),
-    rgba(15, 23, 42, 0.88);
-}
-
-.hero-copy {
-  max-width: 760px;
-}
-
-.hero-kicker,
-.section-kicker,
-.metric-label,
-.metric-caption,
-.hero-meta,
-.summary-intro,
-.overview-label,
-.overview-copy,
-.empty-state span {
-  margin: 0;
-}
-
-.hero-kicker,
-.section-kicker {
-  color: var(--brand-600);
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.hero h1,
-.section-heading h2 {
-  margin: 8px 0 0;
-  font-weight: 800;
-  letter-spacing: -0.04em;
-}
-
-.hero h1 {
-  font-size: clamp(2rem, 3vw, 2.9rem);
-}
-
-.hero-subtitle {
-  margin: 12px 0 0;
-  max-width: 700px;
-  color: var(--muted);
-  font-size: 1rem;
-  line-height: 1.7;
-}
-
-.hero-pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 18px;
-}
-
-.hero-actions {
-  display: flex;
-  min-width: 320px;
-  max-width: 420px;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.filters-panel {
-  display: grid;
-  gap: 14px;
-  padding: 18px;
-  border: 1px solid var(--border);
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.76);
-}
-
-body[data-theme='dark'] .filters-panel {
-  background: rgba(15, 23, 42, 0.72);
-}
-
-.action-row {
-  display: flex;
-  gap: 10px;
-}
-
-.action-row > * {
-  flex: 1;
-}
-
-.hero-meta-list {
-  display: grid;
-  gap: 6px;
-}
-
-.hero-meta {
-  color: var(--muted);
-  font-size: 0.85rem;
-}
-
 .banner-success {
   margin: 0;
   color: #16a34a;
@@ -926,127 +888,8 @@ body[data-theme='dark'] .filters-panel {
   font-weight: 700;
 }
 
-.metric-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.metric-card {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 18px 20px;
-  border: 1px solid var(--border);
-  border-radius: 24px;
-  background: var(--panel);
-  box-shadow: var(--shadow-sm);
-}
-
-.metric-chip,
-.section-chip,
-.overview-chip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: fit-content;
-  padding: 7px 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(79, 70, 229, 0.12);
-  background: rgba(79, 70, 229, 0.1);
-  color: var(--brand-600);
-  font-size: 0.76rem;
-  font-weight: 700;
-}
-
-.metric-label {
-  color: var(--muted);
-  font-size: 0.76rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.metric-value {
-  margin: 10px 0 8px;
-  font-size: 1.82rem;
-  font-weight: 800;
-  letter-spacing: -0.04em;
-}
-
-.metric-caption {
-  color: var(--muted);
-  font-size: 0.9rem;
-  line-height: 1.5;
-}
-
-.loading-card {
-  min-height: 180px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 8px;
-}
-
-.loading-title,
-.overview-value,
-.empty-state p {
-  margin: 0;
-}
-
-.loading-title {
-  font-size: 1.1rem;
-  font-weight: 800;
-}
-
-.section-card {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-
-.section-heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.section-heading.compact {
-  margin-bottom: 2px;
-}
-
-.section-heading h2 {
-  font-size: 1.48rem;
-}
-
-.section-copy {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.95rem;
-  line-height: 1.65;
-}
-
-.controls-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.field-card {
-  display: grid;
-  gap: 8px;
-}
-
 .field-card.compact {
   gap: 4px;
-}
-
-.field-label {
-  color: var(--muted);
-  font-size: 0.82rem;
-  font-weight: 700;
 }
 
 .content-grid {
@@ -1056,48 +899,194 @@ body[data-theme='dark'] .filters-panel {
   align-items: start;
 }
 
+.table-card {
+  min-width: 0;
+  overflow: hidden;
+}
+
 .table-shell {
-  overflow: auto;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 4px;
 }
 
-.sort-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  border: 0;
-  padding: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-transform: inherit;
-  cursor: pointer;
+.contrats-table {
+  min-width: 1680px;
 }
 
-.sort-button span {
-  color: var(--brand-600);
-  font-size: 0.72rem;
-}
-
+.contrats-table th,
 .contrats-table td {
   vertical-align: top;
 }
 
-.actions-col {
-  width: 1%;
+.contrats-table tbody tr:hover {
+  background: rgba(79, 70, 229, 0.04);
+}
+
+body[data-theme='dark'] .contrats-table tbody tr:hover {
+  background: rgba(79, 70, 229, 0.08);
+}
+
+.contract-col {
+  min-width: 96px;
+}
+
+.numero-col {
+  min-width: 190px;
+}
+
+.employee-col {
+  min-width: 250px;
+}
+
+.periode-col {
+  min-width: 250px;
+}
+
+.essai-col {
+  min-width: 200px;
+}
+
+.renewal-col {
+  min-width: 155px;
+}
+
+.status-col {
+  min-width: 170px;
+}
+
+.contract-badge {
+  display: grid;
+  gap: 4px;
+}
+
+.contract-id {
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.contract-meta,
+.employee-meta,
+.period-sub,
+.renewal-sub {
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.number-chip,
+.trial-chip {
+  display: inline-flex;
+  align-items: center;
   white-space: nowrap;
+}
+
+.employee-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.employee-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.16), rgba(14, 165, 233, 0.18));
+  color: var(--brand-700);
+  font-size: 0.92rem;
+  font-weight: 800;
+  flex: none;
+}
+
+.employee-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.employee-name {
+  margin: 0;
+  font-weight: 700;
+}
+
+.type-pill,
+.number-chip,
+.trial-chip {
+  background: rgba(79, 70, 229, 0.08);
+}
+
+.period-block,
+.renewal-block,
+.status-stack {
+  display: grid;
+  gap: 4px;
+}
+
+.period-main,
+.renewal-main {
+  font-weight: 700;
+}
+
+.status-stack .chip {
+  width: fit-content;
+}
+
+.status-chip.status-active {
+  background: rgba(16, 185, 129, 0.12);
+  color: #047857;
+}
+
+.status-chip.status-muted {
+  background: rgba(148, 163, 184, 0.16);
+  color: var(--muted);
+}
+
+.renewable-chip.renewable-yes {
+  background: rgba(79, 70, 229, 0.1);
+}
+
+.renewable-chip.renewable-no {
+  background: rgba(148, 163, 184, 0.14);
+  color: var(--muted);
+}
+
+.actions-col {
+  width: 340px;
+  min-width: 340px;
+  white-space: normal;
+}
+
+.actions-stack {
+  display: grid;
+  gap: 10px;
+  min-width: 312px;
 }
 
 .row-actions {
   display: flex;
-  flex-wrap: wrap;
   gap: 8px;
 }
 
-.inline-panel {
-  margin-top: 10px;
+.primary-actions,
+.inline-actions {
   display: grid;
-  gap: 10px;
-  padding: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.primary-actions > *,
+.inline-actions > * {
+  width: 100%;
+  justify-content: center;
+}
+
+.inline-panel {
+  display: grid;
+  gap: 12px;
+  width: min(100%, 312px);
+  padding: 14px;
   border: 1px solid var(--border);
   border-radius: 14px;
   background: rgba(248, 250, 252, 0.84);
@@ -1124,8 +1113,19 @@ body[data-theme='dark'] .inline-panel.danger {
 
 .duration-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(3, minmax(72px, 1fr));
+  gap: 10px;
+}
+
+.duration-grid .field-label {
+  white-space: nowrap;
+}
+
+.duration-grid .input,
+.inline-panel .input,
+.inline-panel .select {
+  min-width: 0;
+  width: 100%;
 }
 
 .error-inline {
@@ -1134,104 +1134,7 @@ body[data-theme='dark'] .inline-panel.danger {
   font-size: 0.78rem;
 }
 
-.table-footer {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.table-meta {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.9rem;
-}
-
-.insights-card {
-  position: sticky;
-  top: 18px;
-}
-
-.summary-intro {
-  color: var(--muted);
-  font-size: 0.92rem;
-  line-height: 1.6;
-}
-
-.overview-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.overview-card {
-  display: grid;
-  gap: 10px;
-  padding: 16px;
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  background: rgba(248, 250, 252, 0.82);
-}
-
-body[data-theme='dark'] .overview-card {
-  background: rgba(15, 23, 42, 0.46);
-}
-
-.overview-label {
-  color: var(--muted);
-  font-size: 0.82rem;
-}
-
-.overview-value {
-  font-size: 1.22rem;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-}
-
-.overview-copy {
-  color: var(--muted);
-  font-size: 0.84rem;
-  line-height: 1.5;
-}
-
-.notes-card {
-  padding: 18px 18px 20px;
-  border: 1px solid var(--border);
-  border-radius: 24px;
-  background: rgba(248, 250, 252, 0.84);
-}
-
-body[data-theme='dark'] .notes-card {
-  background: rgba(15, 23, 42, 0.56);
-}
-
-.notes-card h3 {
-  margin: 0;
-  font-size: 1.1rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-}
-
-.notes-card ul {
-  margin: 14px 0 0;
-  padding-left: 18px;
-  color: var(--muted);
-  display: grid;
-  gap: 10px;
-}
-
-.empty-state {
-  padding: 26px 14px;
-  text-align: center;
-}
-
-.empty-state p {
-  font-weight: 700;
-}
-
 @media (max-width: 1300px) {
-  .metric-grid,
   .controls-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1240,38 +1143,23 @@ body[data-theme='dark'] .notes-card {
     grid-template-columns: 1fr;
   }
 
-  .insights-card {
-    position: static;
-  }
 }
 
 @media (max-width: 900px) {
-  .hero {
-    padding: 22px;
-  }
-
-  .hero-actions {
-    min-width: 100%;
-    max-width: none;
-  }
-
-  .controls-grid,
-  .overview-grid,
   .duration-grid {
     grid-template-columns: 1fr;
   }
-}
 
-@media (max-width: 680px) {
-  .metric-grid {
-    grid-template-columns: 1fr;
+  .actions-col {
+    width: 300px;
+    min-width: 300px;
   }
 
-  .action-row,
-  .section-heading,
-  .table-footer {
-    flex-direction: column;
-    align-items: stretch;
+  .actions-stack,
+  .inline-panel {
+    min-width: 272px;
+    width: min(100%, 272px);
   }
 }
+
 </style>

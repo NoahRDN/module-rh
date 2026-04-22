@@ -75,20 +75,22 @@
           <input class="input" v-model="form.salaire_base" placeholder="Salaire" required type="number" step="0.01" />
         </label>
 
-        <label class="field-card">
-          <span class="field-label">Duree (jours)</span>
-          <input class="input" type="number" min="0" v-model.number="form.duree_jours" />
-        </label>
+        <template v-if="isFixedTerm">
+          <label class="field-card">
+            <span class="field-label">Duree (jours)</span>
+            <input class="input" type="number" min="0" v-model.number="form.duree_jours" />
+          </label>
 
-        <label class="field-card">
-          <span class="field-label">Duree (mois)</span>
-          <input class="input" type="number" min="0" v-model.number="form.duree_mois" />
-        </label>
+          <label class="field-card">
+            <span class="field-label">Duree (mois)</span>
+            <input class="input" type="number" min="0" v-model.number="form.duree_mois" />
+          </label>
 
-        <label class="field-card">
-          <span class="field-label">Duree (annees)</span>
-          <input class="input" type="number" min="0" v-model.number="form.duree_ans" />
-        </label>
+          <label class="field-card">
+            <span class="field-label">Duree (annees)</span>
+            <input class="input" type="number" min="0" v-model.number="form.duree_ans" />
+          </label>
+        </template>
 
         <label class="field-card">
           <span class="field-label">Essai debut</span>
@@ -157,6 +159,9 @@ const form = ref({
   renouvelable: false
 })
 
+const isFixedTerm = computed(() => form.value.type_contrat !== 'CDI')
+const hasDuration = computed(() => Boolean(form.value.duree_jours || form.value.duree_mois || form.value.duree_ans))
+
 const fetchEmployes = async () => {
   const { data } = await api.get('/v1/employes', { params: { all: 1 } })
   employes.value = data.data || data
@@ -164,9 +169,20 @@ const fetchEmployes = async () => {
 
 const createContrat = async () => {
   if (saving.value) return
+  if (isFixedTerm.value && !hasDuration.value) {
+    message.value = 'Renseignez une durée (jours/mois/années) pour les contrats à durée limitée.'
+    messageType.value = 'danger'
+    return
+  }
   saving.value = true
   try {
     const payload = { ...form.value }
+    if (!isFixedTerm.value) {
+      payload.duree_jours = 0
+      payload.duree_mois = 0
+      payload.duree_ans = 0
+      payload.renouvelable = false
+    }
     // dates de fin calculées côté backend à partir des durées, on n'envoie pas de date_fin
     await api.post('/v1/contrats', payload)
     message.value = 'Contrat créé'

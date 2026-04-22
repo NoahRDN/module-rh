@@ -9,6 +9,7 @@ use App\Models\Employe;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Carbon;
+use Illuminate\Validation\ValidationException;
 
 class HistoriquePosteController extends Controller
 {
@@ -33,8 +34,48 @@ class HistoriquePosteController extends Controller
 
     public function store(HistoriquePosteRequest $request)
     {
+        $validated = $request->validated();
+
         try {
-            $record = HistoriquePoste::create($request->validated());
+            $employe = Employe::find($validated['employe_id']);
+            if (!$employe) {
+                return response()->json(['message' => 'Employé introuvable'], 404);
+            }
+
+            $current = HistoriquePoste::where('employe_id', $validated['employe_id'])
+                ->whereNotNull('poste_id')
+                ->whereDate('date_changement', '<=', Carbon::today()->toDateString())
+                ->orderByDesc('date_changement')
+                ->first();
+
+            $minAllowed = null;
+            if ($current) {
+                $minAllowed = Carbon::parse($current->date_changement)->startOfDay();
+            } elseif ($employe->date_embauche) {
+                $minAllowed = Carbon::parse($employe->date_embauche)->startOfDay();
+            }
+
+            if ($minAllowed) {
+                $requested = Carbon::parse($validated['date_changement'])->startOfDay();
+                if ($requested->lt($minAllowed)) {
+                    return response()->json([
+                        'message' => sprintf(
+                            'Date invalide : la mobilité ne peut pas être antérieure au poste actuel (depuis le %s).',
+                            $minAllowed->toDateString()
+                        ),
+                        'min_date' => $minAllowed->toDateString(),
+                    ], 422);
+                }
+            }
+        } catch (ValidationException $e) {
+            return response()->json(['message' => 'Données invalides', 'errors' => $e->errors()], 422);
+        } catch (\Throwable $e) {
+            Log::error('Erreur validation historique poste', ['error' => $e->getMessage()]);
+            return response()->json(['message' => 'Erreur serveur'], 500);
+        }
+
+        try {
+            $record = HistoriquePoste::create($validated);
             $this->rafraichirPosteCourant($record->employe_id);
             return response()->json($record, 201);
         } catch (\Throwable $e) {

@@ -17,9 +17,6 @@
         <div class="filters-panel">
           <div class="action-row">
             <RouterLink class="btn btn-secondary" to="/historiques">Retour</RouterLink>
-            <button class="btn" type="button" @click="createHistorique" :disabled="saving">
-              {{ saving ? 'Enregistrement...' : 'Enregistrer' }}
-            </button>
           </div>
 
           <div v-if="message" class="status-banner" :class="messageType">
@@ -69,7 +66,7 @@
           <input class="input" type="date" v-model="form.date_changement" required />
         </label>
 
-        <label class="field-card">
+        <label class="field-card full">
           <span class="field-label">Motif</span>
           <input class="input" v-model="form.motif" placeholder="Promotion, mobilite interne..." />
         </label>

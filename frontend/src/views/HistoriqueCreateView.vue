@@ -47,16 +47,16 @@
 
         <label class="field-card">
           <span class="field-label">Nouveau poste</span>
-          <select class="select" v-model="form.poste_id">
-            <option value="">(optionnel)</option>
+          <select class="select" v-model="form.poste_id" required>
+            <option value="">Selectionner</option>
             <option v-for="p in postes" :key="p.id" :value="p.id">{{ p.nom }}</option>
           </select>
         </label>
 
         <label class="field-card">
           <span class="field-label">Departement</span>
-          <select class="select" v-model="form.departement_id">
-            <option value="">(optionnel)</option>
+          <select class="select" v-model="form.departement_id" required>
+            <option value="">Selectionner</option>
             <option v-for="d in departements" :key="d.id" :value="d.id">{{ d.nom }}</option>
           </select>
         </label>
@@ -117,8 +117,6 @@ const createHistorique = async () => {
   saving.value = true
   try {
     const payload = { ...form.value }
-    payload.poste_id = payload.poste_id || null
-    payload.departement_id = payload.departement_id || null
     await api.post('/v1/historiques-postes', payload)
     message.value = 'Mouvement enregistré'
     messageType.value = 'success'

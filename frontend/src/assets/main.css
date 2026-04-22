@@ -997,6 +997,7 @@ body[data-theme='dark'] .status-banner {
   border: 1px solid var(--border);
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.76);
+  min-width: 0;
 }
 
 body[data-theme='dark'] .rh-overview-card,

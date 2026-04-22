@@ -118,6 +118,17 @@
           </label>
 
           <label class="field-card">
+            <span class="field-label">Statut</span>
+            <select class="select" v-model="filters.statut">
+              <option value="">Tous</option>
+              <option value="en_cours">En cours</option>
+              <option value="termine">Terminé</option>
+              <option value="suspendu">Suspendu</option>
+              <option value="brouillon">Brouillon</option>
+            </select>
+          </label>
+
+          <label class="field-card">
             <span class="field-label">Département</span>
             <input class="input" placeholder="Structure" v-model="filters.departement" />
           </label>
@@ -391,7 +402,7 @@ const renouvellementId = ref(null)
 const renouvellement = ref({ duree_jours: 0, duree_mois: 0, duree_ans: 0 })
 const renouvellementCible = ref('contrat')
 const renouvellementEssaiDebut = ref('')
-const filters = ref({ numero: '', matricule: '', nom: '', type: '', departement: '', poste: '' })
+const filters = ref({ numero: '', matricule: '', nom: '', type: '', statut: '', departement: '', poste: '' })
 const sortKey = ref('id')
 const sortDir = ref('asc')
 const pagination = ref({ page: 1, last_page: 1, total: 0 })
@@ -409,6 +420,7 @@ const hasFilters = computed(() =>
     filters.value.matricule ||
     filters.value.nom ||
     filters.value.type ||
+    filters.value.statut ||
     filters.value.departement ||
     filters.value.poste,
   ),
@@ -718,6 +730,7 @@ const contratsFiltres = computed(() => {
       toStr(c.employe?.matricule).includes(toStr(f.matricule)) &&
       (`${toStr(c.employe?.nom)} ${toStr(c.employe?.prenom)}`).includes(toStr(f.nom)) &&
       toStr(c.type_contrat).includes(toStr(f.type)) &&
+      (!f.statut || toStr(c.statut) === toStr(f.statut)) &&
       toStr(c.employe?.departement?.nom).includes(toStr(f.departement)) &&
       toStr(c.employe?.poste?.nom).includes(toStr(f.poste))
     )
@@ -774,7 +787,7 @@ const sortLabel = (key) => (sortKey.value === key ? (sortDir.value === 'asc' ? '
 
 const resetFilters = () => {
   filterEmploye.value = ''
-  filters.value = { numero: '', matricule: '', nom: '', type: '', departement: '', poste: '' }
+  filters.value = { numero: '', matricule: '', nom: '', type: '', statut: '', departement: '', poste: '' }
   sortKey.value = 'id'
   sortDir.value = 'asc'
 }

@@ -601,6 +601,7 @@ onMounted(async () => {
   word-break: break-word;
   overflow-wrap: anywhere;
   max-width: 100%;
+  min-width: 0;
 }
 
 .pointage-toolbar .input,

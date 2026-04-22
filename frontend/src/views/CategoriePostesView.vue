@@ -1,6 +1,6 @@
 <template>
   <div class="categories-page">
-    <section class="hero">
+    <section class="hero hero-band hero-shared">
       <div class="hero-copy">
         <p class="hero-kicker">Role taxonomy</p>
         <h1>Catégories de postes</h1>
@@ -24,10 +24,10 @@
               <span>{{ loading ? 'Actualisation...' : 'Actualiser' }}</span>
             </button>
 
-            <button class="btn" type="button" @click="resetForm" :disabled="loading">
+            <RouterLink class="btn" to="/categories-postes/nouveau">
               <AppIcon name="plus" :size="18" />
               <span>Nouvelle</span>
-            </button>
+            </RouterLink>
           </div>
 
           <div class="hero-meta-list">
@@ -39,6 +39,11 @@
               Dernière synchro:
               <strong>{{ lastSyncedLabel }}</strong>
             </p>
+          </div>
+
+          <div v-if="message" class="status-banner" :class="messageType">
+            <span class="status-dot"></span>
+            <span>{{ message }}</span>
           </div>
         </div>
       </div>
@@ -142,10 +147,10 @@
                 <td class="category-description">{{ cat.description || '—' }}</td>
                 <td class="actions-col">
                   <div class="row-actions">
-                    <button class="btn btn-secondary btn-xs" type="button" @click="edit(cat)">
+                    <RouterLink class="btn btn-secondary btn-xs" :to="`/categories-postes/${cat.id}/modifier`">
                       <AppIcon name="file" :size="15" />
                       <span>Modifier</span>
-                    </button>
+                    </RouterLink>
                     <button
                       class="btn btn-danger btn-xs"
                       type="button"
@@ -169,73 +174,25 @@
           </table>
         </div>
       </article>
-
-      <aside class="card section-card form-card">
-        <div class="section-heading compact">
-          <div>
-            <p class="section-kicker">Editor</p>
-            <h2>{{ isEditing ? 'Modifier la catégorie' : 'Ajouter une catégorie' }}</h2>
-          </div>
-        </div>
-
-        <p class="section-copy">
-          Renseignez une entrée claire pour garder une nomenclature stable entre les postes et les
-          analyses RH.
-        </p>
-
-        <form class="form-grid" @submit.prevent="save">
-          <label class="field-card">
-            <span class="field-label">Nom</span>
-            <input v-model="form.nom" class="input" placeholder="Ex: Cadres" required />
-          </label>
-
-          <label class="field-card">
-            <span class="field-label">Code</span>
-            <input v-model="form.code" class="input" placeholder="Optionnel" />
-          </label>
-
-          <label class="field-card">
-            <span class="field-label">Description</span>
-            <textarea
-              v-model="form.description"
-              class="textarea"
-              rows="4"
-              placeholder="Optionnel"
-            ></textarea>
-          </label>
-
-          <div class="form-actions">
-            <button class="btn" type="submit" :disabled="loading">
-              <AppIcon name="save" :size="16" />
-              <span>{{ loading ? 'Enregistrement...' : isEditing ? 'Mettre à jour' : 'Créer' }}</span>
-            </button>
-            <button v-if="isEditing" class="btn btn-secondary" type="button" @click="resetForm">
-              Annuler
-            </button>
-          </div>
-        </form>
-
-        <p v-if="message" class="status-message">{{ message }}</p>
-      </aside>
     </section>
-  </div>
+    </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import api from '../services/api'
 import AppIcon from '../components/ui/AppIcon.vue'
+import { RouterLink } from 'vue-router'
 
 const categories = ref([])
 const loading = ref(false)
 const loadingDelete = ref(null)
 const message = ref('')
+const messageType = ref('info')
 const search = ref('')
 const sortKey = ref('nom')
 const sortDir = ref('asc')
 const lastRefreshedAt = ref(null)
-const form = ref({ id: null, nom: '', code: '', description: '' })
-const isEditing = computed(() => !!form.value.id)
 
 const hasFilters = computed(() => Boolean(search.value.trim()))
 
@@ -306,11 +263,6 @@ const lastSyncedLabel = computed(() => {
   }).format(lastRefreshedAt.value)
 })
 
-const resetForm = () => {
-  form.value = { id: null, nom: '', code: '', description: '' }
-  message.value = ''
-}
-
 const resetFilters = () => {
   search.value = ''
   sortKey.value = 'nom'
@@ -345,33 +297,13 @@ const refreshData = async () => {
   try {
     await fetchCategories()
     message.value = ''
-  } finally {
-    loading.value = false
-  }
-}
-
-const save = async () => {
-  loading.value = true
-  message.value = ''
-  try {
-    if (form.value.id) {
-      await api.put(`/v1/categories-postes/${form.value.id}`, form.value)
-    } else {
-      await api.post('/v1/categories-postes', form.value)
-    }
-    resetForm()
-    await fetchCategories()
-    message.value = 'Enregistré.'
+    messageType.value = 'info'
   } catch (e) {
-    message.value = e.response?.data?.message || 'Erreur lors de l’enregistrement'
+    message.value = e.response?.data?.message || 'Erreur lors du chargement'
+    messageType.value = 'danger'
   } finally {
     loading.value = false
   }
-}
-
-const edit = (cat) => {
-  form.value = { ...cat }
-  message.value = ''
 }
 
 const remove = async (cat) => {
@@ -380,8 +312,11 @@ const remove = async (cat) => {
   try {
     await api.delete(`/v1/categories-postes/${cat.id}`)
     await fetchCategories()
+    message.value = 'Catégorie supprimée.'
+    messageType.value = 'success'
   } catch (e) {
     message.value = e.response?.data?.message || 'Suppression impossible'
+    messageType.value = 'danger'
   } finally {
     loadingDelete.value = null
   }
@@ -412,8 +347,7 @@ onMounted(fetchCategories)
 
 body[data-theme='dark'] .hero {
   background:
-    linear-gradient(135deg, rgba(79, 70, 229, 0.18), rgba(15, 23, 42, 0)),
-    rgba(15, 23, 42, 0.88);
+    var(--hero-band-bg);
 }
 
 .hero-copy {
@@ -614,7 +548,7 @@ body[data-theme='dark'] .filters-panel {
 
 .content-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.7fr) minmax(320px, 1fr);
+  grid-template-columns: 1fr;
   gap: 18px;
   align-items: start;
 }
@@ -662,28 +596,6 @@ body[data-theme='dark'] .filters-panel {
   gap: 8px;
 }
 
-.form-card {
-  position: sticky;
-  top: 18px;
-}
-
-.form-grid {
-  display: grid;
-  gap: 12px;
-}
-
-.form-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.status-message {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.9rem;
-}
-
 .empty-state {
   padding: 26px 14px;
   text-align: center;
@@ -697,14 +609,6 @@ body[data-theme='dark'] .filters-panel {
   .metric-grid,
   .controls-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .content-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .form-card {
-    position: static;
   }
 }
 
@@ -729,8 +633,7 @@ body[data-theme='dark'] .filters-panel {
   }
 
   .action-row,
-  .section-heading,
-  .form-actions {
+  .section-heading {
     flex-direction: column;
     align-items: stretch;
   }

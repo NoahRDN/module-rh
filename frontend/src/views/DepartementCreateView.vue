@@ -1,19 +1,64 @@
 <template>
-  <div class="page">
-    <div class="page-header">
-      <h1>Nouveau département</h1>
-      <RouterLink to="/departements" class="btn btn-secondary btn-sm">← Retour</RouterLink>
-    </div>
-    <div class="card">
-      <form class="grid gap-3" @submit.prevent="submit">
-        <input class="input" v-model="form.nom" placeholder="Nom" required />
-        <textarea class="input" rows="3" v-model="form.description" placeholder="Description"></textarea>
-        <div class="flex gap-2">
+  <div class="create-page">
+    <section class="hero hero-band hero-shared hero-compact">
+      <div class="hero-copy">
+        <p class="hero-kicker">Organization structure</p>
+        <h1>Nouveau département</h1>
+        <p class="hero-subtitle">
+          Ajoutez un département et sa description pour structurer les rattachements métiers (postes,
+          employés, contrats).
+        </p>
+
+        <div class="hero-pills">
+          <span class="pill">Structure RH</span>
+          <span class="pill">Référentiel</span>
+          <span class="pill">Organisation</span>
+        </div>
+      </div>
+
+      <div class="hero-actions">
+        <div class="filters-panel">
+          <div class="action-row">
+            <RouterLink to="/departements" class="btn btn-secondary">Retour</RouterLink>
+            <button class="btn" type="button" @click="submit" :disabled="loading">
+              {{ loading ? 'Envoi...' : 'Enregistrer' }}
+            </button>
+          </div>
+
+          <div v-if="message" class="status-banner danger">
+            <span class="status-dot"></span>
+            <span>{{ message }}</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card section-card">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">Department form</p>
+          <h2>Informations</h2>
+        </div>
+        <span class="section-chip">Création</span>
+      </div>
+
+      <form class="fields-grid" @submit.prevent="submit">
+        <label class="field-card">
+          <span class="field-label">Nom</span>
+          <input class="input" v-model="form.nom" placeholder="Nom" required />
+        </label>
+
+        <label class="field-card full">
+          <span class="field-label">Description</span>
+          <textarea class="input" rows="4" v-model="form.description" placeholder="Description"></textarea>
+        </label>
+
+        <div class="submit-row">
           <button class="btn" type="submit" :disabled="loading">{{ loading ? 'Envoi...' : 'Enregistrer' }}</button>
-          <span class="muted" v-if="message">{{ message }}</span>
+          <RouterLink to="/departements" class="btn btn-secondary">Annuler</RouterLink>
         </div>
       </form>
-    </div>
+    </section>
   </div>
 </template>
 
@@ -40,13 +85,3 @@ const submit = async () => {
   }
 }
 </script>
-
-<style scoped>
-.page { padding: 20px; max-width: 700px; margin: 0 auto; }
-.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-.card { border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; background: #fff; box-shadow: 0 6px 20px rgba(15,23,42,0.08); }
-.input { border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; }
-.btn { padding: 10px 16px; border-radius: 10px; border: none; cursor: pointer; background: linear-gradient(135deg, #3b82f6, #2563eb); color: #fff; }
-.btn-secondary { background: #e2e8f0; color: #0f172a; }
-.muted { color: #94a3b8; }
-</style>

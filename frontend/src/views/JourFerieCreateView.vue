@@ -1,34 +1,71 @@
 <template>
-  <div class="max-w-2xl mx-auto space-y-4">
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-2xl font-semibold">Ajouter un jour férié</h1>
-        <p class="text-sm text-slate-500">Définir un jour chômé dans le calendrier</p>
-      </div>
-      <RouterLink class="btn btn-secondary" to="/jours-feries">← Retour</RouterLink>
-    </div>
+  <div class="create-page">
+    <section class="hero hero-band hero-shared hero-compact">
+      <div class="hero-copy">
+        <p class="hero-kicker">Legal calendar</p>
+        <h1>Nouveau jour ferie</h1>
+        <p class="hero-subtitle">Ajoutez une date de reference utilisee par les absences, la presence et la paie.</p>
 
-    <div class="card">
-      <form class="grid gap-3" @submit.prevent="save">
-        <div class="grid gap-1">
-          <label class="text-xs text-slate-400">Nom</label>
-          <input class="input" v-model="form.nom" placeholder="Ex : Nouvel an" required />
+        <div class="hero-pills">
+          <span class="pill">Calendrier</span>
+          <span class="pill">Presence</span>
+          <span class="pill">Paie</span>
         </div>
-        <div class="grid gap-1">
-          <label class="text-xs text-slate-400">Date</label>
-          <input class="input" type="date" v-model="form.date" required />
+      </div>
+
+      <div class="hero-actions">
+        <div class="filters-panel">
+          <div class="action-row">
+            <RouterLink class="btn btn-secondary" to="/jours-feries">Retour</RouterLink>
+            <button class="btn" type="button" @click="save" :disabled="loading">
+              {{ loading ? 'Enregistrement...' : 'Enregistrer' }}
+            </button>
+          </div>
+
+          <div v-if="message" class="status-banner" :class="messageType">
+            <span class="status-dot"></span>
+            <span>{{ message }}</span>
+          </div>
         </div>
-        <label class="inline-flex items-center gap-2 text-sm">
-          <input type="checkbox" v-model="form.recurrent" />
-          <span>Récurent chaque année</span>
+      </div>
+    </section>
+
+    <section class="card section-card">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">Holiday form</p>
+          <h2>Informations</h2>
+        </div>
+        <span class="section-chip">Creation</span>
+      </div>
+
+      <form class="fields-grid" @submit.prevent="save">
+        <label class="field-card">
+          <span class="field-label">Nom</span>
+          <input class="input" v-model="form.nom" placeholder="Ex: Nouvel an" required />
         </label>
-        <div class="flex gap-2">
-          <button class="btn" type="submit" :disabled="loading">Enregistrer</button>
+
+        <label class="field-card">
+          <span class="field-label">Date</span>
+          <input class="input" type="date" v-model="form.date" required />
+        </label>
+
+        <label class="field-card full">
+          <span class="field-label">Options</span>
+          <div class="chip-list">
+            <label class="inline-flex items-center gap-2">
+              <input type="checkbox" v-model="form.recurrent" />
+              <span>Recurrent chaque annee</span>
+            </label>
+          </div>
+        </label>
+
+        <div class="submit-row">
+          <button class="btn" type="submit" :disabled="loading">{{ loading ? 'Enregistrement...' : 'Enregistrer' }}</button>
           <button class="btn btn-secondary" type="button" @click="resetForm">Annuler</button>
         </div>
-        <p v-if="message" class="text-sm" :class="messageClass">{{ message }}</p>
       </form>
-    </div>
+    </section>
   </div>
 </template>
 
@@ -40,7 +77,7 @@ import api from '../services/api'
 const router = useRouter()
 const loading = ref(false)
 const message = ref('')
-const messageClass = ref('text-green-500')
+const messageType = ref('info')
 
 const form = ref({
   nom: '',
@@ -55,10 +92,10 @@ const resetForm = () => {
 
 const save = async () => {
   message.value = ''
-  messageClass.value = 'text-green-500'
+  messageType.value = 'info'
   if (!form.value.nom || !form.value.date) {
     message.value = 'Nom et date sont requis.'
-    messageClass.value = 'text-red-500'
+    messageType.value = 'danger'
     return
   }
   loading.value = true
@@ -66,7 +103,7 @@ const save = async () => {
     await api.post('/v1/jours-feries', form.value)
     router.push('/jours-feries')
   } catch (e) {
-    messageClass.value = 'text-red-500'
+    messageType.value = 'danger'
     message.value = e.response?.data?.message || 'Erreur lors de la sauvegarde.'
   } finally {
     loading.value = false

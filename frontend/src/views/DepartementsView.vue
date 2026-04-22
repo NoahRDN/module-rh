@@ -1,6 +1,6 @@
 <template>
   <div class="departements-page">
-    <section class="hero">
+    <section class="hero hero-band hero-shared">
       <div class="hero-copy">
         <p class="hero-kicker">Organization structure</p>
         <h1>Départements</h1>
@@ -358,8 +358,7 @@ onMounted(fetchDepartements)
 
 body[data-theme='dark'] .hero {
   background:
-    linear-gradient(135deg, rgba(79, 70, 229, 0.18), rgba(15, 23, 42, 0)),
-    rgba(15, 23, 42, 0.88);
+    var(--hero-band-bg);
 }
 
 .hero-copy {

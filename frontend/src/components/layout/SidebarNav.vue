@@ -37,13 +37,6 @@
         </section>
       </nav>
 
-      <div class="sidebar-footer">
-        <span class="footer-badge">
-          <span class="footer-dot"></span>
-          Stack active
-        </span>
-        <p class="footer-text">Paie, contrats et présence prêts à piloter.</p>
-      </div>
     </div>
   </aside>
 </template>
@@ -81,6 +74,7 @@ const groups = [
       { to: '/categories-postes', label: 'Catégories', hint: 'Familles et niveaux', icon: 'layers' },
       { to: '/historiques', label: 'Historique postes', hint: 'Mobilités internes', icon: 'history' },
       { to: '/contrats', label: 'Contrats', hint: 'Contrats actifs', icon: 'file' },
+      { to: '/contrats-historiques', label: 'Historique contrats', hint: 'Versions et renouvellements', icon: 'history' },
       { to: '/documents', label: 'Documents', hint: 'Pièces RH', icon: 'folder' },
     ],
   },

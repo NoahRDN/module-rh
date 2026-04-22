@@ -1,6 +1,6 @@
 <template>
   <div class="demandes-page">
-    <section class="hero">
+    <section class="hero hero-band hero-shared">
       <div class="hero-copy">
         <p class="hero-kicker">Leave workflow</p>
         <h1>Demandes de congés</h1>
@@ -368,121 +368,6 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.demandes-page {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  padding-bottom: 24px;
-}
-
-.hero {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 18px;
-  padding: 28px;
-  border: 1px solid rgba(79, 70, 229, 0.14);
-  border-radius: 30px;
-  background:var(--purple-100);
-  box-shadow: var(--shadow-lg);
-}
-
-body[data-theme='dark'] .hero {
-  background:
-    linear-gradient(135deg, rgba(79, 70, 229, 0.18), rgba(15, 23, 42, 0)),
-    rgba(15, 23, 42, 0.88);
-}
-
-.hero-copy {
-  max-width: 760px;
-}
-
-.hero-kicker,
-.section-kicker,
-.metric-label,
-.metric-caption,
-.hero-meta,
-.empty-state span {
-  margin: 0;
-}
-
-.hero-kicker,
-.section-kicker {
-  color: var(--brand-600);
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.hero h1,
-.section-heading h2 {
-  margin: 8px 0 0;
-  font-weight: 800;
-  letter-spacing: -0.04em;
-}
-
-.hero h1 {
-  font-size: clamp(2rem, 3vw, 2.9rem);
-}
-
-.hero-subtitle {
-  margin: 12px 0 0;
-  max-width: 700px;
-  color: var(--muted);
-  font-size: 1rem;
-  line-height: 1.7;
-}
-
-.hero-pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 18px;
-}
-
-.hero-actions {
-  display: flex;
-  min-width: 320px;
-  max-width: 380px;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.filters-panel {
-  display: grid;
-  gap: 14px;
-  padding: 18px;
-  border: 1px solid var(--border);
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.76);
-}
-
-body[data-theme='dark'] .filters-panel {
-  background: rgba(15, 23, 42, 0.72);
-}
-
-.action-row {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.action-row > * {
-  flex: 0 0 auto;
-}
-
-.hero-meta-list {
-  display: grid;
-  gap: 6px;
-}
-
-.hero-meta {
-  color: var(--muted);
-  font-size: 0.85rem;
-}
-
 .metric-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -656,14 +541,7 @@ body[data-theme='dark'] .filters-panel {
 }
 
 @media (max-width: 900px) {
-  .hero {
-    padding: 22px;
-  }
-
-  .hero-actions {
-    min-width: 100%;
-    max-width: none;
-  }
+  /* Hero handled globally (shared hero-band). */
 }
 
 @media (max-width: 680px) {

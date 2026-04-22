@@ -175,7 +175,7 @@ Route::prefix('v1')->group(function () {
     Route::get('worktime', [WorktimeSettingController::class, 'show']);
     Route::put('worktime', [WorktimeSettingController::class, 'update']);
     Route::apiResource('demandes-conges', DemandeCongeController::class);
-    Route::apiResource('calendrier-evenements', CalendrierEvenementController::class)->only(['index', 'store']);
+    Route::apiResource('calendrier-evenements', CalendrierEvenementController::class)->only(['index', 'store', 'update', 'destroy']);
     Route::get('alertes', [AlerteController::class, 'index']);
     Route::post('demandes-conges/{id}/manager-approve', [DemandeCongeController::class, 'approveByManager']);
     Route::post('demandes-conges/{id}/rh-approve', [DemandeCongeController::class, 'approveByRH']);

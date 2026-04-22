@@ -1,23 +1,23 @@
 <template>
   <div class="rh-page pointages-page">
-    <section class="rh-hero">
-      <div class="rh-hero-copy">
-        <p class="rh-hero-kicker">Attendance tracking</p>
+    <section class="rh-hero hero hero-band hero-shared">
+      <div class="rh-hero-copy hero-copy">
+        <p class="rh-hero-kicker hero-kicker">Attendance tracking</p>
         <h1>Pointages</h1>
-        <p class="rh-hero-subtitle">
+        <p class="rh-hero-subtitle hero-subtitle">
           Centralisez les entrées, sorties, retards, sources de pointage et absences justifiées dans
           une vue plus ordonnée et plus cohérente avec le reste du produit.
         </p>
 
-        <div class="rh-hero-pills">
+        <div class="rh-hero-pills hero-pills">
           <span class="pill">Entrées / sorties</span>
           <span class="pill">Retards</span>
           <span class="pill">Sources de pointage</span>
         </div>
       </div>
 
-      <div class="rh-hero-actions">
-        <div class="rh-panel">
+      <div class="rh-hero-actions hero-actions">
+        <div class="rh-panel filters-panel">
           <div class="rh-action-row">
             <button class="btn btn-secondary" @click="fetchPointages" :disabled="loading">
               <AppIcon name="refresh" :size="18" />
@@ -29,12 +29,12 @@
             </RouterLink>
           </div>
 
-          <div class="rh-hero-meta-list">
-            <p class="rh-hero-meta">
+          <div class="rh-hero-meta-list hero-meta-list">
+            <p class="rh-hero-meta hero-meta">
               Lignes visibles:
               <strong>{{ formatInteger(pointagesFiltres.length) }}</strong>
             </p>
-            <p class="rh-hero-meta">
+            <p class="rh-hero-meta hero-meta">
               Dernière synchro:
               <strong>{{ lastSyncedLabel }}</strong>
             </p>

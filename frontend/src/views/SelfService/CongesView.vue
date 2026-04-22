@@ -107,6 +107,9 @@
           <p class="hint" v-if="form.date_debut && form.date_fin">
             Durée estimée : <strong>{{ daysCount }}</strong> jour(s)
           </p>
+          <p class="hint" v-if="returnDate">
+            Date de retour estimée : <strong>{{ returnDate }}</strong>
+          </p>
           <div class="form-group">
             <label>Motif</label>
             <textarea v-model="form.motif" rows="3" placeholder="Motif de la demande..."></textarea>
@@ -172,6 +175,15 @@ const daysCount = computed(() => {
   const end = new Date(form.value.date_fin)
   const diff = (end - start) / (1000 * 60 * 60 * 24)
   return diff >= 0 ? diff + 1 : 0
+})
+
+const returnDate = computed(() => {
+  if (!form.value.date_fin) return ''
+  const end = new Date(form.value.date_fin)
+  if (isNaN(end)) return ''
+  const retour = new Date(end)
+  retour.setDate(end.getDate() + 1)
+  return retour.toISOString().slice(0, 10)
 })
 
 const isFormValid = computed(() =>

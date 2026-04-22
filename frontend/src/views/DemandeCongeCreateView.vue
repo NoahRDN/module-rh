@@ -81,6 +81,10 @@
           <input class="input" type="file" accept=".pdf,image/*" @change="onFileChange" />
         </label>
 
+        <p class="muted conge-hint" v-if="resumeConge">
+          {{ resumeConge }}
+        </p>
+
         <div class="submit-row">
           <button class="btn" type="submit" :disabled="saving">{{ saving ? 'Creation...' : 'Creer' }}</button>
           <RouterLink class="btn btn-secondary" to="/demandes-conges">Annuler</RouterLink>
@@ -111,12 +115,59 @@ const form = ref({
   justificatif: null
 })
 
+const selectedType = computed(() => types.value.find((x) => x.id === form.value.type_conge_id))
+
 const showDateFin = computed(() => {
-  const t = types.value.find((x) => x.id === form.value.type_conge_id)
+  const t = selectedType.value
   if (!t) return false
   const utiliseSolde = !!t.utilise_solde
   const flexible = t.jours_forfait === null || t.jours_forfait === undefined
   return utiliseSolde || flexible
+})
+
+const joursDemandes = computed(() => {
+  if (!form.value.date_debut) return null
+  const t = selectedType.value
+  if (t?.jours_forfait && !showDateFin.value) return Number(t.jours_forfait)
+  if (!form.value.date_fin) return 1
+  const start = new Date(form.value.date_debut)
+  const end = new Date(form.value.date_fin)
+  const diff = (end - start) / (1000 * 60 * 60 * 24)
+  const days = diff >= 0 ? diff + 1 : 0
+  return days || 1
+})
+
+const dateFinCalculee = computed(() => {
+  if (!form.value.date_debut) return ''
+  if (showDateFin.value && form.value.date_fin) return form.value.date_fin
+  const days = joursDemandes.value
+  if (!days) return ''
+  const start = new Date(form.value.date_debut)
+  const end = new Date(start)
+  end.setDate(start.getDate() + Number(days) - 1)
+  return end.toISOString().slice(0, 10)
+})
+
+const dateRetourEstimee = computed(() => {
+  const fin = dateFinCalculee.value
+  if (!fin) return ''
+  const end = new Date(fin)
+  if (isNaN(end)) return ''
+  const retour = new Date(end)
+  retour.setDate(end.getDate() + 1)
+  return retour.toISOString().slice(0, 10)
+})
+
+const resumeConge = computed(() => {
+  if (!form.value.date_debut) return ''
+  const days = joursDemandes.value
+  if (!days) return ''
+  const fin = dateFinCalculee.value
+  const retour = dateRetourEstimee.value
+  const dayLabel = Number(days) > 1 ? 'jours' : 'jour'
+  const finLabel = fin ? `Fin estimée: ${fin}` : ''
+  const retourLabel = retour ? `Retour estimé: ${retour}` : ''
+  return [`Durée: ${days} ${dayLabel}`, finLabel, retourLabel].filter(Boolean).join(' · ')
 })
 
 const fetchRefs = async () => {
@@ -160,3 +211,12 @@ const onFileChange = (e) => {
 
 onMounted(fetchRefs)
 </script>
+
+<style scoped>
+.conge-hint {
+  grid-column: 1 / -1;
+  margin: -6px 0 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+</style>

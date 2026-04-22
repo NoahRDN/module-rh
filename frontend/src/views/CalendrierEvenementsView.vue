@@ -356,12 +356,25 @@ import api from '../services/api'
 import { debounce } from '../utils/debounce'
 import AppIcon from '../components/ui/AppIcon.vue'
 
-const toInputDate = (value = new Date()) => {
+const pad2 = (value) => String(value).padStart(2, '0')
+
+const normalizeDate = (value) => {
+  if (!value) return ''
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) return trimmed.slice(0, 10)
+    const parsed = new Date(trimmed)
+    if (Number.isNaN(parsed.getTime())) return ''
+    return `${parsed.getFullYear()}-${pad2(parsed.getMonth() + 1)}-${pad2(parsed.getDate())}`
+  }
+
   const date = new Date(value)
-  const tzOffset = date.getTimezoneOffset()
-  date.setMinutes(date.getMinutes() - tzOffset)
-  return date.toISOString().slice(0, 10)
+  if (Number.isNaN(date.getTime())) return ''
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`
 }
+
+const toInputDate = (value = new Date()) => normalizeDate(value) || normalizeDate(new Date())
 
 const events = ref([])
 const employes = ref([])
@@ -395,15 +408,10 @@ const fetchEvents = async () => {
 
 const debouncedFetchEvents = debounce(fetchEvents, 300)
 
-const formatDate = (date) => {
-  const d = new Date(date)
-  const tzOffset = d.getTimezoneOffset()
-  d.setMinutes(d.getMinutes() - tzOffset)
-  return d.toISOString().slice(0, 10)
-}
+const formatDate = (date) => normalizeDate(date)
 
 const formatDisplayDate = (date) =>
-  new Intl.DateTimeFormat('fr-FR', { dateStyle: 'full' }).format(new Date(date))
+  new Intl.DateTimeFormat('fr-FR', { dateStyle: 'full' }).format(new Date(`${formatDate(date)}T00:00:00`))
 
 const startOfWeek = (date) => {
   const d = new Date(date)
@@ -576,14 +584,10 @@ const overviewCards = computed(() => [
 ])
 
 const isDateBetween = (date, start, end) => {
-  const d = new Date(date)
-  const s = new Date(start)
-  const e = new Date(end)
-
-  d.setHours(0, 0, 0, 0)
-  s.setHours(0, 0, 0, 0)
-  e.setHours(0, 0, 0, 0)
-
+  const d = normalizeDate(date)
+  const s = normalizeDate(start)
+  const e = normalizeDate(end)
+  if (!d || !s || !e) return false
   return d >= s && d <= e
 }
 

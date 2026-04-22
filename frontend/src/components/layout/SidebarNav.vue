@@ -37,13 +37,6 @@
         </section>
       </nav>
 
-      <div class="sidebar-footer">
-        <span class="footer-badge">
-          <span class="footer-dot"></span>
-          Stack active
-        </span>
-        <p class="footer-text">Paie, contrats et présence prêts à piloter.</p>
-      </div>
     </div>
   </aside>
 </template>

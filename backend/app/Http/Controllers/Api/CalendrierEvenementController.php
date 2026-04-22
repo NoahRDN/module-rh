@@ -154,10 +154,13 @@ class CalendrierEvenementController extends Controller
 
         $singleHolidayEvents = JourFerie::query()
             ->where('recurrent', false)
+            ->whereNotNull('date')
             ->whereDate('date', '>=', $fromDate->toDateString())
             ->whereDate('date', '<=', $toDate->toDateString())
             ->get()
-            ->map(fn (JourFerie $holiday) => $this->formatHolidayEvent($holiday, $holiday->date));
+            ->map(fn (JourFerie $holiday) => $this->formatHolidayEvent($holiday, $holiday->date))
+            ->filter()
+            ->values();
 
         $recurringHolidayEvents = JourFerie::query()
             ->where('recurrent', true)
@@ -175,13 +178,17 @@ class CalendrierEvenementController extends Controller
                         continue;
                     }
 
-                    $events[] = $this->formatHolidayEvent($holiday, $occurrence, $year);
+                    $payload = $this->formatHolidayEvent($holiday, $occurrence, $year);
+                    if ($payload) {
+                        $events[] = $payload;
+                    }
                 }
 
                 return $events;
             });
 
-        return $singleHolidayEvents->merge($recurringHolidayEvents);
+        // Important: convert to base collections so merge() doesn't assume Eloquent models.
+        return collect($singleHolidayEvents->all())->merge(collect($recurringHolidayEvents->all()));
     }
 
     private function holidayOccurrenceForYear(JourFerie $holiday, int $year): ?Carbon
@@ -197,14 +204,31 @@ class CalendrierEvenementController extends Controller
         }
     }
 
-    private function formatHolidayEvent(JourFerie $holiday, Carbon $occurrence, ?int $year = null): array
+    private function formatHolidayEvent(JourFerie $holiday, $occurrence, ?int $year = null): ?array
     {
+        if (!$occurrence) {
+            return null;
+        }
+
+        try {
+            $date = $occurrence instanceof Carbon
+                ? $occurrence->copy()
+                : Carbon::parse($occurrence)->startOfDay();
+        } catch (\Throwable $e) {
+            Log::warning('Jour férié ignoré: date invalide', [
+                'holiday_id' => $holiday->id,
+                'recurrent' => $holiday->recurrent,
+                'raw_date' => $occurrence,
+            ]);
+            return null;
+        }
+
         return [
             'id' => 'ferie-' . $holiday->id . ($year ? '-' . $year : ''),
             'type' => 'ferie',
             'employe_id' => null,
-            'date_debut' => $occurrence->toDateString(),
-            'date_fin' => $occurrence->toDateString(),
+            'date_debut' => $date->toDateString(),
+            'date_fin' => $date->toDateString(),
             'description' => $holiday->nom,
             'meta' => [
                 'recurrent' => $holiday->recurrent,

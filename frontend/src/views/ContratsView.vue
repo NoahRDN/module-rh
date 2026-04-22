@@ -253,7 +253,18 @@
                     <div class="actions-stack">
                     <div class="row-actions primary-actions">
                       <button class="btn btn-secondary btn-xs" @click="ouvrirCloture(c)">Clore</button>
-                      <button class="btn btn-secondary btn-xs" @click="ouvrirRenouv(c)">Renouveler</button>
+                      <span
+                        class="action-wrap"
+                        :title="!c.renouvelable ? 'Ce contrat n’est pas renouvelable' : ''"
+                      >
+                        <button
+                          class="btn btn-secondary btn-xs"
+                          :disabled="!c.renouvelable"
+                          @click="ouvrirRenouv(c)"
+                        >
+                          Renouveler
+                        </button>
+                      </span>
                       <RouterLink class="btn btn-secondary btn-xs" :to="`/contrats/${c.id}`">Fiche</RouterLink>
                       <button class="btn btn-secondary btn-xs" @click="telechargerPdf(c.id)">PDF</button>
                     </div>
@@ -480,6 +491,7 @@ const renewalMeta = (c) => {
 }
 
 const ouvrirRenouv = (c) => {
+  if (!c?.renouvelable) return
   renouvellementId.value = c.id
   renouvellement.value = { duree_jours: 0, duree_mois: 0, duree_ans: 0 }
   renouvellementCible.value = 'contrat'
@@ -1078,6 +1090,16 @@ body[data-theme='dark'] .contrats-table tbody tr:hover {
 
 .primary-actions > *,
 .inline-actions > * {
+  width: 100%;
+  justify-content: center;
+}
+
+.action-wrap {
+  display: inline-flex;
+  width: 100%;
+}
+
+.action-wrap > .btn {
   width: 100%;
   justify-content: center;
 }

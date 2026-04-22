@@ -1,146 +1,239 @@
 <template>
-  <div class="contrat-page">
-    <div class="hero-card">
-      <div class="hero-main">
-        <p class="eyebrow">Contrat #{{ contrat?.id || route.params.id }}</p>
-        <h1>Fiche contrat</h1>
-        <p class="subtitle">Vue synthétique du contrat et de son historique</p>
-        <div class="chips">
-          <span class="pill pill-blue">{{ contrat?.type_contrat || 'Type non défini' }}</span>
-          <span class="pill" v-if="contrat?.numero">N° {{ contrat?.numero }}</span>
+  <div class="rh-page contrat-detail-page">
+    <section class="hero hero-band hero-shared hero-compact">
+      <div class="hero-copy">
+        <p class="hero-kicker">Fiche contrat</p>
+        <h1>Contrat #{{ contrat?.id || route.params.id }}</h1>
+        <p class="hero-subtitle">Vue synthétique du contrat et de son historique.</p>
+
+        <div class="hero-pills">
+          <span class="pill">{{ contrat?.type_contrat || 'Type non défini' }}</span>
+          <span v-if="contrat?.numero" class="pill">N° {{ contrat.numero }}</span>
           <span class="pill" :class="contrat?.renouvelable ? 'pill-green' : 'pill-red'">
             {{ contrat?.renouvelable ? 'Renouvelable' : 'Non renouvelable' }}
           </span>
-          <span class="pill" v-if="contrat?.statut">{{ contrat?.statut }}</span>
-          <span class="pill pill-red" v-if="joursRestants !== null && joursRestants <= 30">
+          <span v-if="contrat?.statut" class="pill">{{ contrat.statut }}</span>
+          <span v-if="joursRestants !== null && joursRestants <= 30" class="pill pill-red">
             Échéance dans {{ joursRestants }} j
           </span>
         </div>
       </div>
+
       <div class="hero-actions">
-        <button class="btn btn-secondary" @click="telechargerPdf" :disabled="!contrat">Télécharger le PDF</button>
-        <RouterLink class="btn btn-secondary" to="/contrats-historiques">Historique</RouterLink>
-        <RouterLink
-          v-if="contrat?.employe?.id"
-          class="btn btn-secondary"
-          :to="{ name: 'employe-detail', params: { id: contrat.employe.id } }"
-        >
-          Ouvrir l'employé
-        </RouterLink>
-        <button class="btn btn-secondary" @click="router.back()">← Retour</button>
-      </div>
-    </div>
+        <div class="filters-panel">
+          <div class="action-row">
+            <button class="btn btn-secondary" type="button" @click="router.back()">Retour</button>
+            <button class="btn" type="button" @click="telechargerPdf" :disabled="!contrat?.id">PDF contrat</button>
+          </div>
 
-    <div class="summary-grid">
-      <div class="summary-card">
-        <p class="label">Employé</p>
-        <p class="value">
-          {{ contrat?.employe?.matricule }} — {{ contrat?.employe?.nom }} {{ contrat?.employe?.prenom }}
-        </p>
-        <p class="muted text-xs">
-          {{ contrat?.employe?.poste?.nom || 'Poste non renseigné' }} ·
-          {{ contrat?.employe?.departement?.nom || 'Département non renseigné' }}
-        </p>
-      </div>
-      <div class="summary-card">
-        <p class="label">Salaire de base</p>
-        <p class="value">{{ formatSalaire(contrat?.salaire_base) }}</p>
-        <p class="muted text-xs">Montant brut de référence</p>
-      </div>
-      <div class="summary-card">
-        <p class="label">Durée du contrat</p>
-        <p class="value">{{ dureeContrat }}</p>
-        <p class="muted text-xs">{{ formatDate(contrat?.date_debut) }} → {{ formatDate(contrat?.date_fin) || '—' }}</p>
-      </div>
-      <div class="summary-card">
-        <p class="label">Période d'essai</p>
-        <p class="value">{{ periodeEssai }}</p>
-        <p class="muted text-xs">
-          {{ formatDate(contrat?.periode_essai_debut) || '—' }} → {{ formatDate(contrat?.periode_essai_fin) || '—' }}
-        </p>
-      </div>
-    </div>
+          <div class="action-row">
+            <RouterLink class="btn btn-secondary" to="/contrats-historiques">Historique</RouterLink>
+            <RouterLink
+              v-if="contrat?.employe?.id"
+              class="btn btn-secondary"
+              :to="{ name: 'employe-detail', params: { id: contrat.employe.id } }"
+            >
+              Employé
+            </RouterLink>
+          </div>
 
-    <div class="card glass">
-      <div class="section-header">
-        <div>
-          <p class="eyebrow">Détails</p>
-          <h3>Informations clés</h3>
-        </div>
-      </div>
-      <div class="details-grid">
-        <div class="detail">
-          <p class="label">Numéro</p>
-          <p class="value">{{ contrat?.numero || '—' }}</p>
-        </div>
-        <div class="detail">
-          <p class="label">Type</p>
-          <p class="value">{{ contrat?.type_contrat || '—' }}</p>
-        </div>
-        <div class="detail">
-          <p class="label">Statut</p>
-          <p class="value">{{ contrat?.statut || '—' }}</p>
-        </div>
-        <div class="detail">
-          <p class="label">Renouvelable</p>
-          <p class="value">{{ contrat?.renouvelable ? 'Oui' : 'Non' }}</p>
-        </div>
-        <div class="detail">
-          <p class="label">Début</p>
-          <p class="value">{{ formatDate(contrat?.date_debut) || '—' }}</p>
-        </div>
-        <div class="detail">
-          <p class="label">Fin</p>
-          <p class="value">{{ formatDate(contrat?.date_fin) || '—' }}</p>
-        </div>
-        <div class="detail">
-          <p class="label">Essai — début</p>
-          <p class="value">{{ formatDate(contrat?.periode_essai_debut) || '—' }}</p>
-        </div>
-        <div class="detail">
-          <p class="label">Essai — fin</p>
-          <p class="value">{{ formatDate(contrat?.periode_essai_fin) || '—' }}</p>
-        </div>
-      </div>
-    </div>
+          <div class="hero-meta-list">
+            <p class="hero-meta">
+              Employé:
+              <strong>{{ employeLabel }}</strong>
+            </p>
+            <p class="hero-meta">
+              Période:
+              <strong>{{ periodeContratLabel }}</strong>
+            </p>
+            <p class="hero-meta">
+              Salaire:
+              <strong>{{ formatSalaire(contrat?.salaire_base) }}</strong>
+            </p>
+          </div>
 
-    <div class="card glass">
-      <div class="section-header">
-        <div>
-          <p class="eyebrow">Historique</p>
-          <h3>Évolutions du contrat</h3>
+          <div v-if="deadlineBanner" class="status-banner" :class="deadlineBanner.tone">
+            <span class="status-dot" />
+            <span>{{ deadlineBanner.label }}</span>
+          </div>
         </div>
-        <RouterLink class="link" to="/contrats-historiques">Voir tout</RouterLink>
       </div>
-      <div class="table-scroll">
-        <table class="table text-sm">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Numéro</th>
-              <th>Type</th>
-              <th>Durée</th>
-              <th>Contrat</th>
-              <th>Période d'essai</th>
-              <th>Statut</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="h in histContrats" :key="h.id">
-              <td>{{ h.id }}</td>
-              <td>{{ h.numero || '—' }}</td>
-              <td>{{ h.type_contrat }}</td>
-              <td>{{ duree(h) }}</td>
-              <td>{{ formatDate(h.date_debut) }} → {{ formatDate(h.date_fin) || '—' }}</td>
-              <td>{{ formatDate(h.periode_essai_debut) || '—' }} → {{ formatDate(h.periode_essai_fin) || '—' }}</td>
-              <td>{{ h.statut || '—' }}</td>
-            </tr>
-            <tr v-if="!histContrats.length">
-              <td colspan="7" class="muted">Aucun historique</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+    </section>
+
+    <template v-if="contrat">
+      <section class="content-grid">
+        <div class="main-column">
+          <article class="card section-card">
+            <div class="section-heading">
+              <div>
+                <p class="section-kicker">Overview</p>
+                <h2>Aperçu</h2>
+              </div>
+              <span class="section-chip">{{ contrat.type_contrat || 'Contrat' }}</span>
+            </div>
+
+            <p class="section-copy">Informations opérationnelles principales (employé, rémunération, périodes).</p>
+
+            <div class="overview-grid">
+              <div class="overview-card">
+                <p class="overview-label">Employé</p>
+                <p class="overview-value overview-value--wrap">{{ employeLabel }}</p>
+                <p class="overview-copy overview-value--wrap">{{ employeOrganisationLabel }}</p>
+              </div>
+
+              <div class="overview-card">
+                <p class="overview-label">Salaire de base</p>
+                <p class="overview-value">{{ formatSalaire(contrat.salaire_base) }}</p>
+                <p class="overview-copy">Montant brut de référence</p>
+              </div>
+
+              <div class="overview-card">
+                <p class="overview-label">Durée du contrat</p>
+                <p class="overview-value">{{ dureeContrat }}</p>
+                <p class="overview-copy overview-value--wrap">{{ periodeContratLabel }}</p>
+              </div>
+
+              <div class="overview-card">
+                <p class="overview-label">Période d'essai</p>
+                <p class="overview-value overview-value--wrap">{{ periodeEssai }}</p>
+                <p class="overview-copy overview-value--wrap">{{ periodeEssaiLabel }}</p>
+              </div>
+            </div>
+          </article>
+
+          <article class="card section-card">
+            <div class="section-heading">
+              <div>
+                <p class="section-kicker">Details</p>
+                <h2>Informations contractuelles</h2>
+              </div>
+              <span class="section-chip">{{ contrat.numero || `#${contrat.id}` }}</span>
+            </div>
+
+            <div class="overview-grid">
+              <div class="overview-card">
+                <p class="overview-label">Numéro</p>
+                <p class="overview-value overview-value--wrap">{{ contrat.numero || '—' }}</p>
+                <p class="overview-copy">Identifiant interne</p>
+              </div>
+
+              <div class="overview-card">
+                <p class="overview-label">Statut</p>
+                <p class="overview-value">{{ contrat.statut || '—' }}</p>
+                <p class="overview-copy">Cycle de vie du contrat</p>
+              </div>
+
+              <div class="overview-card">
+                <p class="overview-label">Renouvelable</p>
+                <p class="overview-value">{{ contrat.renouvelable ? 'Oui' : 'Non' }}</p>
+                <p class="overview-copy">Règle de renouvellement</p>
+              </div>
+
+              <div class="overview-card">
+                <p class="overview-label">Dates</p>
+                <p class="overview-value overview-value--wrap">{{ periodeContratLabel }}</p>
+                <p class="overview-copy">Début → Fin</p>
+              </div>
+
+              <div class="overview-card">
+                <p class="overview-label">Essai</p>
+                <p class="overview-value overview-value--wrap">{{ periodeEssaiLabel }}</p>
+                <p class="overview-copy">Période d'essai (début → fin)</p>
+              </div>
+
+              <div class="overview-card">
+                <p class="overview-label">Échéance</p>
+                <p class="overview-value">{{ joursRestantsLabel }}</p>
+                <p class="overview-copy">Temps restant avant fin</p>
+              </div>
+            </div>
+          </article>
+
+          <article class="card section-card">
+            <div class="section-heading">
+              <div>
+                <p class="section-kicker">History</p>
+                <h2>Évolutions du contrat</h2>
+              </div>
+              <RouterLink class="btn btn-secondary btn-sm" to="/contrats-historiques">Voir tout</RouterLink>
+            </div>
+
+            <p class="section-copy">Suivi des modifications rattachées à ce contrat.</p>
+
+            <div class="table-shell">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Numéro</th>
+                    <th>Type</th>
+                    <th>Durée</th>
+                    <th>Contrat</th>
+                    <th>Période d'essai</th>
+                    <th>Statut</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="h in histContrats" :key="h.id">
+                    <td>{{ h.id }}</td>
+                    <td>{{ h.numero || '—' }}</td>
+                    <td>{{ h.type_contrat || '—' }}</td>
+                    <td>{{ duree(h) }}</td>
+                    <td>{{ formatDate(h.date_debut) || '—' }} → {{ formatDate(h.date_fin) || '—' }}</td>
+                    <td>{{ formatDate(h.periode_essai_debut) || '—' }} → {{ formatDate(h.periode_essai_fin) || '—' }}</td>
+                    <td><span class="chip">{{ h.statut || '—' }}</span></td>
+                  </tr>
+                  <tr v-if="!histContrats.length">
+                    <td colspan="7" class="muted">Aucun historique</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+        </div>
+
+        <aside class="sidebar-column">
+          <article class="card section-card side-card">
+            <div class="section-heading">
+              <div>
+                <p class="section-kicker">Insights</p>
+                <h2>Synthèse</h2>
+              </div>
+            </div>
+
+            <div class="chip-list">
+              <span class="pill">{{ contrat.type_contrat || 'Contrat' }}</span>
+              <span class="pill" :class="contrat.renouvelable ? 'pill-green' : 'pill-red'">
+                {{ contrat.renouvelable ? 'Renouvelable' : 'Non renouvelable' }}
+              </span>
+              <span v-if="contrat.statut" class="pill">{{ contrat.statut }}</span>
+            </div>
+
+            <div class="overview-grid contrat-sidebar-grid">
+              <div class="overview-card">
+                <p class="overview-label">Employé</p>
+                <p class="overview-value overview-value--wrap">{{ contrat.employe?.matricule || '—' }}</p>
+                <p class="overview-copy overview-value--wrap">{{ contrat.employe?.nom }} {{ contrat.employe?.prenom }}</p>
+              </div>
+              <div class="overview-card">
+                <p class="overview-label">Échéance</p>
+                <p class="overview-value">{{ joursRestantsLabel }}</p>
+                <p class="overview-copy overview-value--wrap">{{ formatDate(contrat.date_fin) || '—' }}</p>
+              </div>
+            </div>
+
+            <div class="action-row">
+              <RouterLink class="btn btn-secondary btn-sm" to="/contrats">Liste contrats</RouterLink>
+              <RouterLink class="btn btn-secondary btn-sm" to="/contrats-historiques">Historique</RouterLink>
+            </div>
+          </article>
+        </aside>
+      </section>
+    </template>
+
+    <div v-else class="card loading-card">
+      <p class="loading-title">Chargement du contrat…</p>
+      <p class="muted">Les informations contractuelles sont en cours de synchronisation.</p>
     </div>
   </div>
 </template>
@@ -183,6 +276,12 @@ const joursRestants = computed(() => {
   return diff >= 0 ? diff : null
 })
 
+const joursRestantsLabel = computed(() => {
+  if (joursRestants.value === null) return '—'
+  if (joursRestants.value === 0) return "Aujourd'hui"
+  return `${joursRestants.value} j`
+})
+
 const dureeContrat = computed(() => {
   const start = contrat.value?.date_debut
   const end = contrat.value?.date_fin
@@ -209,6 +308,38 @@ const periodeEssai = computed(() => {
     }
   }
   return `${formatDate(s) || '—'} → ${formatDate(e) || '—'}`
+})
+
+const periodeEssaiLabel = computed(() => {
+  if (!contrat.value) return '—'
+  return `${formatDate(contrat.value.periode_essai_debut) || '—'} → ${formatDate(contrat.value.periode_essai_fin) || '—'}`
+})
+
+const employeLabel = computed(() => {
+  const e = contrat.value?.employe
+  if (!e) return 'Employé non renseigné'
+  const matricule = e.matricule ? `${e.matricule} — ` : ''
+  return `${matricule}${e.nom || ''} ${e.prenom || ''}`.trim() || 'Employé non renseigné'
+})
+
+const employeOrganisationLabel = computed(() => {
+  const e = contrat.value?.employe
+  if (!e) return '—'
+  const poste = e.poste?.nom || 'Poste non renseigné'
+  const departement = e.departement?.nom || 'Département non renseigné'
+  return `${poste} • ${departement}`
+})
+
+const periodeContratLabel = computed(() => {
+  if (!contrat.value) return '—'
+  return `${formatDate(contrat.value.date_debut) || '—'} → ${formatDate(contrat.value.date_fin) || '—'}`
+})
+
+const deadlineBanner = computed(() => {
+  if (joursRestants.value === null) return null
+  if (joursRestants.value <= 7) return { tone: 'danger', label: `Échéance imminente (${joursRestants.value} j)` }
+  if (joursRestants.value <= 30) return { tone: 'warning', label: `Échéance proche (${joursRestants.value} j)` }
+  return null
 })
 
 const telechargerPdf = async () => {
@@ -244,118 +375,13 @@ onMounted(fetchContrat)
 </script>
 
 <style scoped>
-.contrat-page {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+.overview-value--wrap {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  max-width: 100%;
 }
 
-.hero-card {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 18px 20px;
-  border-radius: 16px;
-  background: linear-gradient(135deg, rgba(70, 95, 255, 0.12), rgba(34, 197, 94, 0.08)), var(--panel);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-lg);
-}
-
-.hero-main h1 {
-  margin: 4px 0;
-}
-
-.subtitle {
-  margin: 0;
-  color: var(--muted);
-}
-
-.eyebrow {
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--brand-500);
-  margin: 0;
-}
-
-.link {
-  color: var(--brand-500);
-  font-weight: 600;
-}
-
-.hero-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.summary-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 12px;
-}
-
-.summary-card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 14px;
-  box-shadow: var(--shadow-sm);
-}
-
-.label {
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--muted);
-  margin: 0 0 4px;
-}
-
-.value {
-  margin: 0;
-  font-weight: 700;
-}
-
-.card.glass {
-  border: 1px solid var(--border);
-  background: var(--panel);
-  box-shadow: var(--shadow-sm);
-}
-
-.section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-
-.details-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 12px;
-}
-
-.detail {
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0));
-}
-
-.table-scroll {
-  overflow: auto;
-}
-
-@media (max-width: 768px) {
-  .hero-card {
-    padding: 16px;
-  }
+.contrat-sidebar-grid {
+  grid-template-columns: 1fr;
 }
 </style>

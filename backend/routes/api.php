@@ -96,6 +96,12 @@ Route::prefix('v1')->group(function () {
     Route::apiResource('categories-postes', CategoriePosteController::class);
     // Types de congés accessibles en lecture sans auth stricte
     Route::get('types-conges', [TypeCongeController::class, 'index']);
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::post('types-conges', [TypeCongeController::class, 'store']);
+        Route::get('types-conges/{id}', [TypeCongeController::class, 'show']);
+        Route::match(['put', 'patch'], 'types-conges/{id}', [TypeCongeController::class, 'update']);
+        Route::delete('types-conges/{id}', [TypeCongeController::class, 'destroy']);
+    });
     Route::get('frequences-conges', [FrequenceCongeController::class, 'index']);
     Route::apiResource('historiques-postes', HistoriquePosteController::class)->only(['index', 'store', 'show', 'destroy']);
     

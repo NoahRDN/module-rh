@@ -3,7 +3,7 @@
     <section class="hero hero-band hero-shared hero-compact">
       <div class="hero-copy">
         <p class="hero-kicker">Leave taxonomy</p>
-        <h1>Nouveau type d'absence</h1>
+        <h1>{{ isEdit ? "Modifier type d'absence" : "Nouveau type d'absence" }}</h1>
         <p class="hero-subtitle">
           Définissez les règles d’un type de congé (solde, cumul, limite, paiement) pour piloter le
           workflow et les calculs associés.
@@ -21,7 +21,7 @@
           <div class="action-row">
             <RouterLink class="btn btn-secondary" to="/absences-types">Retour</RouterLink>
             <button class="btn" type="button" @click="submit" :disabled="loading">
-              {{ loading ? 'Création...' : 'Enregistrer' }}
+              {{ loading ? (isEdit ? 'Enregistrement...' : 'Création...') : 'Enregistrer' }}
             </button>
           </div>
 
@@ -39,10 +39,10 @@
           <p class="section-kicker">Leave form</p>
           <h2>Paramètres</h2>
         </div>
-        <span class="section-chip">Création</span>
+        <span class="section-chip">{{ isEdit ? 'Modification' : 'Création' }}</span>
       </div>
 
-      <form class="fields-grid" @submit.prevent="submit">
+      <form class="fields-grid" @submit.prevent="submit" v-if="ready">
         <label class="field-card">
           <span class="field-label">Libellé</span>
           <input class="input" v-model="form.libelle" placeholder="Ex: Congé payé" required />
@@ -118,21 +118,30 @@
         </template>
 
         <div class="submit-row">
-          <button class="btn" type="submit" :disabled="loading">{{ loading ? 'Création...' : 'Enregistrer' }}</button>
+          <button class="btn" type="submit" :disabled="loading">
+            {{ loading ? (isEdit ? 'Enregistrement...' : 'Création...') : 'Enregistrer' }}
+          </button>
           <RouterLink class="btn btn-secondary" to="/absences-types">Annuler</RouterLink>
         </div>
       </form>
+
+      <div v-else class="empty-state">
+        <p>Chargement du type…</p>
+        <span class="muted">Récupération des paramètres (fréquences, règles).</span>
+      </div>
     </section>
   </div>
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
+import { computed, onMounted, ref } from 'vue'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import api from '../services/api'
 
 const router = useRouter()
+const route = useRoute()
 const loading = ref(false)
+const ready = ref(true)
 const message = ref('')
 const frequences = ref([])
 const form = ref({
@@ -150,23 +159,59 @@ const form = ref({
   cumulable_frequence_id: ''
 })
 
+const isEdit = computed(() => Boolean(route.params.id))
+
 const loadFreq = async () => {
   const { data } = await api.get('/v1/frequences-conges')
   frequences.value = data.data || data || []
+}
+
+const loadType = async () => {
+  if (!isEdit.value) return
+  ready.value = false
+  message.value = ''
+  try {
+    const { data } = await api.get(`/v1/types-conges/${route.params.id}`)
+    form.value = {
+      libelle: data.libelle || '',
+      code: data.code || '',
+      description: data.description || '',
+      paye: Boolean(data.paye),
+      utilise_solde: Boolean(data.utilise_solde),
+      cumulable: Boolean(data.cumulable),
+      jours_forfait: data.jours_forfait ?? '',
+      limite: data.limite ?? '',
+      frequence_id: data.frequence_id ?? '',
+      limite_frequence_id: data.limite_frequence_id ?? '',
+      cumulable_duree: data.cumulable_duree ?? '',
+      cumulable_frequence_id: data.cumulable_frequence_id ?? '',
+    }
+  } catch (e) {
+    message.value = e.response?.data?.message || 'Erreur lors du chargement du type'
+  } finally {
+    ready.value = true
+  }
 }
 
 const submit = async () => {
   loading.value = true
   message.value = ''
   try {
-    await api.post('/v1/types-conges', form.value)
+    if (isEdit.value) {
+      await api.put(`/v1/types-conges/${route.params.id}`, form.value)
+    } else {
+      await api.post('/v1/types-conges', form.value)
+    }
     router.push('/absences-types')
   } catch (e) {
-    message.value = e.response?.data?.message || 'Erreur lors de la création'
+    message.value = e.response?.data?.message || (isEdit.value ? "Erreur lors de l'enregistrement" : 'Erreur lors de la création')
   } finally {
     loading.value = false
   }
 }
 
-onMounted(loadFreq)
+onMounted(async () => {
+  await loadFreq()
+  await loadType()
+})
 </script>

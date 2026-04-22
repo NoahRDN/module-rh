@@ -109,6 +109,7 @@ const routes = [
       { path: 'contrats-historiques', name: 'contrats-historiques', component: ContratsHistoriqueView, meta: { subtitle: 'Historique contrats' } },
       { path: 'absences-types', name: 'absences-types', component: AbsenceTypesView, meta: { subtitle: 'Types de congé' } },
       { path: 'absences-types/nouveau', name: 'absence-type-create', component: AbsenceTypeCreateView, meta: { subtitle: 'Nouveau type' } },
+      { path: 'absences-types/:id/modifier', name: 'absence-type-edit', component: AbsenceTypeCreateView, meta: { subtitle: 'Modifier type' } },
       { path: 'soldes-conges', name: 'soldes-conges', component: SoldeCongesView, meta: { subtitle: 'Soldes congés' } },
       { path: 'soldes-conges/:id', name: 'solde-conge-detail', component: SoldeCongeDetailView, meta: { subtitle: 'Détail solde congé' } },
       { path: 'demandes-conges', name: 'demandes-conges', component: DemandesCongesView, meta: { subtitle: 'Congés' } },

@@ -998,6 +998,7 @@ body[data-theme='dark'] .status-banner {
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.76);
   min-width: 0;
+  overflow: hidden;
 }
 
 body[data-theme='dark'] .rh-overview-card,
@@ -1023,6 +1024,13 @@ body[data-theme='dark'] .overview-card {
   font-size: 1.28rem;
   font-weight: 800;
   letter-spacing: 0;
+}
+
+.overview-value--wrap {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .rh-overview-copy,

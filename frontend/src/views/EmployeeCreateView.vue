@@ -187,8 +187,8 @@
             <article v-for="card in overviewCards" :key="card.label" class="overview-card">
               <span class="overview-chip">{{ card.tag }}</span>
               <p class="overview-label">{{ card.label }}</p>
-              <p class="overview-value">{{ card.value }}</p>
-              <p class="overview-copy">{{ card.copy }}</p>
+              <p class="overview-value overview-value--wrap">{{ card.value }}</p>
+              <p class="overview-copy overview-value--wrap">{{ card.copy }}</p>
             </article>
           </div>
 

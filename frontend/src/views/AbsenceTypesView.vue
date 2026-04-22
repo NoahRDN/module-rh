@@ -123,6 +123,7 @@
                 <th>Limite</th>
                 <th>Cumulable</th>
                 <th>Description</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -150,9 +151,12 @@
                   </div>
                 </td>
                 <td class="type-desc">{{ t.description || '—' }}</td>
+                <td class="actions-col">
+                  <RouterLink class="btn btn-secondary btn-xs" :to="`/absences-types/${t.id}/modifier`">Modifier</RouterLink>
+                </td>
               </tr>
               <tr v-if="!typesFiltres.length">
-                <td colspan="7" class="empty-state">
+                <td colspan="8" class="empty-state">
                   <p>Aucun type d'absence ne correspond à la sélection actuelle.</p>
                   <span>Affinez les filtres ou ajoutez un nouveau type.</span>
                 </td>
@@ -468,6 +472,11 @@ const prevPage = () => {
 .cell-stack {
   color: var(--muted);
   font-size: 0.84rem;
+}
+
+.actions-col {
+  width: 120px;
+  white-space: nowrap;
 }
 
 .muted-chip {

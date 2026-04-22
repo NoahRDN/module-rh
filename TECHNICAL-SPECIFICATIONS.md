@@ -39,5 +39,16 @@ concernant l'ajout employé:
     - Fin de contrat proche
       - Seuil en jours, Niveau de criticité
 - parametre de ces alerte
-  - 
-- 
+  - permet de configurer, genre activer ou desactiver et preciser les valeurs précedant 
+- possibilité d'ajout des jours féries
+  - les jours fériés est une congés payer dont le solde congés n'est pas deduit avec 
+- concernant la page de pointage:
+  - permet de préciser l'heure de travail que la personne a travailler. 
+    - une suivie d'absence et de retard est directement suivie dans celui ci 
+- concernant la page de présence: 
+  - il permet d'identifier le jours où un employé a travailler avec les horaires. 
+- presence de parametre de paie:
+  - permet de configurer le plafond du cnaps, pourcentage cnaps pris avec le salaire de l'employé, pourcentage CNAPS pris en charge par l'entreprise, celle de l'OSTIE aussi de même
+  - ...
+- possibilite de generer une fiche de paie pour un employé 
+- possibilite de configurer le temps 

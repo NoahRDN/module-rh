@@ -108,6 +108,12 @@ const routes = [
         component: CategoriePosteFormView,
         meta: { subtitle: 'Modifier catégorie' },
       },
+      {
+        path: 'documents/:id/modifier',
+        name: 'document-edit',
+        component: DocumentCreateView,
+        meta: { subtitle: 'Modifier document' },
+      },
       { path: 'documents/nouveau', name: 'document-create', component: DocumentCreateView, meta: { subtitle: 'Nouveau document' } },
       { path: 'contrats', name: 'contrats', component: ContratsView, meta: { subtitle: 'Contrats' } },
       { path: 'contrats/nouveau', name: 'contrats-create', component: ContratCreateView, meta: { subtitle: 'Nouveau contrat' } },

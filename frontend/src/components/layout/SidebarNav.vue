@@ -75,7 +75,6 @@ const groups = [
       { to: '/historiques', label: 'Historique postes', hint: 'Mobilités internes', icon: 'history' },
       { to: '/contrats', label: 'Contrats', hint: 'Contrats actifs', icon: 'file' },
       { to: '/contrats-historiques', label: 'Historique contrats', hint: 'Versions et renouvellements', icon: 'history' },
-      { to: '/documents', label: 'Documents', hint: 'Pièces RH', icon: 'folder' },
     ],
   },
   {

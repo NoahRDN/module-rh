@@ -384,6 +384,7 @@
 import { onMounted, ref, computed } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import api from '../services/api'
+import { formatMoneyAmount } from '../utils/formatters'
 
 const route = useRoute()
 const router = useRouter()
@@ -543,10 +544,7 @@ function generateAvatar(initials) {
 
 const formatDate = (d) => (d ? String(d).split('T')[0] : '')
 const formatMoney = (value) => {
-  if (value === null || value === undefined || value === '') return '—'
-  const amount = Number(value)
-  if (Number.isNaN(amount)) return '—'
-  return `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(amount)} Ar`
+  return formatMoneyAmount(value, { unit: 'Ar' })
 }
 
 const telechargerPdf = async () => {

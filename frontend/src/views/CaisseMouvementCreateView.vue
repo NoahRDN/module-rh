@@ -85,6 +85,7 @@ import { onMounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import api from '../services/api'
 import AppIcon from '../components/ui/AppIcon.vue'
+import { formatMoneyAmount } from '../utils/formatters'
 
 const router = useRouter()
 const loading = ref(false)
@@ -99,8 +100,7 @@ const form = ref({
   description: '',
 })
 
-const formatMoney = (amount) =>
-  new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'MGA', maximumFractionDigits: 0 }).format(Number(amount || 0))
+const formatMoney = (amount) => formatMoneyAmount(amount)
 
 const loadCaisses = async () => {
   try {

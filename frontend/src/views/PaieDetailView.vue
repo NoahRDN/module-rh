@@ -260,6 +260,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '../services/api'
 import AppIcon from '../components/ui/AppIcon.vue'
+import { formatMoneyAmount } from '../utils/formatters'
 
 const route = useRoute()
 const router = useRouter()
@@ -316,8 +317,7 @@ const metrics = computed(() => [
 ])
 
 const formatInteger = (value) => new Intl.NumberFormat('fr-FR').format(Number(value || 0))
-const formatMoney = (amount) =>
-  new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'MGA', maximumFractionDigits: 0 }).format(Number(amount || 0))
+const formatMoney = (amount) => formatMoneyAmount(amount)
 const formatHours = (value) => `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(Number(value || 0))} h`
 
 const formatDate = (value) => {

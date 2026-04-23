@@ -9,15 +9,19 @@ use App\Models\PaieParametre;
 use App\Models\PaiePrime;
 use App\Models\Pointage;
 use App\Models\Contrat;
+use App\Models\Caisse;
+use App\Models\CaisseMouvement;
 use App\Models\Employe;
 use App\Models\IrsaTranche;
 use App\Models\DemandeConge;
 use App\Models\JourFerie;
 use App\Services\CongeService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use DateInterval;
 use DatePeriod;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class PaieController extends Controller
@@ -40,6 +44,10 @@ class PaieController extends Controller
             $employe = Employe::findOrFail($request->employe_id);
             $param   = PaieParametre::firstOrFail();
             $mois    = $request->mois;
+
+            if (Paie::where('employe_id', $employe->id)->where('mois', $mois)->exists()) {
+                return response()->json(['message' => 'Une fiche de paie existe déjà pour cet employé et ce mois'], 422);
+            }
 
             $salaireBase = $this->recupererSalaireBase($employe->id);
             $tauxHoraire = $salaireBase > 0 ? $salaireBase / 173.33 : 0;
@@ -89,6 +97,8 @@ class PaieController extends Controller
             $paie = Paie::create([
                 'employe_id'            => $employe->id,
                 'mois'                  => $mois,
+                'statut'                => 'en_attente_validation',
+                'demande_validation_le' => now(),
                 'salaire_base'          => $salaireBase,
                 'heures_travaillees'    => $heuresTrav,
                 'heures_supplementaires'=> $heuresSup,
@@ -494,5 +504,526 @@ class PaieController extends Controller
             }
         }
         return $irsa;
+    }
+
+    /**
+     * État de paie (agrégation) pour un mois (YYYY-MM) ou une année (YYYY).
+     * - mois=YYYY-MM -> détails par employé + totaux mois
+     * - annee=YYYY -> totaux annuels + totaux par mois
+     */
+    public function etat(Request $request)
+    {
+        $validated = $request->validate([
+            'mois' => 'nullable|date_format:Y-m',
+            'annee' => 'nullable|digits:4',
+            'paiement' => 'nullable|in:prevision,paye',
+            'statut' => 'nullable|in:tous,non_genere,en_attente_validation,non_paye,paiement_en_validation,paye',
+        ]);
+
+        $mois = $validated['mois'] ?? null;
+        $annee = $validated['annee'] ?? null;
+        $statut = $validated['statut'] ?? null;
+        if (!$statut && ($validated['paiement'] ?? null) === 'paye') {
+            $statut = 'paye';
+        }
+        $statut = $statut ?: 'tous';
+
+        if (!$mois && !$annee) {
+            $mois = now()->format('Y-m');
+            $annee = now()->format('Y');
+        }
+
+        if ($mois) {
+            $annee = substr($mois, 0, 4);
+        }
+
+        if (!$mois) {
+            $pattern = "{$annee}-%";
+
+            $baseQuery = Paie::query()->where('mois', 'like', $pattern);
+            if ($statut === 'paye') {
+                $baseQuery->whereNotNull('paye_le');
+            } elseif ($statut === 'non_paye') {
+                $baseQuery->whereIn('statut', ['non_paye', 'paiement_en_validation']);
+            } elseif (in_array($statut, ['en_attente_validation', 'paiement_en_validation'], true)) {
+                $baseQuery->where('statut', $statut);
+            } elseif ($statut === 'non_genere') {
+                $baseQuery->whereRaw('1 = 0');
+            }
+
+            $totaux = (clone $baseQuery)
+                ->selectRaw('COUNT(*) as bulletins')
+                ->selectRaw('COALESCE(SUM(net_a_payer), 0) as net_a_payer')
+                ->selectRaw('COALESCE(SUM(total_brut), 0) as total_brut')
+                ->selectRaw('COALESCE(SUM(total_retenues), 0) as total_retenues')
+                ->selectRaw('COALESCE(SUM(retenue_cnaps), 0) as retenue_cnaps')
+                ->selectRaw('COALESCE(SUM(retenue_ostie), 0) as retenue_ostie')
+                ->selectRaw('COALESCE(SUM(retenue_irsa), 0) as retenue_irsa')
+                ->selectRaw('COALESCE(SUM(prime_transport), 0) as prime_transport')
+                ->selectRaw('COALESCE(SUM(prime_presence), 0) as prime_presence')
+                ->selectRaw('COALESCE(SUM(autres_primes), 0) as autres_primes')
+                ->first();
+
+            $parMois = (clone $baseQuery)
+                ->select('mois')
+                ->selectRaw('COUNT(*) as bulletins')
+                ->selectRaw('COALESCE(SUM(net_a_payer), 0) as net_a_payer')
+                ->selectRaw('COALESCE(SUM(total_brut), 0) as total_brut')
+                ->selectRaw('COALESCE(SUM(total_retenues), 0) as total_retenues')
+                ->groupBy('mois')
+                ->orderBy('mois')
+                ->get();
+
+            return response()->json([
+                'periode' => [
+                    'annee' => (int) $annee,
+                    'mois' => null,
+                    'statut' => $statut,
+                ],
+                'totaux' => [
+                    'bulletins' => (int) ($totaux->bulletins ?? 0),
+                    'net_a_payer' => (float) ($totaux->net_a_payer ?? 0),
+                    'total_brut' => (float) ($totaux->total_brut ?? 0),
+                    'total_retenues' => (float) ($totaux->total_retenues ?? 0),
+                    'retenue_cnaps' => (float) ($totaux->retenue_cnaps ?? 0),
+                    'retenue_ostie' => (float) ($totaux->retenue_ostie ?? 0),
+                    'retenue_irsa' => (float) ($totaux->retenue_irsa ?? 0),
+                    'prime_transport' => (float) ($totaux->prime_transport ?? 0),
+                    'prime_presence' => (float) ($totaux->prime_presence ?? 0),
+                    'autres_primes' => (float) ($totaux->autres_primes ?? 0),
+                ],
+                'par_mois' => $parMois,
+            ]);
+        }
+
+        $rows = $this->buildEtatPaieRows($mois);
+        $statusCounts = $rows->countBy('statut')->all();
+
+        if ($statut !== 'tous') {
+            $rows = $rows->filter(function ($row) use ($statut) {
+                if ($statut === 'non_paye') {
+                    return in_array($row['statut'], ['non_genere', 'non_paye', 'paiement_en_validation'], true);
+                }
+
+                return $row['statut'] === $statut;
+            })->values();
+        }
+
+        $resteAPayer = $rows->sum(function ($row) {
+            if (!in_array($row['statut'], ['non_genere', 'en_attente_validation', 'non_paye', 'paiement_en_validation'], true)) {
+                return 0;
+            }
+
+            return $row['paie_id'] ? (float) $row['net_a_payer'] : (float) $row['salaire_previsionnel'];
+        });
+
+        $totaux = [
+            'employes_actifs' => $rows->count(),
+            'bulletins' => $rows->whereNotNull('paie_id')->count(),
+            'prevision_salaire_base' => round($rows->sum('salaire_previsionnel'), 2),
+            'net_a_payer' => round($rows->sum('net_a_payer'), 2),
+            'total_brut' => round($rows->sum('total_brut'), 2),
+            'total_retenues' => round($rows->sum('total_retenues'), 2),
+            'retenue_cnaps' => round($rows->sum('retenue_cnaps'), 2),
+            'retenue_ostie' => round($rows->sum('retenue_ostie'), 2),
+            'retenue_irsa' => round($rows->sum('retenue_irsa'), 2),
+            'reste_a_payer' => round($resteAPayer, 2),
+            'deja_paye' => round($rows->where('statut', 'paye')->sum('net_a_payer'), 2),
+        ];
+
+        return response()->json([
+            'periode' => [
+                'annee' => (int) $annee,
+                'mois' => $mois,
+                'statut' => $statut,
+            ],
+            'totaux' => $totaux,
+            'status_counts' => [
+                'non_genere' => (int) ($statusCounts['non_genere'] ?? 0),
+                'en_attente_validation' => (int) ($statusCounts['en_attente_validation'] ?? 0),
+                'non_paye' => (int) ($statusCounts['non_paye'] ?? 0),
+                'paiement_en_validation' => (int) ($statusCounts['paiement_en_validation'] ?? 0),
+                'paye' => (int) ($statusCounts['paye'] ?? 0),
+            ],
+            'details' => $rows->values(),
+        ]);
+    }
+
+    public function payer(Request $request, $id)
+    {
+        $data = $request->validate([
+            'caisse_id' => 'required|exists:caisses,id',
+        ]);
+
+        try {
+            $mouvement = DB::transaction(function () use ($id, $data) {
+                $paie = Paie::with('employe')->lockForUpdate()->findOrFail($id);
+
+                if ($this->statutPaie($paie) !== 'non_paye') {
+                    abort(422, 'Seule une fiche validée et non payée peut être envoyée au paiement');
+                }
+
+                if (!Caisse::where('id', $data['caisse_id'])->where('active', true)->exists()) {
+                    abort(422, 'Cette caisse est désactivée');
+                }
+
+                $dejaEnAttente = CaisseMouvement::where('paie_id', $paie->id)
+                    ->where('statut', 'en_attente_validation')
+                    ->exists();
+
+                if ($dejaEnAttente) {
+                    abort(422, 'Une demande de paiement est déjà en attente de validation');
+                }
+
+                $mouvement = CaisseMouvement::create([
+                    'caisse_id' => $data['caisse_id'],
+                    'paie_id' => $paie->id,
+                    'type' => 'sortie',
+                    'montant' => $paie->net_a_payer,
+                    'source' => "Paiement fiche de paie {$paie->mois}",
+                    'description' => 'Paiement de la fiche de paie de ' . trim(($paie->employe->nom ?? '') . ' ' . ($paie->employe->prenom ?? '')),
+                    'statut' => 'en_attente_validation',
+                    'demande_validation_le' => now(),
+                ]);
+
+                $paie->update(['statut' => 'paiement_en_validation']);
+
+                return $mouvement->load('caisse');
+            });
+
+            return response()->json([
+                'message' => 'Demande de paiement envoyée en validation caisse',
+                'mouvement' => $mouvement,
+            ]);
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            return response()->json(['message' => $e->getMessage()], $e->getStatusCode());
+        } catch (\Throwable $e) {
+            Log::error('Erreur paiement paie', ['id' => $id, 'error' => $e->getMessage()]);
+            return response()->json(['message' => 'Erreur serveur'], 500);
+        }
+    }
+
+    public function annuler($id)
+    {
+        try {
+            $paie = Paie::findOrFail($id);
+
+            if ($this->statutPaie($paie) !== 'en_attente_validation') {
+                return response()->json(['message' => 'Seule une fiche en attente de validation peut être annulée'], 422);
+            }
+
+            $paie->delete();
+
+            return response()->json(['message' => 'Génération de fiche annulée']);
+        } catch (\Throwable $e) {
+            Log::error('Erreur annulation paie', ['id' => $id, 'error' => $e->getMessage()]);
+            return response()->json(['message' => 'Erreur serveur'], 500);
+        }
+    }
+
+    public function valider($id)
+    {
+        try {
+            $paie = Paie::findOrFail($id);
+            $paie->update([
+                'statut' => 'non_paye',
+                'valide_le' => now(),
+            ]);
+
+            return response()->json(['message' => 'Fiche de paie validée', 'paie' => $paie]);
+        } catch (\Throwable $e) {
+            Log::error('Erreur validation paie', ['id' => $id, 'error' => $e->getMessage()]);
+            return response()->json(['message' => 'Erreur serveur'], 500);
+        }
+    }
+
+    public function enAttenteValidation(Request $request)
+    {
+        $validated = $request->validate([
+            'mois' => 'nullable|date_format:Y-m',
+        ]);
+
+        $query = Paie::with(['employe:id,matricule,nom,prenom'])
+            ->where('statut', 'en_attente_validation')
+            ->orderByDesc('created_at');
+
+        if (!empty($validated['mois'])) {
+            $query->where('mois', $validated['mois']);
+        }
+
+        return response()->json($query->paginate(15));
+    }
+
+    public function show($id)
+    {
+        try {
+            $paie = Paie::with([
+                'employe.poste',
+                'employe.departement',
+                'details' => fn ($query) => $query->orderBy('jour'),
+                'primes',
+            ])->findOrFail($id);
+
+            $start = Carbon::createFromFormat('Y-m', $paie->mois)->startOfMonth();
+            $end = $start->copy()->endOfMonth();
+            $contrat = Contrat::where('employe_id', $paie->employe_id)
+                ->whereDate('date_debut', '<=', $end->toDateString())
+                ->where(function ($query) use ($start) {
+                    $query->whereNull('date_fin')->orWhereDate('date_fin', '>=', $start->toDateString());
+                })
+                ->orderByDesc('date_debut')
+                ->first();
+            $mouvementPaiement = CaisseMouvement::with('caisse:id,nom,solde')
+                ->where('paie_id', $paie->id)
+                ->where('type', 'sortie')
+                ->orderByDesc('created_at')
+                ->first();
+
+            return response()->json([
+                'paie' => $paie,
+                'contrat' => $contrat,
+                'mouvement_paiement' => $mouvementPaiement,
+                'statut' => [
+                    'code' => $this->statutPaie($paie),
+                    'label' => $this->statutPaieLabel($this->statutPaie($paie)),
+                ],
+                'resume' => $this->resumePaie($paie),
+                'retenues' => [
+                    ['label' => 'CNAPS', 'montant' => (float) $paie->retenue_cnaps],
+                    ['label' => 'OSTIE', 'montant' => (float) $paie->retenue_ostie],
+                    ['label' => 'IRSA', 'montant' => (float) $paie->retenue_irsa],
+                ],
+                'primes' => [
+                    ['label' => 'Prime transport', 'montant' => (float) $paie->prime_transport],
+                    ['label' => 'Prime présence', 'montant' => (float) $paie->prime_presence],
+                    ['label' => 'Autres primes', 'montant' => (float) $paie->autres_primes],
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Erreur détail paie', ['id' => $id, 'error' => $e->getMessage()]);
+            return response()->json(['message' => 'Erreur serveur'], 500);
+        }
+    }
+
+    public function prevision(Request $request)
+    {
+        $validated = $request->validate([
+            'employe_id' => 'required|exists:employes,id',
+            'mois' => 'required|date_format:Y-m',
+        ]);
+
+        try {
+            $start = Carbon::createFromFormat('Y-m', $validated['mois'])->startOfMonth();
+            $end = $start->copy()->endOfMonth();
+
+            $contrat = Contrat::with(['employe.poste', 'employe.departement'])
+                ->where('employe_id', $validated['employe_id'])
+                ->where('statut', 'en_cours')
+                ->whereDate('date_debut', '<=', $end->toDateString())
+                ->where(function ($query) use ($start) {
+                    $query->whereNull('date_fin')->orWhereDate('date_fin', '>=', $start->toDateString());
+                })
+                ->orderByDesc('date_debut')
+                ->firstOrFail();
+
+            $salaireBase = (float) $contrat->salaire_base;
+
+            return response()->json([
+                'paie' => [
+                    'id' => null,
+                    'employe_id' => $contrat->employe_id,
+                    'mois' => $validated['mois'],
+                    'employe' => $contrat->employe,
+                    'salaire_base' => $salaireBase,
+                    'heures_travaillees' => 0,
+                    'heures_supplementaires' => 0,
+                    'montant_hs' => 0,
+                    'prime_transport' => 0,
+                    'prime_presence' => 0,
+                    'autres_primes' => 0,
+                    'retenue_cnaps' => 0,
+                    'retenue_ostie' => 0,
+                    'retenue_irsa' => 0,
+                    'total_brut' => $salaireBase,
+                    'total_retenues' => 0,
+                    'net_a_payer' => $salaireBase,
+                    'demande_validation_le' => null,
+                    'valide_le' => null,
+                    'paye_le' => null,
+                    'details' => [],
+                ],
+                'contrat' => $contrat,
+                'mouvement_paiement' => null,
+                'statut' => [
+                    'code' => 'non_genere',
+                    'label' => $this->statutPaieLabel('non_genere'),
+                ],
+                'resume' => $this->resumePaie(null),
+                'retenues' => [
+                    ['label' => 'CNAPS', 'montant' => 0],
+                    ['label' => 'OSTIE', 'montant' => 0],
+                    ['label' => 'IRSA', 'montant' => 0],
+                ],
+                'primes' => [
+                    ['label' => 'Prime transport', 'montant' => 0],
+                    ['label' => 'Prime présence', 'montant' => 0],
+                    ['label' => 'Autres primes', 'montant' => 0],
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Erreur prévision paie', ['data' => $validated, 'error' => $e->getMessage()]);
+            return response()->json(['message' => 'Aucun contrat actif trouvé pour cette période'], 404);
+        }
+    }
+
+    public function recuPaiement($id)
+    {
+        try {
+            $paie = Paie::with(['employe.poste'])->findOrFail($id);
+            $mouvement = CaisseMouvement::with('caisse')
+                ->where('paie_id', $paie->id)
+                ->where('type', 'sortie')
+                ->where('statut', 'valide')
+                ->orderByDesc('valide_le')
+                ->first();
+
+            if (!$mouvement) {
+                return response()->json(['message' => 'Aucun paiement validé pour cette fiche'], 422);
+            }
+
+            $pdf = Pdf::loadView('pdf.recu_paiement_paie', [
+                'paie' => $paie,
+                'mouvement' => $mouvement,
+                'employe' => $paie->employe,
+                'caisse' => $mouvement->caisse,
+            ]);
+
+            return $pdf->download("recu_paiement_{$paie->employe_id}_{$paie->mois}.pdf");
+        } catch (\Throwable $e) {
+            Log::error('Erreur génération reçu paiement', ['id' => $id, 'error' => $e->getMessage()]);
+            return response()->json(['message' => 'Erreur serveur'], 500);
+        }
+    }
+
+    protected function buildEtatPaieRows(string $mois)
+    {
+        $start = Carbon::createFromFormat('Y-m', $mois)->startOfMonth();
+        $end = $start->copy()->endOfMonth();
+
+        $contrats = Contrat::with(['employe.poste', 'employe.departement'])
+            ->where('statut', 'en_cours')
+            ->whereDate('date_debut', '<=', $end->toDateString())
+            ->where(function ($query) use ($start) {
+                $query->whereNull('date_fin')->orWhereDate('date_fin', '>=', $start->toDateString());
+            })
+            ->orderBy('employe_id')
+            ->orderByDesc('date_debut')
+            ->get()
+            ->unique('employe_id')
+            ->values();
+
+        $paies = Paie::query()
+            ->with(['details'])
+            ->where('mois', $mois)
+            ->whereIn('employe_id', $contrats->pluck('employe_id'))
+            ->get()
+            ->keyBy('employe_id');
+
+        $paiementMouvements = CaisseMouvement::with('caisse:id,nom')
+            ->whereIn('paie_id', $paies->pluck('id'))
+            ->orderByDesc('created_at')
+            ->get()
+            ->groupBy('paie_id')
+            ->map(fn ($items) => $items->first());
+
+        return $contrats->map(function (Contrat $contrat) use ($paies, $paiementMouvements) {
+            $paie = $paies->get($contrat->employe_id);
+            $statut = $this->statutPaie($paie);
+            $mouvementPaiement = $paie ? $paiementMouvements->get($paie->id) : null;
+
+            return [
+                'employe_id' => $contrat->employe_id,
+                'contrat_id' => $contrat->id,
+                'contrat_numero' => $contrat->numero,
+                'contrat_debut' => optional($contrat->date_debut)->toDateString(),
+                'contrat_fin' => optional($contrat->date_fin)->toDateString(),
+                'employe' => $contrat->employe,
+                'salaire_previsionnel' => (float) $contrat->salaire_base,
+                'paie_id' => $paie?->id,
+                'statut' => $statut,
+                'statut_label' => $this->statutPaieLabel($statut),
+                'salaire_base' => (float) ($paie?->salaire_base ?? $contrat->salaire_base),
+                'total_brut' => (float) ($paie?->total_brut ?? 0),
+                'total_retenues' => (float) ($paie?->total_retenues ?? 0),
+                'net_a_payer' => (float) ($paie?->net_a_payer ?? 0),
+                'retenue_cnaps' => (float) ($paie?->retenue_cnaps ?? 0),
+                'retenue_ostie' => (float) ($paie?->retenue_ostie ?? 0),
+                'retenue_irsa' => (float) ($paie?->retenue_irsa ?? 0),
+                'paye_le' => $paie?->paye_le?->toDateString(),
+                'demande_validation_le' => $paie?->demande_validation_le?->toDateTimeString() ?? $paie?->created_at?->toDateTimeString(),
+                'valide_le' => $paie?->valide_le?->toDateTimeString(),
+                'paiement_mouvement_id' => $mouvementPaiement?->id,
+                'paiement_demande_le' => $mouvementPaiement?->demande_validation_le?->toDateTimeString(),
+                'paiement_valide_le' => $mouvementPaiement?->valide_le?->toDateTimeString(),
+                'caisse_nom' => $mouvementPaiement?->caisse?->nom,
+                'details_paie' => $this->resumePaie($paie),
+            ];
+        });
+    }
+
+    protected function resumePaie(?Paie $paie): array
+    {
+        if (!$paie) {
+            return [
+                'heures_travaillees' => 0,
+                'heures_supplementaires' => 0,
+                'retard_minutes' => 0,
+                'absences' => 0,
+                'absences_justifiees' => 0,
+                'jours_feries' => 0,
+                'weekends' => 0,
+            ];
+        }
+
+        $details = $paie->relationLoaded('details') ? $paie->details : $paie->details()->get();
+
+        return [
+            'heures_travaillees' => round((float) $details->sum('heures_travaillees'), 2),
+            'heures_supplementaires' => round((float) $details->sum('heures_supplementaires'), 2),
+            'retard_minutes' => round((float) $details->sum('retard_minutes'), 2),
+            'absences' => (int) $details->where('absent', true)->count(),
+            'absences_justifiees' => (int) $details->where('absence_justifiee', true)->count(),
+            'jours_feries' => (int) $details->where('ferie', true)->count(),
+            'weekends' => (int) $details->where('weekend', true)->count(),
+        ];
+    }
+
+    protected function statutPaie(?Paie $paie): string
+    {
+        if (!$paie) {
+            return 'non_genere';
+        }
+        if ($paie->paye_le || $paie->statut === 'paye') {
+            return 'paye';
+        }
+        if ($paie->statut === 'paiement_en_validation') {
+            return 'paiement_en_validation';
+        }
+        if ($paie->statut === 'non_paye') {
+            return 'non_paye';
+        }
+        return 'en_attente_validation';
+    }
+
+    protected function statutPaieLabel(string $statut): string
+    {
+        return match ($statut) {
+            'non_genere' => 'Non générée',
+            'en_attente_validation' => 'En attente de validation',
+            'non_paye' => 'Non payé',
+            'paiement_en_validation' => 'Paiement en validation',
+            'paye' => 'Payé',
+            default => $statut,
+        };
     }
 }

@@ -248,6 +248,7 @@ import { ref, computed, onMounted } from 'vue'
 import formationService from '../services/formationService'
 import competenceService from '../services/competenceService'
 import api from '../services/api'
+import { formatMoneyAmount } from '../utils/formatters'
 
 const formations = ref([])
 const allCompetences = ref([])
@@ -328,7 +329,7 @@ const getNiveauLabel = (niveau) => {
 }
 
 const formatMontant = (montant) => {
-  return new Intl.NumberFormat('fr-MG').format(montant) + ' Ar'
+  return formatMoneyAmount(montant, { unit: 'Ar' })
 }
 
 // Load data

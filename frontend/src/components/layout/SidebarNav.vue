@@ -98,7 +98,6 @@ const groups = [
     icon: 'wallet',
     items: [
       { to: '/paie-parametres', label: 'Paramètres paie', hint: 'CNAPS, OSTIE, IRSA', icon: 'settings' },
-      { to: '/paie-generation', label: 'Génération paie', hint: 'Brut, net, PDF', icon: 'receipt' },
       { to: '/paie-etat', label: 'État de paie', hint: 'Mensuel & annuel', icon: 'clipboard' },
       { to: '/caisses', label: 'État caisse', hint: 'Solde et historique', icon: 'wallet' },
       { to: '/caisses/types', label: 'Types caisse', hint: 'Activer / désactiver', icon: 'settings' },

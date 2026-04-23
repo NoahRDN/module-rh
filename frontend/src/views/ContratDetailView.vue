@@ -244,6 +244,7 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 import api from '../services/api'
 import { parseISO, intervalToDuration, formatDuration, differenceInCalendarDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
+import { formatMoneyAmount } from '../utils/formatters'
 
 const route = useRoute()
 const router = useRouter()
@@ -263,8 +264,7 @@ const fetchContrat = async () => {
 const formatDate = (d) => (d ? String(d).split('T')[0] : '')
 
 const formatSalaire = (amount) => {
-  if (amount === null || amount === undefined || amount === '') return '—'
-  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'MGA', maximumFractionDigits: 0 }).format(amount)
+  return formatMoneyAmount(amount)
 }
 
 const joursRestants = computed(() => {

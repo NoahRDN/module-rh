@@ -296,6 +296,7 @@
 import { ref, computed, onMounted } from 'vue'
 import selfServiceService from '../../services/selfServiceService'
 import demandeRHService from '../../services/demandeRHService'
+import { formatMoneyAmount } from '../../utils/formatters'
 
 const loading = ref(false)
 const saving = ref(false)
@@ -350,7 +351,7 @@ const demandesRejetees = computed(() =>
 // Helpers
 const formatDate = (date) => new Date(date).toLocaleDateString('fr-FR')
 const formatDateTime = (date) => new Date(date).toLocaleString('fr-FR')
-const formatMontant = (m) => new Intl.NumberFormat('fr-MG').format(m) + ' Ar'
+const formatMontant = (m) => formatMoneyAmount(m, { unit: 'Ar' })
 
 const getStatutLabel = (statut) => {
   const labels = {

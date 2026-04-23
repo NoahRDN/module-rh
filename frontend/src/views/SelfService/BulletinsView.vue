@@ -55,6 +55,7 @@
 import { ref, computed, onMounted } from 'vue'
 import selfServiceService from '../../services/selfServiceService'
 import api from '../../services/api'
+import { formatMoneyAmount } from '../../utils/formatters'
 
 const loading = ref(false)
 const bulletins = ref([])
@@ -79,10 +80,7 @@ const formatDate = (date) => {
 }
 
 const formatMontant = (montant) => {
-  return new Intl.NumberFormat('fr-FR', {
-    style: 'currency',
-    currency: 'MGA'
-  }).format(montant || 0)
+  return formatMoneyAmount(montant)
 }
 
 const loadData = async () => {

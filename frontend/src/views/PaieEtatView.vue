@@ -142,7 +142,11 @@
                 </td>
                 <td>{{ formatMoney(row.salaire_previsionnel) }}</td>
                 <td class="accent">{{ row.paie_id ? formatMoney(row.net_a_payer) : '—' }}</td>
-                <td><span class="chip" :class="statusClass(row.statut)">{{ row.statut_label }}</span></td>
+                <td class="status-col">
+                  <div class="status-chip-scroll">
+                    <span class="chip status-chip" :class="statusClass(row.statut)">{{ row.statut_label }}</span>
+                  </div>
+                </td>
                 <td>{{ formatDateTime(row.demande_validation_le) || '—' }}</td>
                 <td>{{ formatDateTime(row.valide_le) || '—' }}</td>
                 <td class="cell-stack">
@@ -167,7 +171,7 @@
                     </button>
                     <div v-if="row.statut === 'non_paye'" class="pay-action">
                       <select class="select select-xs" v-model="selectedCaisseByPaie[row.paie_id]" :disabled="loading">
-                        <option value="">Caisse</option>
+                        <option disabled value="">Choisir une caisse</option>
                         <option v-for="caisse in caisses" :key="caisse.id" :value="caisse.id">
                           {{ caisse.nom }}
                         </option>
@@ -176,7 +180,7 @@
                         Demander paiement
                       </button>
                     </div>
-                    <button v-if="['non_paye', 'paye'].includes(row.statut)" class="btn btn-secondary btn-xs" type="button" :disabled="loading" @click="downloadPdf(row)">
+                    <button v-if="['non_paye', 'paiement_en_validation', 'paye'].includes(row.statut)" class="btn btn-secondary btn-xs" type="button" :disabled="loading" @click="downloadPdf(row)">
                       PDF
                     </button>
                     <button v-if="row.statut === 'paye'" class="btn btn-secondary btn-xs" type="button" :disabled="loading" @click="downloadReceipt(row)">
@@ -202,6 +206,7 @@ import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import api from '../services/api'
 import AppIcon from '../components/ui/AppIcon.vue'
+import { formatMoneyAmount } from '../utils/formatters'
 
 const loading = ref(false)
 const error = ref('')
@@ -238,8 +243,7 @@ const selectedMonth = computed(() => `${year.value}-${month.value}`)
 const titleLabel = computed(() => mode.value === 'annee' ? `Synthèse ${year.value}` : `Employés éligibles ${selectedMonth.value}`)
 
 const formatInteger = (value) => new Intl.NumberFormat('fr-FR').format(Number(value || 0))
-const formatMoney = (amount) =>
-  new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'MGA', maximumFractionDigits: 0 }).format(Number(amount || 0))
+const formatMoney = (amount) => formatMoneyAmount(amount)
 
 const formatDateTime = (value) => {
   if (!value) return ''
@@ -298,6 +302,17 @@ const loadCaisses = async () => {
   }
 }
 
+const syncSelectedCaisses = (rows) => {
+  const nextSelections = {}
+
+  for (const row of rows) {
+    if (!row?.paie_id || row.statut !== 'non_paye') continue
+    nextSelections[row.paie_id] = selectedCaisseByPaie.value[row.paie_id] ?? ''
+  }
+
+  selectedCaisseByPaie.value = nextSelections
+}
+
 const refresh = async () => {
   loading.value = true
   error.value = ''
@@ -314,6 +329,7 @@ const refresh = async () => {
     statusCounts.value = data.status_counts || {}
     parMois.value = data.par_mois || []
     details.value = data.details || []
+    syncSelectedCaisses(details.value)
   } catch (e) {
     error.value = e.response?.data?.message || e.message || 'Erreur chargement état de paie'
   } finally {
@@ -418,6 +434,36 @@ onMounted(() => {
 .accent {
   color: var(--brand-600);
   font-weight: 800;
+}
+
+.status-col {
+  min-width: 190px;
+}
+
+.status-chip-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(79, 70, 229, 0.28) transparent;
+}
+
+.status-chip-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+
+.status-chip-scroll::-webkit-scrollbar-thumb {
+  background: rgba(79, 70, 229, 0.28);
+  border-radius: 999px;
+}
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  min-width: max-content;
+  white-space: nowrap;
 }
 
 .actions {

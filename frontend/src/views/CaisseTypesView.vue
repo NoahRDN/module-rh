@@ -110,14 +110,14 @@
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import api from '../services/api'
+import { formatMoneyAmount } from '../utils/formatters'
 
 const loading = ref(false)
 const error = ref('')
 const caisses = ref([])
 const statusFilter = ref('tous')
 
-const formatMoney = (amount) =>
-  new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'MGA', maximumFractionDigits: 0 }).format(Number(amount || 0))
+const formatMoney = (amount) => formatMoneyAmount(amount)
 
 const activeCount = computed(() => caisses.value.filter((caisse) => caisse.active).length)
 const inactiveCount = computed(() => caisses.value.filter((caisse) => !caisse.active).length)

@@ -256,6 +256,7 @@
 import { computed, onMounted, ref } from 'vue'
 import api from '../services/api'
 import AppIcon from '../components/ui/AppIcon.vue'
+import { formatMoneyAmount } from '../utils/formatters'
 
 const createDefaultForm = () => ({
   cnaps_plafond: 0,
@@ -528,11 +529,7 @@ function setStatus(type, text) {
 }
 
 function formatCurrency(value) {
-  return new Intl.NumberFormat('fr-FR', {
-    style: 'currency',
-    currency: 'MGA',
-    maximumFractionDigits: 0,
-  }).format(normalizeNumber(value))
+  return formatMoneyAmount(normalizeNumber(value))
 }
 
 function formatPercent(value) {

@@ -47,3 +47,5 @@ coverage/
 
 # Database artifacts
 *.sqlite
+
+/utilitaires

@@ -18,6 +18,7 @@ class DocumentRequest extends FormRequest
 
         return [
             'employe_id'      => 'required|exists:employes,id',
+            'group_uuid'      => 'nullable|uuid',
             'type_document'   => ['required', 'string', 'max:50', Rule::in($types)],
             'fichier'         => 'required|string',
             'date_expiration' => 'nullable|date',

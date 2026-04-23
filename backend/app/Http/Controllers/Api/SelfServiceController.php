@@ -411,8 +411,7 @@ class SelfServiceController extends Controller
                 return response()->json(['message' => 'Profil employé non lié'], 403);
             }
 
-            $docs = DocumentEmploye::with('type')
-                ->where('employe_id', $user->employe_id)
+            $docs = DocumentEmploye::where('employe_id', $user->employe_id)
                 ->orderBy('created_at', 'desc')
                 ->get();
 

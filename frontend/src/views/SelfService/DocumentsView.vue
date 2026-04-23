@@ -14,15 +14,15 @@
       <div v-for="doc in documents" :key="doc.id" class="card doc-card">
         <div class="doc-header">
           <div>
-            <h3>{{ doc.type?.libelle || doc.type || 'Document' }}</h3>
-            <p class="muted">Ajouté le {{ formatDate(doc.created_at) }}</p>
+            <h3>{{ doc.type_document || 'Document' }}</h3>
+            <p class="muted">Ajouté le {{ formatDate(doc.date_importation || doc.created_at) }}</p>
           </div>
           <span class="badge">{{ doc.statut || 'Disponible' }}</span>
         </div>
-        <p class="muted">{{ doc.description || '—' }}</p>
+        <p class="muted">{{ doc.date_expiration ? `Expire le ${formatDate(doc.date_expiration)}` : 'Sans date d’expiration' }}</p>
         <div class="doc-meta">
-          <span>Nom : {{ doc.nom || doc.filename || '—' }}</span>
-          <span>Taille : {{ formatSize(doc.taille) }}</span>
+          <span>Nom : {{ doc.nom_fichier || '—' }}</span>
+          <span>Format : {{ (doc.extension || '—').toUpperCase() }}</span>
         </div>
         <div class="doc-actions">
           <button class="btn btn-secondary btn-sm" @click="telecharger(doc)">📥 Télécharger</button>
@@ -54,26 +54,21 @@ const loadDocuments = async () => {
 
 const telecharger = async (doc) => {
   try {
-    const response = await api.get(`/v1/documents/${doc.id}`, { responseType: 'blob' })
+    const response = await api.get(`/v1/documents/${doc.id}/download`, { responseType: 'blob' })
     const url = window.URL.createObjectURL(new Blob([response.data]))
     const link = document.createElement('a')
     link.href = url
-    link.setAttribute('download', doc.nom || doc.filename || `document_${doc.id}`)
+    link.setAttribute('download', doc.nom_fichier || `document_${doc.id}`)
     document.body.appendChild(link)
     link.click()
     link.remove()
+    window.URL.revokeObjectURL(url)
   } catch (e) {
     alert('Téléchargement impossible')
   }
 }
 
 const formatDate = (d) => d ? new Date(d).toLocaleDateString('fr-FR') : '—'
-const formatSize = (s) => {
-  if (!s) return '—'
-  const kb = s / 1024
-  if (kb < 1024) return `${kb.toFixed(1)} Ko`
-  return `${(kb / 1024).toFixed(1)} Mo`
-}
 
 onMounted(loadDocuments)
 </script>

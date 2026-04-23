@@ -168,7 +168,7 @@
                   <td>{{ fileName(d.fichier) }}</td>
                   <td>{{ formatDate(d.date_expiration) || '—' }}</td>
                   <td class="actions-col">
-                    <a class="btn btn-secondary btn-xs" :href="d.url" target="_blank" rel="noopener">Ouvrir</a>
+                    <a class="btn btn-secondary btn-xs" :href="documentUrl(d)" target="_blank" rel="noopener">Ouvrir</a>
                   </td>
                 </tr>
 
@@ -229,7 +229,7 @@
 
 <script setup>
 import { onMounted, ref, computed } from 'vue'
-import api from '../services/api'
+import api, { resolveBackendAssetUrl } from '../services/api'
 import { debounce } from '../utils/debounce'
 import { RouterLink } from 'vue-router'
 import AppIcon from '../components/ui/AppIcon.vue'
@@ -301,6 +301,8 @@ const formatDate = (d) => {
   if (!d) return ''
   return String(d).split('T')[0]
 }
+
+const documentUrl = (doc) => resolveBackendAssetUrl(doc?.url)
 
 const docsFiltres = computed(() => {
   const f = filters.value

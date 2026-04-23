@@ -5,7 +5,7 @@ namespace App\Http\Requests;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class DocumentUploadRequest extends FormRequest
+class DocumentUpdateRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -18,13 +18,13 @@ class DocumentUploadRequest extends FormRequest
         $fileRules = 'file|mimes:pdf,jpg,jpeg,png,webp,gif,bmp|max:4096';
 
         return [
-            'employe_id'      => 'required|exists:employes,id',
-            'group_uuid'      => 'nullable|uuid',
-            'type_document'   => ['required', 'string', 'max:50', Rule::in($types)],
+            'employe_id' => 'required|exists:employes,id',
+            'group_uuid' => 'nullable|uuid',
+            'type_document' => ['required', 'string', 'max:50', Rule::in($types)],
             'date_expiration' => 'nullable|date',
-            'fichier'         => "nullable|{$fileRules}|required_without:fichiers",
-            'fichiers'        => 'nullable|array|min:1|required_without:fichier',
-            'fichiers.*'      => $fileRules,
+            'fichier' => "nullable|{$fileRules}",
+            'fichiers' => 'nullable|array|min:1',
+            'fichiers.*' => $fileRules,
         ];
     }
 }

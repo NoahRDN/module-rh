@@ -212,6 +212,106 @@
         <article class="card section-card">
           <div class="section-heading">
             <div>
+              <p class="section-kicker">Employee files</p>
+              <h2>Documents</h2>
+            </div>
+            <RouterLink
+              class="btn btn-secondary btn-sm"
+              :to="{ name: 'document-create', query: { employe_id: employe.id, return: route.fullPath } }"
+            >
+              Ajouter
+            </RouterLink>
+          </div>
+
+          <p class="section-copy">
+            Pièces justificatives rattachées à l’employé avec type, date d’importation, expiration éventuelle et accès direct à l’aperçu.
+          </p>
+
+          <div class="table-shell">
+            <table class="table documents-table">
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Importation</th>
+                  <th>Expiration</th>
+                  <th>Lot</th>
+                  <th>Aperçu</th>
+                  <th class="actions-col">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="group in documentGroups" :key="group.key">
+                  <td>
+                    <div class="document-group-cell">
+                      <span class="document-group-title">{{ group.type_document || '—' }}</span>
+                      <div class="document-group-files">
+                        <span
+                          v-for="doc in group.documents.slice(0, 4)"
+                          :key="doc.id"
+                          class="document-file-chip"
+                          :title="documentFileName(doc)"
+                        >
+                          {{ documentFileName(doc) }}
+                        </span>
+                        <span v-if="group.documents.length > 4" class="document-file-chip document-file-chip-more">
+                          +{{ group.documents.length - 4 }}
+                        </span>
+                      </div>
+                    </div>
+                  </td>
+                  <td>{{ formatDate(group.date_importation) || '—' }}</td>
+                  <td>{{ formatDate(group.date_expiration) || '—' }}</td>
+                  <td>
+                    <span class="chip">{{ group.documents.length }} fichier{{ group.documents.length > 1 ? 's' : '' }}</span>
+                  </td>
+                  <td>
+                    <button
+                      class="btn btn-secondary btn-xs"
+                      type="button"
+                      @click="openDocumentGroupPreview(group)"
+                      :disabled="!group.previewableDocuments.length"
+                    >
+                      {{ group.previewableDocuments.length ? 'Aperçu' : 'Indisponible' }}
+                    </button>
+                  </td>
+                  <td class="actions-col">
+                    <div class="inline-actions">
+                      <button
+                        class="btn btn-secondary btn-xs"
+                        type="button"
+                        @click="downloadDocumentGroup(group)"
+                        :disabled="downloadLoadingId === `group-${group.key}`"
+                      >
+                        {{ downloadLoadingId === `group-${group.key}` ? '...' : group.documents.length > 1 ? 'Télécharger tout' : 'Télécharger' }}
+                      </button>
+                      <button class="btn btn-secondary btn-xs" type="button" @click="editDocumentGroup(group)">
+                        Modifier
+                      </button>
+                      <button
+                        class="btn btn-secondary btn-xs btn-danger-soft"
+                        type="button"
+                        @click="removeDocumentGroup(group)"
+                        :disabled="deleteLoadingId === `group-${group.key}`"
+                      >
+                        {{ deleteLoadingId === `group-${group.key}` ? '...' : 'Supprimer' }}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                <tr v-if="!documentGroups.length">
+                  <td colspan="6" class="empty-state">
+                    <p>Aucun document enregistré pour cet employé.</p>
+                    <span>Ajoutez une pièce justificative pour démarrer le suivi documentaire.</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="card section-card">
+          <div class="section-heading">
+            <div>
               <p class="section-kicker">Leave requests</p>
               <h2>Demandes de congés</h2>
             </div>
@@ -377,11 +477,87 @@
         </article>
       </aside>
     </section>
+
+    <div v-if="selectedDocument" class="preview-overlay" @click.self="closeDocumentPreview">
+      <article class="preview-modal card">
+        <div class="preview-head">
+          <div>
+            <p class="section-kicker">Document preview</p>
+            <h2>{{ selectedDocument.type_document || 'Document' }}</h2>
+            <p class="preview-subtitle">
+              Importé le {{ formatDate(selectedDocument.date_importation || selectedDocument.created_at) || '—' }}
+              <span v-if="selectedDocument.date_expiration">
+                • Expire le {{ formatDate(selectedDocument.date_expiration) }}
+              </span>
+            </p>
+          </div>
+
+          <div class="preview-head-actions">
+            <span class="preview-counter">{{ previewIndex + 1 }} / {{ previewDocuments.length }}</span>
+            <button class="btn btn-secondary btn-sm" type="button" @click="goToPreviousPreview" :disabled="previewDocuments.length < 2">
+              ←
+            </button>
+            <button class="btn btn-secondary btn-sm" type="button" @click="goToNextPreview" :disabled="previewDocuments.length < 2">
+              →
+            </button>
+            <button
+              class="btn btn-secondary btn-sm"
+              type="button"
+              @click="downloadDocument(selectedDocument)"
+              :disabled="downloadLoadingId === `doc-${selectedDocument.id}`"
+            >
+              Télécharger
+            </button>
+            <button class="btn btn-secondary btn-sm" type="button" @click="closeDocumentPreview">Fermer</button>
+          </div>
+        </div>
+
+        <div class="preview-stage">
+          <div v-if="previewLoading" class="preview-fallback">
+            <p>Chargement de l’aperçu…</p>
+          </div>
+          <div v-else-if="previewError" class="preview-fallback">
+            <p>{{ previewError }}</p>
+            <button class="btn" type="button" @click="downloadDocument(selectedDocument)">Télécharger le fichier</button>
+          </div>
+          <img
+            v-else-if="resolvePreviewType(selectedDocument) === 'image' && previewObjectUrl"
+            class="preview-image"
+            :src="previewObjectUrl"
+            :alt="selectedDocument.type_document || 'Document'"
+          />
+          <iframe
+            v-else-if="resolvePreviewType(selectedDocument) === 'pdf' && previewObjectUrl"
+            class="preview-frame"
+            :src="previewObjectUrl"
+            title="Aperçu du document"
+          ></iframe>
+          <div v-else class="preview-fallback">
+            <p>Aperçu intégré non disponible pour ce format.</p>
+            <button class="btn" type="button" @click="downloadDocument(selectedDocument)">Télécharger le fichier</button>
+          </div>
+        </div>
+
+        <div v-if="previewDocuments.length > 1" class="preview-strip">
+          <button
+            v-for="(doc, index) in previewDocuments"
+            :key="doc.id"
+            class="preview-strip-item"
+            :class="{ active: index === previewIndex }"
+            type="button"
+            @click="setPreviewIndex(index)"
+          >
+            <span class="preview-strip-type">{{ doc.type_document || 'Document' }}</span>
+            <span class="preview-strip-name">{{ documentFileName(doc) }}</span>
+          </button>
+        </div>
+      </article>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { onMounted, ref, computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import api from '../services/api'
 import { formatMoneyAmount } from '../utils/formatters'
@@ -399,6 +575,15 @@ const pointageMonth = ref(new Date().toISOString().slice(0, 7))
 const pointageYear = ref(new Date().getFullYear())
 const pointagesSynth = ref([])
 const pointagesDetails = ref([])
+const previewDocuments = ref([])
+const previewIndex = ref(-1)
+const previewObjectUrl = ref('')
+const previewLoading = ref(false)
+const previewError = ref('')
+const downloadLoadingId = ref(null)
+const deleteLoadingId = ref(null)
+let previewRequestToken = 0
+
 const isActif = computed(() => !!employe.value?.actif)
 const fullName = computed(() => {
   const name = `${employe.value?.nom || ''} ${employe.value?.prenom || ''}`.trim()
@@ -407,6 +592,10 @@ const fullName = computed(() => {
 const posteLabel = computed(() => employe.value?.poste?.nom || 'Poste N/A')
 const departementLabel = computed(() => employe.value?.departement?.nom || 'Département N/A')
 const categorieLabel = computed(() => employe.value?.poste?.categorie || '—')
+const documentsEmploye = computed(() =>
+  [...(employe.value?.documents || [])].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)),
+)
+const selectedDocument = computed(() => previewDocuments.value[previewIndex.value] || null)
 
 const fetchEmploye = async () => {
   const { data } = await api.get(`/v1/employes/${route.params.id}`)
@@ -452,7 +641,7 @@ const loadPointages = async () => {
   pointagesDetails.value = []
   if (pointageMode.value === 'week' || pointageMode.value === 'month') {
     const { data } = await api.get('/v1/pointages/releve-paie', {
-      params: { employe_id: route.params.id, mois: pointageMonth.value }
+      params: { employe_id: route.params.id, mois: pointageMonth.value },
     })
     if (pointageMode.value === 'week') {
       pointagesSynth.value = groupByWeek(data.details || [])
@@ -463,12 +652,13 @@ const loadPointages = async () => {
       }))
     }
   } else {
-    // année : agrégation mensuelle
     const results = []
-    for (let m = 1; m <= 12; m++) {
+    for (let m = 1; m <= 12; m += 1) {
       const moisStr = `${pointageYear.value}-${String(m).padStart(2, '0')}`
       try {
-        const { data } = await api.get('/v1/pointages/releve-paie', { params: { employe_id: route.params.id, mois: moisStr } })
+        const { data } = await api.get('/v1/pointages/releve-paie', {
+          params: { employe_id: route.params.id, mois: moisStr },
+        })
         const tot = data.totaux || {}
         results.push({
           label: moisStr,
@@ -478,7 +668,7 @@ const loadPointages = async () => {
           absences: tot.absences || 0,
         })
       } catch (e) {
-        // ignore
+        // ignore les mois sans données
       }
     }
     pointagesSynth.value = results
@@ -491,13 +681,22 @@ const groupByWeek = (list) => {
     const date = new Date(d.jour)
     const label = weekLabel(date)
     if (!weeks[label]) {
-      weeks[label] = { label, heures_travaillees: 0, heures_supplementaires: 0, retard_minutes: 0, absences: 0, dimanches: 0 }
+      weeks[label] = {
+        label,
+        heures_travaillees: 0,
+        heures_supplementaires: 0,
+        retard_minutes: 0,
+        absences: 0,
+        dimanches: 0,
+      }
     }
     weeks[label].heures_travaillees += d.heures_travaillees || 0
     weeks[label].heures_supplementaires += d.heures_supplementaires || 0
     weeks[label].retard_minutes += d.retard_minutes || 0
     weeks[label].absences += d.absent ? 1 : 0
-    if (new Date(d.jour).getDay() === 0) weeks[label].dimanches += 1
+    if (new Date(d.jour).getDay() === 0) {
+      weeks[label].dimanches += 1
+    }
   })
   return Object.values(weeks)
 }
@@ -505,7 +704,7 @@ const groupByWeek = (list) => {
 const weekLabel = (date) => {
   const d = new Date(date)
   const day = d.getDay()
-  const diffToMonday = (day === 0 ? -6 : 1 - day)
+  const diffToMonday = day === 0 ? -6 : 1 - day
   const monday = new Date(d)
   monday.setDate(d.getDate() + diffToMonday)
   const end = new Date(monday)
@@ -515,15 +714,16 @@ const weekLabel = (date) => {
 }
 
 const photoUrl = (emp) => {
-  if (emp?.photo) return emp.photo
+  if (emp?.photo) {
+    return emp.photo
+  }
   const initials = `${emp?.nom?.[0] || ''}${emp?.prenom?.[0] || ''}` || 'EMP'
   return generateAvatar(initials)
 }
 
 function generateAvatar(initials) {
-  const bg = "#0f172a";
-  const fg = "#ffffff";
-
+  const bg = '#0f172a'
+  const fg = '#ffffff'
   const svg = `
   <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128">
     <rect width="100%" height="100%" fill="${bg}"/>
@@ -536,19 +736,33 @@ function generateAvatar(initials) {
       ${initials}
     </text>
   </svg>
-  `;
+  `
 
-  return "data:image/svg+xml;base64," + btoa(svg);
+  return `data:image/svg+xml;base64,${btoa(svg)}`
 }
 
-
 const formatDate = (d) => (d ? String(d).split('T')[0] : '')
-const formatMoney = (value) => {
-  return formatMoneyAmount(value, { unit: 'Ar' })
+const formatMoney = (value) => formatMoneyAmount(value, { unit: 'Ar' })
+
+const revokePreviewObjectUrl = () => {
+  if (previewObjectUrl.value) {
+    window.URL.revokeObjectURL(previewObjectUrl.value)
+    previewObjectUrl.value = ''
+  }
+}
+
+const fetchDocumentBlob = async (doc) => {
+  if (!doc?.id) {
+    throw new Error('Document introuvable.')
+  }
+
+  return api.get(`/v1/documents/${doc.id}/download`, { responseType: 'blob' })
 }
 
 const telechargerPdf = async () => {
-  if (!employe.value?.id) return
+  if (!employe.value?.id) {
+    return
+  }
   try {
     const { data, headers } = await api.get(`/v1/employes/${employe.value.id}/pdf`, { responseType: 'blob' })
     const blob = new Blob([data], { type: headers['content-type'] || 'application/pdf' })
@@ -562,6 +776,320 @@ const telechargerPdf = async () => {
     // ignore
   }
 }
+
+const documentFileName = (doc) => doc?.nom_fichier || String(doc?.fichier || '').split(/[\\/]/).pop() || 'document'
+const resolvePreviewType = (doc) => {
+  if (!doc) {
+    return 'file'
+  }
+  if (doc.preview_type) {
+    return doc.preview_type
+  }
+  const extension = String(doc.extension || documentFileName(doc).split('.').pop() || '').toLowerCase()
+  if (extension === 'pdf') {
+    return 'pdf'
+  }
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(extension)) {
+    return 'image'
+  }
+  return 'file'
+}
+
+const canPreviewDocument = (doc) => ['image', 'pdf'].includes(resolvePreviewType(doc))
+
+const buildDocumentGroupKey = (doc) => {
+  if (doc?.group_uuid) {
+    return `uuid:${doc.group_uuid}`
+  }
+
+  const createdAt = String(doc?.created_at || doc?.date_importation || '').split('.')[0]
+  return [
+    doc?.employe_id || route.params.id || '',
+    doc?.type_document || '',
+    formatDate(doc?.date_expiration) || '',
+    createdAt,
+  ].join('::')
+}
+
+const documentGroups = computed(() => {
+  const groups = new Map()
+
+  documentsEmploye.value.forEach((doc) => {
+    const key = buildDocumentGroupKey(doc)
+
+    if (!groups.has(key)) {
+      groups.set(key, {
+        key,
+        type_document: doc.type_document || '',
+        date_importation: doc.date_importation || doc.created_at || '',
+        date_expiration: doc.date_expiration || '',
+        documents: [],
+      })
+    }
+
+    groups.get(key).documents.push(doc)
+  })
+
+  return [...groups.values()]
+    .map((group) => {
+      const documents = [...group.documents].sort((a, b) => {
+        const dateDiff = new Date(b.created_at || 0) - new Date(a.created_at || 0)
+        if (dateDiff !== 0) {
+          return dateDiff
+        }
+        return Number(b.id || 0) - Number(a.id || 0)
+      })
+
+      return {
+        ...group,
+        documents,
+        primaryDocument: documents[0] || null,
+        previewableDocuments: documents.filter(canPreviewDocument),
+      }
+    })
+    .sort((a, b) => {
+      const dateDiff = new Date(b.primaryDocument?.created_at || 0) - new Date(a.primaryDocument?.created_at || 0)
+      if (dateDiff !== 0) {
+        return dateDiff
+      }
+      return Number(b.primaryDocument?.id || 0) - Number(a.primaryDocument?.id || 0)
+    })
+})
+
+const openDocumentPreview = (documents, startIndex = 0) => {
+  if (!documents?.length) {
+    return
+  }
+
+  previewDocuments.value = documents
+  previewIndex.value = Math.max(0, Math.min(startIndex, documents.length - 1))
+}
+
+const openDocumentGroupPreview = (group) => {
+  if (!group?.previewableDocuments?.length) {
+    return
+  }
+
+  openDocumentPreview(group.previewableDocuments, 0)
+}
+
+const setPreviewIndex = (index) => {
+  if (index >= 0 && index < previewDocuments.value.length) {
+    previewIndex.value = index
+  }
+}
+
+const closeDocumentPreview = () => {
+  previewDocuments.value = []
+  previewIndex.value = -1
+}
+
+const goToPreviousPreview = () => {
+  if (!previewDocuments.value.length) {
+    return
+  }
+  previewIndex.value = (previewIndex.value - 1 + previewDocuments.value.length) % previewDocuments.value.length
+}
+
+const goToNextPreview = () => {
+  if (!previewDocuments.value.length) {
+    return
+  }
+  previewIndex.value = (previewIndex.value + 1) % previewDocuments.value.length
+}
+
+const triggerBlobDownload = (blob, filename) => {
+  const url = window.URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.URL.revokeObjectURL(url)
+}
+
+const downloadDocument = async (doc) => {
+  const loadingKey = `doc-${doc?.id}`
+  if (!doc?.id || downloadLoadingId.value === loadingKey) {
+    return
+  }
+
+  downloadLoadingId.value = loadingKey
+  try {
+    const response = await fetchDocumentBlob(doc)
+    const blob = response.data instanceof Blob ? response.data : new Blob([response.data])
+    triggerBlobDownload(blob, documentFileName(doc))
+  } finally {
+    downloadLoadingId.value = null
+  }
+}
+
+const downloadDocumentGroup = async (group) => {
+  if (!group?.documents?.length) {
+    return
+  }
+
+  if (group.documents.length === 1) {
+    await downloadDocument(group.documents[0])
+    return
+  }
+
+  const loadingKey = `group-${group.key}`
+  if (downloadLoadingId.value === loadingKey) {
+    return
+  }
+
+  downloadLoadingId.value = loadingKey
+  try {
+    for (const doc of group.documents) {
+      const response = await fetchDocumentBlob(doc)
+      const blob = response.data instanceof Blob ? response.data : new Blob([response.data])
+      triggerBlobDownload(blob, documentFileName(doc))
+      await new Promise((resolve) => window.setTimeout(resolve, 120))
+    }
+  } finally {
+    downloadLoadingId.value = null
+  }
+}
+
+const editDocument = (doc) => {
+  if (!doc?.id) {
+    return
+  }
+
+  router.push({
+    name: 'document-edit',
+    params: { id: doc.id },
+    query: { return: route.fullPath },
+  })
+}
+
+const editDocumentGroup = (group) => {
+  if (!group?.primaryDocument?.id) {
+    return
+  }
+
+  router.push({
+    name: 'document-edit',
+    params: { id: group.primaryDocument.id },
+    query: {
+      return: route.fullPath,
+      group_key: group.key,
+      group_uuid: group.primaryDocument.group_uuid || '',
+    },
+  })
+}
+
+const removeDocument = async (doc) => {
+  const loadingKey = `doc-${doc?.id}`
+  if (!doc?.id || deleteLoadingId.value === loadingKey) {
+    return
+  }
+  const confirmed = window.confirm(`Supprimer le document "${documentFileName(doc)}" ?`)
+  if (!confirmed) {
+    return
+  }
+
+  deleteLoadingId.value = loadingKey
+  try {
+    await api.delete(`/v1/documents/${doc.id}`)
+    if (selectedDocument.value?.id === doc.id) {
+      closeDocumentPreview()
+    }
+    await fetchEmploye()
+  } finally {
+    deleteLoadingId.value = null
+  }
+}
+
+const removeDocumentGroup = async (group) => {
+  if (!group?.documents?.length) {
+    return
+  }
+
+  if (group.documents.length === 1) {
+    await removeDocument(group.documents[0])
+    return
+  }
+
+  const loadingKey = `group-${group.key}`
+  if (deleteLoadingId.value === loadingKey) {
+    return
+  }
+
+  const confirmed = window.confirm(
+    `Supprimer le groupe "${group.type_document || 'Document'}" et ses ${group.documents.length} fichiers ?`,
+  )
+
+  if (!confirmed) {
+    return
+  }
+
+  deleteLoadingId.value = loadingKey
+  try {
+    for (const doc of group.documents) {
+      await api.delete(`/v1/documents/${doc.id}`)
+    }
+
+    const removedIds = new Set(group.documents.map((doc) => doc.id))
+    if (previewDocuments.value.some((doc) => removedIds.has(doc.id))) {
+      closeDocumentPreview()
+    }
+
+    await fetchEmploye()
+  } finally {
+    deleteLoadingId.value = null
+  }
+}
+
+watch(
+  () => selectedDocument.value?.id,
+  async (documentId) => {
+    previewRequestToken += 1
+    const requestToken = previewRequestToken
+
+    revokePreviewObjectUrl()
+    previewError.value = ''
+
+    if (!documentId || !selectedDocument.value || !canPreviewDocument(selectedDocument.value)) {
+      previewLoading.value = false
+      return
+    }
+
+    previewLoading.value = true
+
+    try {
+      const response = await fetchDocumentBlob(selectedDocument.value)
+
+      if (requestToken !== previewRequestToken) {
+        return
+      }
+
+      const blob = response.data instanceof Blob
+        ? response.data
+        : new Blob([response.data], { type: response.headers?.['content-type'] || 'application/octet-stream' })
+
+      previewObjectUrl.value = window.URL.createObjectURL(blob)
+    } catch (error) {
+      if (requestToken !== previewRequestToken) {
+        return
+      }
+
+      previewError.value = 'Impossible de charger l’aperçu de ce document.'
+    } finally {
+      if (requestToken === previewRequestToken) {
+        previewLoading.value = false
+      }
+    }
+  },
+  { immediate: true },
+)
+
+onBeforeUnmount(() => {
+  previewRequestToken += 1
+  revokePreviewObjectUrl()
+})
 
 onMounted(async () => {
   await Promise.all([
@@ -595,11 +1123,231 @@ onMounted(async () => {
   object-fit: cover;
 }
 
-.overview-value--wrap {
+.overview-value--wrap,
+.document-name-cell {
   word-break: break-word;
   overflow-wrap: anywhere;
   max-width: 100%;
   min-width: 0;
+}
+
+.documents-table .actions-col {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.document-group-cell {
+  display: grid;
+  gap: 10px;
+}
+
+.document-group-title {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.document-group-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.document-file-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: min(280px, 100%);
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.document-file-chip-more {
+  color: var(--brand-600);
+  border-color: rgba(79, 70, 229, 0.18);
+  background: rgba(79, 70, 229, 0.08);
+}
+
+.inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.btn-danger-soft {
+  color: #b42318;
+      border-color: rgba(180, 35, 24, 0.2);
+      background: rgba(180, 35, 24, 0.08);
+}
+
+.preview-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(2, 6, 23, 0.76);
+  backdrop-filter: blur(8px);
+}
+
+.preview-modal {
+  width: min(1120px, 100%);
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 22px;
+  overflow: hidden;
+}
+
+.preview-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.preview-head h2 {
+  margin: 6px 0 0;
+}
+
+.preview-subtitle {
+  margin: 8px 0 0;
+  color: var(--muted);
+}
+
+.preview-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.preview-counter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 68px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.08);
+  color: var(--text);
+  font-weight: 700;
+}
+
+.preview-stage {
+  min-height: 420px;
+  border-radius: 28px;
+  border: 1px solid var(--border);
+  background:
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.14), transparent 42%),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.06), rgba(15, 23, 42, 0.02));
+  overflow: hidden;
+}
+
+.preview-image,
+.preview-frame {
+  width: 100%;
+  height: min(68vh, 760px);
+  border: 0;
+  display: block;
+  background: white;
+}
+
+.preview-image {
+  object-fit: contain;
+}
+
+.preview-fallback {
+  min-height: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--muted);
+}
+
+.preview-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  overflow: auto;
+  padding-bottom: 2px;
+}
+
+.preview-strip-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.66);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.preview-strip-item.active {
+  border-color: rgba(37, 99, 235, 0.4);
+  box-shadow: 0 12px 28px rgba(37, 99, 235, 0.16);
+  transform: translateY(-2px);
+}
+
+.preview-strip-type {
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--brand-600);
+}
+
+.preview-strip-name {
+  color: var(--text);
+  font-weight: 600;
+  word-break: break-word;
+}
+
+@media (max-width: 900px) {
+  .preview-overlay {
+    padding: 14px;
+  }
+
+  .preview-modal {
+    padding: 18px;
+  }
+
+  .preview-head {
+    flex-direction: column;
+  }
+
+  .preview-head-actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 680px) {
+  .employee-title {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .preview-image,
+  .preview-frame {
+    height: 52vh;
+  }
 }
 
 .pointage-toolbar .input,
@@ -609,12 +1357,5 @@ onMounted(async () => {
 
 .pointage-grid {
   grid-template-columns: 1fr;
-}
-
-@media (max-width: 680px) {
-  .employee-title {
-    flex-direction: column;
-    align-items: flex-start;
-  }
 }
 </style>

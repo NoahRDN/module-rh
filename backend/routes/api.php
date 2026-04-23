@@ -147,6 +147,9 @@ Route::prefix('v1')->group(function () {
         Route::post('documents/generer', [DocumentGeneratorController::class, 'selfServiceGenerer']);
     });
 
+    Route::middleware('auth:sanctum')->get('documents/{document}/download', [DocumentEmployeController::class, 'download'])
+        ->whereNumber('document');
+
     // ========================================
     // ROUTES MESSAGERIE (authentifié)
     // ========================================

@@ -99,6 +99,11 @@ const groups = [
     items: [
       { to: '/paie-parametres', label: 'Paramètres paie', hint: 'CNAPS, OSTIE, IRSA', icon: 'settings' },
       { to: '/paie-generation', label: 'Génération paie', hint: 'Brut, net, PDF', icon: 'receipt' },
+      { to: '/paie-etat', label: 'État de paie', hint: 'Mensuel & annuel', icon: 'clipboard' },
+      { to: '/caisses', label: 'État caisse', hint: 'Solde et historique', icon: 'wallet' },
+      { to: '/caisses/types', label: 'Types caisse', hint: 'Activer / désactiver', icon: 'settings' },
+      { to: '/caisses/mouvements/nouveau', label: 'Mouvement caisse', hint: 'Entrée ou sortie', icon: 'plus' },
+      { to: '/caisses/validations', label: 'Validation caisse', hint: 'Appliquer au solde', icon: 'shield' },
       { to: '/worktime-config', label: 'Horaires', hint: 'Temps de travail', icon: 'clock' },
     ],
   },
@@ -121,7 +126,24 @@ const selfServiceGroups = [
 
 const filteredGroups = computed(() => (role === 'employe' ? selfServiceGroups : groups))
 
-const isActive = (path) => route.path === path || route.path.startsWith(`${path}/`)
+const isActive = (path) => {
+  if (route.path === path) {
+    return true
+  }
+
+  if (!route.path.startsWith(`${path}/`)) {
+    return false
+  }
+
+  const items = filteredGroups.value.flatMap((group) => group.items)
+  const hasMoreSpecificActiveItem = items.some((item) =>
+    item.to !== path &&
+    item.to.length > path.length &&
+    route.path.startsWith(item.to)
+  )
+
+  return !hasMoreSpecificActiveItem
+}
 </script>
 
 <style scoped>

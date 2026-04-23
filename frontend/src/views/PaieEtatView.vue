@@ -1,0 +1,468 @@
+<template>
+  <div class="rh-page paie-etat-page">
+    <section class="hero hero-band hero-shared hero-compact">
+      <div class="hero-copy">
+        <p class="hero-kicker">Payroll reporting</p>
+        <h1>État de paie</h1>
+        <p class="hero-subtitle">
+          Suivi mensuel des employés avec contrat actif, des fiches générées, des validations et des paiements.
+        </p>
+
+        <div class="hero-pills">
+          <span class="pill">Contrats actifs</span>
+          <span class="pill">Validation</span>
+          <span class="pill">Paiement</span>
+        </div>
+      </div>
+
+      <div class="hero-actions">
+        <div class="filters-panel">
+          <div class="action-row">
+            <button class="btn btn-secondary" type="button" @click="refresh" :disabled="loading">
+              <AppIcon name="refresh" :size="18" />
+              <span>{{ loading ? 'Actualisation...' : 'Actualiser' }}</span>
+            </button>
+          </div>
+
+          <label class="field-card">
+            <span class="field-label">Mode</span>
+            <select class="select" v-model="mode" @change="refresh">
+              <option value="mois">Mois</option>
+              <option value="annee">Année</option>
+            </select>
+          </label>
+
+          <label class="field-card">
+            <span class="field-label">Statut fiche</span>
+            <select class="select" v-model="statusFilter" @change="refresh">
+              <option value="tous">Tous</option>
+              <option value="non_genere">Non générée</option>
+              <option value="en_attente_validation">En attente de validation</option>
+              <option value="non_paye">Non payé</option>
+              <option value="paiement_en_validation">Paiement en validation</option>
+              <option value="paye">Payé</option>
+            </select>
+          </label>
+
+          <div class="action-row" v-if="mode === 'mois'">
+            <label class="field-card">
+              <span class="field-label">Année</span>
+              <input class="input" type="number" min="2000" max="2100" v-model.number="year" @change="refresh" />
+            </label>
+            <label class="field-card">
+              <span class="field-label">Mois</span>
+              <select class="select" v-model="month" @change="refresh">
+                <option v-for="m in monthOptions" :key="m.value" :value="m.value">{{ m.label }}</option>
+              </select>
+            </label>
+          </div>
+
+          <label class="field-card" v-else>
+            <span class="field-label">Année</span>
+            <input class="input" type="number" min="2000" max="2100" v-model.number="year" @change="refresh" />
+          </label>
+
+          <div v-if="error" class="status-banner danger">
+            <span class="status-dot"></span>
+            <span>{{ error }}</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="metric-grid">
+      <article v-for="metric in metrics" :key="metric.label" class="metric-card">
+        <span class="metric-chip">{{ metric.tag }}</span>
+        <p class="metric-label">{{ metric.label }}</p>
+        <p class="metric-value">{{ metric.value }}</p>
+        <p class="metric-caption">{{ metric.caption }}</p>
+      </article>
+    </section>
+
+    <section class="content-grid">
+      <article class="card section-card table-card">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Payroll state</p>
+            <h2>{{ titleLabel }}</h2>
+          </div>
+          <span class="section-chip">{{ formatInteger(totaux.bulletins) }} fiches générées</span>
+        </div>
+
+        <div v-if="mode === 'annee'" class="table-shell">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Mois</th>
+                <th>Fiches</th>
+                <th>Total brut</th>
+                <th>Retenues</th>
+                <th>Net à payer</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in parMois" :key="row.mois">
+                <td>{{ row.mois }}</td>
+                <td>{{ formatInteger(row.bulletins) }}</td>
+                <td>{{ formatMoney(row.total_brut) }}</td>
+                <td>{{ formatMoney(row.total_retenues) }}</td>
+                <td class="accent">{{ formatMoney(row.net_a_payer) }}</td>
+              </tr>
+              <tr v-if="!parMois.length">
+                <td colspan="5" class="muted">Aucune fiche sur cette année.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div v-else class="table-shell">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Employé</th>
+                <th>Contrat</th>
+                <th>Prévision</th>
+                <th>Net fiche</th>
+                <th>Statut</th>
+                <th>Demande validation</th>
+                <th>Validation paie</th>
+                <th>Paiement</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in details" :key="`${row.employe_id}-${row.contrat_id}`">
+                <td class="cell-stack">
+                  <div class="type-name">{{ row.employe?.matricule || '—' }}</div>
+                  <div class="muted">{{ fullName(row.employe) }}</div>
+                </td>
+                <td class="cell-stack">
+                  <div>{{ row.contrat_numero || `#${row.contrat_id}` }}</div>
+                  <div class="muted">{{ row.contrat_debut || '—' }} → {{ row.contrat_fin || '—' }}</div>
+                </td>
+                <td>{{ formatMoney(row.salaire_previsionnel) }}</td>
+                <td class="accent">{{ row.paie_id ? formatMoney(row.net_a_payer) : '—' }}</td>
+                <td><span class="chip" :class="statusClass(row.statut)">{{ row.statut_label }}</span></td>
+                <td>{{ formatDateTime(row.demande_validation_le) || '—' }}</td>
+                <td>{{ formatDateTime(row.valide_le) || '—' }}</td>
+                <td class="cell-stack">
+                  <div>{{ row.caisse_nom || '—' }}</div>
+                  <div class="muted">
+                    {{ row.paiement_valide_le ? formatDateTime(row.paiement_valide_le) : (row.paiement_demande_le ? `Demandé ${formatDateTime(row.paiement_demande_le)}` : (row.paye_le || '—')) }}
+                  </div>
+                </td>
+                <td class="actions">
+                  <div class="actions-stack">
+                    <RouterLink class="btn btn-secondary btn-xs" :to="detailRoute(row)">
+                      Détail
+                    </RouterLink>
+                    <button v-if="row.statut === 'non_genere'" class="btn btn-secondary btn-xs" type="button" :disabled="loading" @click="generate(row)">
+                      Générer
+                    </button>
+                    <button v-if="row.statut === 'en_attente_validation'" class="btn btn-secondary btn-xs" type="button" :disabled="loading" @click="validate(row)">
+                      Valider
+                    </button>
+                    <button v-if="row.statut === 'en_attente_validation'" class="btn btn-secondary btn-xs" type="button" :disabled="loading" @click="cancelGeneration(row)">
+                      Annuler
+                    </button>
+                    <div v-if="row.statut === 'non_paye'" class="pay-action">
+                      <select class="select select-xs" v-model="selectedCaisseByPaie[row.paie_id]" :disabled="loading">
+                        <option value="">Caisse</option>
+                        <option v-for="caisse in caisses" :key="caisse.id" :value="caisse.id">
+                          {{ caisse.nom }}
+                        </option>
+                      </select>
+                      <button class="btn btn-secondary btn-xs" type="button" :disabled="loading" @click="pay(row)">
+                        Demander paiement
+                      </button>
+                    </div>
+                    <button v-if="['non_paye', 'paye'].includes(row.statut)" class="btn btn-secondary btn-xs" type="button" :disabled="loading" @click="downloadPdf(row)">
+                      PDF
+                    </button>
+                    <button v-if="row.statut === 'paye'" class="btn btn-secondary btn-xs" type="button" :disabled="loading" @click="downloadReceipt(row)">
+                      Reçu
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr v-if="!details.length">
+                <td colspan="9" class="muted">Aucun employé ne correspond à la période et au statut.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+
+  </div>
+</template>
+
+<script setup>
+import { computed, onMounted, ref } from 'vue'
+import { RouterLink } from 'vue-router'
+import api from '../services/api'
+import AppIcon from '../components/ui/AppIcon.vue'
+
+const loading = ref(false)
+const error = ref('')
+const mode = ref('mois')
+const statusFilter = ref('tous')
+
+const now = new Date()
+const year = ref(now.getFullYear())
+const month = ref(String(now.getMonth() + 1).padStart(2, '0'))
+
+const totaux = ref({})
+const details = ref([])
+const parMois = ref([])
+const statusCounts = ref({})
+const caisses = ref([])
+const selectedCaisseByPaie = ref({})
+
+const monthOptions = [
+  { value: '01', label: 'Janvier' },
+  { value: '02', label: 'Février' },
+  { value: '03', label: 'Mars' },
+  { value: '04', label: 'Avril' },
+  { value: '05', label: 'Mai' },
+  { value: '06', label: 'Juin' },
+  { value: '07', label: 'Juillet' },
+  { value: '08', label: 'Août' },
+  { value: '09', label: 'Septembre' },
+  { value: '10', label: 'Octobre' },
+  { value: '11', label: 'Novembre' },
+  { value: '12', label: 'Décembre' },
+]
+
+const selectedMonth = computed(() => `${year.value}-${month.value}`)
+const titleLabel = computed(() => mode.value === 'annee' ? `Synthèse ${year.value}` : `Employés éligibles ${selectedMonth.value}`)
+
+const formatInteger = (value) => new Intl.NumberFormat('fr-FR').format(Number(value || 0))
+const formatMoney = (amount) =>
+  new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'MGA', maximumFractionDigits: 0 }).format(Number(amount || 0))
+
+const formatDateTime = (value) => {
+  if (!value) return ''
+  return new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value))
+}
+
+const detailRoute = (row) => row.paie_id
+  ? `/paies/${row.paie_id}`
+  : `/paies/prevision/${row.employe_id}/${selectedMonth.value}`
+
+const fullName = (employe) => {
+  if (!employe) return '—'
+  return `${employe.nom || ''} ${employe.prenom || ''}`.trim() || '—'
+}
+
+const metrics = computed(() => [
+  {
+    tag: 'Active',
+    label: mode.value === 'annee' ? 'Fiches générées' : 'Employés actifs',
+    value: formatInteger(mode.value === 'annee' ? totaux.value.bulletins : (totaux.value.employes_actifs || details.value.length)),
+    caption: mode.value === 'mois' ? 'Contrat actif sur la période' : 'Fiches générées sur l’année',
+  },
+  {
+    tag: 'Forecast',
+    label: mode.value === 'annee' ? 'Total brut' : 'Prévision salaires',
+    value: formatMoney(mode.value === 'annee' ? totaux.value.total_brut : totaux.value.prevision_salaire_base),
+    caption: mode.value === 'annee' ? 'Somme des fiches générées' : 'Somme des salaires de base des contrats actifs',
+  },
+  {
+    tag: 'Due',
+    label: 'Reste à payer',
+    value: formatMoney(totaux.value.reste_a_payer || totaux.value.net_a_payer),
+    caption: 'Inclut les fiches non générées et non payées',
+  },
+  {
+    tag: 'Paid',
+    label: 'Déjà payé',
+    value: formatMoney(totaux.value.deja_paye),
+    caption: `${formatInteger(statusCounts.value.paye)} fiche(s) payée(s)`,
+  },
+])
+
+const statusClass = (statut) => ({
+  'muted-chip': statut === 'non_genere',
+  warning: ['en_attente_validation', 'paiement_en_validation'].includes(statut),
+  danger: statut === 'non_paye',
+  success: statut === 'paye',
+})
+
+const loadCaisses = async () => {
+  try {
+    const { data } = await api.get('/v1/caisses', { params: { active: 1 } })
+    caisses.value = data.caisses || []
+  } catch (e) {
+    error.value = e.response?.data?.message || e.message || 'Erreur chargement caisses'
+  }
+}
+
+const refresh = async () => {
+  loading.value = true
+  error.value = ''
+  details.value = []
+  parMois.value = []
+
+  try {
+    const params = mode.value === 'annee'
+      ? { annee: String(year.value), statut: statusFilter.value }
+      : { mois: selectedMonth.value, statut: statusFilter.value }
+
+    const { data } = await api.get('/v1/paies/etat', { params })
+    totaux.value = data.totaux || {}
+    statusCounts.value = data.status_counts || {}
+    parMois.value = data.par_mois || []
+    details.value = data.details || []
+  } catch (e) {
+    error.value = e.response?.data?.message || e.message || 'Erreur chargement état de paie'
+  } finally {
+    loading.value = false
+  }
+}
+
+const generate = async (row) => {
+  await runAction(() => api.post('/v1/paies/generer', { employe_id: row.employe_id, mois: selectedMonth.value }))
+}
+
+const validate = async (row) => {
+  if (!row.paie_id) return
+  await runAction(() => api.post(`/v1/paies/${row.paie_id}/valider`))
+}
+
+const cancelGeneration = async (row) => {
+  if (!row.paie_id) return
+  await runAction(() => api.post(`/v1/paies/${row.paie_id}/annuler`))
+}
+
+const pay = async (row) => {
+  if (!row.paie_id) return
+  const caisseId = selectedCaisseByPaie.value[row.paie_id]
+  if (!caisseId) {
+    error.value = 'Choisis une caisse avant de demander le paiement'
+    return
+  }
+  await runAction(() => api.post(`/v1/paies/${row.paie_id}/payer`, { caisse_id: caisseId }))
+}
+
+const downloadPdf = async (row) => {
+  if (!row.paie_id) return
+  loading.value = true
+  error.value = ''
+  try {
+    const { data, headers } = await api.get(`/v1/paies/${row.paie_id}/pdf`, { responseType: 'blob' })
+    const blob = new Blob([data], { type: headers['content-type'] || 'application/pdf' })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `bulletin_paie_${row.employe_id}_${selectedMonth.value}.pdf`)
+    link.click()
+    window.URL.revokeObjectURL(url)
+  } catch (e) {
+    error.value = e.response?.data?.message || e.message || 'Erreur téléchargement PDF'
+  } finally {
+    loading.value = false
+  }
+}
+
+const downloadReceipt = async (row) => {
+  if (!row.paie_id) return
+  loading.value = true
+  error.value = ''
+  try {
+    const { data, headers } = await api.get(`/v1/paies/${row.paie_id}/recu-paiement`, { responseType: 'blob' })
+    const blob = new Blob([data], { type: headers['content-type'] || 'application/pdf' })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `recu_paiement_${row.employe_id}_${selectedMonth.value}.pdf`)
+    link.click()
+    window.URL.revokeObjectURL(url)
+  } catch (e) {
+    error.value = e.response?.data?.message || e.message || 'Erreur téléchargement reçu'
+  } finally {
+    loading.value = false
+  }
+}
+
+const runAction = async (request) => {
+  loading.value = true
+  error.value = ''
+  try {
+    await request()
+    await refresh()
+  } catch (e) {
+    error.value = e.response?.data?.message || e.message || "Action impossible"
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  refresh()
+  loadCaisses()
+})
+</script>
+
+<style scoped>
+.paie-etat-page .content-grid {
+  grid-template-columns: 1fr;
+}
+
+.paie-etat-page .table-card,
+.paie-etat-page .table-shell {
+  width: 100%;
+  min-width: 0;
+}
+
+.accent {
+  color: var(--brand-600);
+  font-weight: 800;
+}
+
+.actions {
+  min-width: 260px;
+  white-space: nowrap;
+}
+
+.actions-stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pay-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.select-xs {
+  min-height: 32px;
+  min-width: 140px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-size: 0.78rem;
+}
+
+.muted-chip {
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--muted);
+}
+
+.chip.warning {
+  background: var(--warning-100);
+  color: var(--warning-500);
+}
+
+.chip.danger {
+  background: var(--danger-100);
+  color: var(--danger-500);
+}
+
+.chip.success {
+  background: var(--success-100);
+  color: var(--success-500);
+}
+
+</style>

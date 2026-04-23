@@ -52,3 +52,10 @@ concernant l'ajout employé:
   - ...
 - possibilite de generer une fiche de paie pour un employé 
 - possibilite de configurer le temps 
+- concernant la page d'etat de paie:
+  - permet de savoir quel est le montant que l'entreprise doit débourser durant une période définit
+    - concernant le montant à payer, il appliquera le regle métier tel une création de fiche de paie 
+  - liste tous les employé avec un contrat actif durant ce période et avec un etat si c'est déja payer ou en attente de validation de payement ou déja payer
+  - des boutons gérer paie permet de génerer une fiche de paie pour un employé
+    - ce fiche de paie générer sera ensuite en attente de validation 
+    - une fois valider, ce sera possible de le payer après et de telechager le fiche de payer en pdf

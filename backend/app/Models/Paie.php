@@ -11,6 +11,8 @@ class Paie extends Model
     protected $fillable = [
         'employe_id',
         'mois',
+        'statut',
+        'demande_validation_le',
         'salaire_base',
         'heures_travaillees',
         'heures_supplementaires',
@@ -24,6 +26,14 @@ class Paie extends Model
         'total_brut',
         'total_retenues',
         'net_a_payer',
+        'paye_le',
+        'valide_le',
+    ];
+
+    protected $casts = [
+        'demande_validation_le' => 'datetime',
+        'paye_le' => 'date',
+        'valide_le' => 'datetime',
     ];
 
     public function employe()
@@ -39,5 +49,10 @@ class Paie extends Model
     public function primes()
     {
         return $this->hasMany(PaiePrime::class);
+    }
+
+    public function mouvementsCaisse()
+    {
+        return $this->hasMany(CaisseMouvement::class);
     }
 }

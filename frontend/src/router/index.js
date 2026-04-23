@@ -19,6 +19,12 @@ import PointagesView from '../views/PointagesView.vue'
 import PointageCreateView from '../views/PointageCreateView.vue'
 import PaieParametresView from '../views/PaieParametresView.vue'
 import PaieGenerationView from '../views/PaieGenerationView.vue'
+import PaieEtatView from '../views/PaieEtatView.vue'
+import PaieDetailView from '../views/PaieDetailView.vue'
+import CaisseEtatView from '../views/CaisseEtatView.vue'
+import CaisseTypesView from '../views/CaisseTypesView.vue'
+import CaisseMouvementCreateView from '../views/CaisseMouvementCreateView.vue'
+import CaisseValidationView from '../views/CaisseValidationView.vue'
 import EmployeeDetailView from '../views/EmployeeDetailView.vue'
 import EmployeeCreateView from '../views/EmployeeCreateView.vue'
 import SoldeCongesView from '../views/SoldeCongesView.vue'
@@ -127,6 +133,13 @@ const routes = [
       { path: 'worktime-config', name: 'worktime-config', component: WorktimeConfigView, meta: { subtitle: 'Horaires' } },
       { path: 'paie-parametres', name: 'paie-parametres', component: PaieParametresView, meta: { subtitle: 'Paie' } },
       { path: 'paie-generation', name: 'paie-generation', component: PaieGenerationView, meta: { subtitle: 'Paie' } },
+      { path: 'paie-etat', name: 'paie-etat', component: PaieEtatView, meta: { subtitle: 'État de paie' } },
+      { path: 'paies/prevision/:employeId/:mois', name: 'paie-prevision', component: PaieDetailView, meta: { subtitle: 'Prévision paie' } },
+      { path: 'paies/:id', name: 'paie-detail', component: PaieDetailView, meta: { subtitle: 'Fiche de paie' } },
+      { path: 'caisses', name: 'caisses', component: CaisseEtatView, meta: { subtitle: 'État de caisse' } },
+      { path: 'caisses/types', name: 'caisse-types', component: CaisseTypesView, meta: { subtitle: 'Types de caisse' } },
+      { path: 'caisses/mouvements/nouveau', name: 'caisse-mouvement-create', component: CaisseMouvementCreateView, meta: { subtitle: 'Nouveau mouvement' } },
+      { path: 'caisses/validations', name: 'caisse-validations', component: CaisseValidationView, meta: { subtitle: 'Validation caisse' } },
       { path: 'documents', name: 'documents', component: DocumentsView, meta: { subtitle: 'Documents' } },
       { path: 'historiques', name: 'historiques', component: HistoriquePostesView, meta: { subtitle: 'Mobilités' } },
       { path: 'historiques/nouveau', name: 'historiques-create', component: HistoriqueCreateView, meta: { subtitle: 'Nouvelle mobilité' } },

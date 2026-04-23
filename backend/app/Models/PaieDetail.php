@@ -14,10 +14,20 @@ class PaieDetail extends Model
         'heures_travaillees',
         'heures_supplementaires',
         'retard_minutes',
+        'absent',
+        'absence_justifiee',
+        'ferie',
+        'weekend',
+        'present_partiel',
     ];
 
     protected $casts = [
         'jour' => 'date',
+        'absent' => 'boolean',
+        'absence_justifiee' => 'boolean',
+        'ferie' => 'boolean',
+        'weekend' => 'boolean',
+        'present_partiel' => 'boolean',
     ];
 
     public function paie()

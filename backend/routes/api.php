@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\PointageController;
 use App\Http\Controllers\Api\PaieController;
 use App\Http\Controllers\Api\PaieParametreController;
 use App\Http\Controllers\Api\PaiePdfController;
+use App\Http\Controllers\Api\CaisseController;
 use App\Http\Controllers\Api\IrsaTrancheController;
 use App\Http\Controllers\Api\EmployePdfController;
 use App\Http\Controllers\Api\CalendrierEvenementController;
@@ -191,10 +192,24 @@ Route::prefix('v1')->group(function () {
     Route::get('pointages/releve-mensuel', [PointageController::class, 'releveMensuel']);
     Route::get('pointages/releve-paie', [PointageController::class, 'relevePaie']);
     Route::post('paies/generer', [PaieController::class, 'genererPaie']);
+    Route::get('paies/etat', [PaieController::class, 'etat']);
+    Route::get('paies/prevision', [PaieController::class, 'prevision']);
+    Route::post('paies/{id}/annuler', [PaieController::class, 'annuler']);
+    Route::post('paies/{id}/valider', [PaieController::class, 'valider']);
+    Route::post('paies/{id}/payer', [PaieController::class, 'payer']);
+    Route::get('paies/{id}', [PaieController::class, 'show']);
+    Route::get('paies/{id}/recu-paiement', [PaieController::class, 'recuPaiement']);
     Route::get('paie-parametres', [PaieParametreController::class, 'index']);
     Route::put('paie-parametres/{id}', [PaieParametreController::class, 'update']);
     Route::apiResource('irsa-tranches', IrsaTrancheController::class)->only(['index','store','update','destroy']);
     Route::get('paies/{id}/pdf', [PaiePdfController::class, 'telecharger']);
+    Route::get('caisses', [CaisseController::class, 'index']);
+    Route::get('caisses/types', [CaisseController::class, 'types']);
+    Route::get('caisses/en-attente-validation', [CaisseController::class, 'enAttente']);
+    Route::post('caisses/mouvements', [CaisseController::class, 'storeMouvement']);
+    Route::patch('caisses/{id}/toggle-active', [CaisseController::class, 'toggleActive']);
+    Route::post('caisses/mouvements/{id}/valider', [CaisseController::class, 'valider']);
+    Route::post('caisses/mouvements/{id}/rejeter', [CaisseController::class, 'rejeter']);
     Route::apiResource('jours-feries', JourFerieController::class)->only(['index','store','update','destroy']);
     
     // Dashboard et statistiques RH

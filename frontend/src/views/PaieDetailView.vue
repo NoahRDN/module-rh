@@ -237,15 +237,24 @@
           <article class="card section-card side-card">
             <div class="section-heading compact">
               <div>
-                <p class="section-kicker">Premiums</p>
-                <h2>Primes</h2>
+                <p class="section-kicker">Additional compensation</p>
+                <h2>Indemnités et primes</h2>
               </div>
             </div>
 
             <div class="amount-list">
               <div v-for="prime in primes" :key="prime.label" class="amount-row">
-                <span>{{ prime.label }}</span>
+                <span>
+                  {{ prime.label }}
+                  <small class="muted">
+                    ({{ prime.nature === 'indemnite' ? 'Indemnité' : 'Prime' }} • {{ prime.is_taxable === false ? 'Non imposable' : 'Imposable' }})
+                  </small>
+                </span>
                 <strong>{{ formatMoney(prime.montant) }}</strong>
+              </div>
+              <div v-if="!primes.length" class="amount-row">
+                <span>Aucun élément additionnel</span>
+                <strong>{{ formatMoney(0) }}</strong>
               </div>
             </div>
           </article>

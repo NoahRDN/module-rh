@@ -18,6 +18,7 @@ class ContratController extends Controller
     {
         try {
             $employe = $request->query('employe_id');
+            $all = $request->boolean('all', false);
 
             $query = Contrat::with(['employe.departement', 'employe.poste'])->orderBy('date_debut', 'desc');
 
@@ -25,7 +26,7 @@ class ContratController extends Controller
                 $query->where('employe_id', $employe);
             }
 
-            return response()->json($query->paginate(10));
+            return response()->json($all ? $query->get() : $query->paginate(10));
         } catch (\Throwable $e) {
             Log::error('Erreur liste contrats', ['error' => $e->getMessage()]);
             return response()->json(['message' => 'Erreur serveur'], 500);

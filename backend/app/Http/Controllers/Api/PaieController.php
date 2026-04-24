@@ -16,6 +16,7 @@ use App\Models\IrsaTranche;
 use App\Models\DemandeConge;
 use App\Models\JourFerie;
 use App\Services\CongeService;
+use App\Services\RemunerationItemService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use DateInterval;
 use DatePeriod;
@@ -27,10 +28,12 @@ use Illuminate\Support\Facades\Log;
 class PaieController extends Controller
 {
     protected CongeService $congeService;
+    protected RemunerationItemService $remunerationItemService;
 
-    public function __construct(CongeService $congeService)
+    public function __construct(CongeService $congeService, RemunerationItemService $remunerationItemService)
     {
         $this->congeService = $congeService;
+        $this->remunerationItemService = $remunerationItemService;
     }
 
     public function genererPaie(Request $request)
@@ -51,6 +54,11 @@ class PaieController extends Controller
 
             $salaireBase = $this->recupererSalaireBase($employe->id);
             $tauxHoraire = $salaireBase > 0 ? $salaireBase / 173.33 : 0;
+            $appliedRemunerationItems = $this->remunerationItemService->resolveForEmploye($employe, $mois);
+            $remunerationItemsTotal = (float) $appliedRemunerationItems->sum(fn ($item) => (float) $item->montant);
+            $nonTaxableRemunerationTotal = (float) $appliedRemunerationItems
+                ->where('is_taxable', false)
+                ->sum(fn ($item) => (float) $item->montant);
 
             [$heuresTrav, $details, $absences, $retardsTotal, $heuresManquantes] = $this->calculerHeuresMois($employe->id, $mois);
             [$heuresSup, $montantHs, $heuresNuit, $montantNuit] = $this->calculerHsHebdo($details, $tauxHoraire);
@@ -62,13 +70,14 @@ class PaieController extends Controller
             $brut = $salaireBase
                 + $param->prime_transport
                 + $param->prime_presence
+                + $remunerationItemsTotal
                 + $montantHs
                 + $montantNuit;
 
             $baseCnaps = min($brut, $param->cnaps_plafond ?? $brut);
             $cnaps = $baseCnaps * (($param->cnaps_taux_employe ?? $param->cnaps) / 100);
             $ostie = $brut * (($param->ostie_taux_employe ?? $param->ostie) / 100);
-            $revenuImposable = max(0, $brut - $cnaps - $ostie);
+            $revenuImposable = max(0, ($brut - $nonTaxableRemunerationTotal) - $cnaps - $ostie);
             $irsa  = $this->calculerIrsaProgressif($revenuImposable);
             $settings = $this->loadWorktimeSettings();
             $appliquerSalaire = (bool) ($settings['deduct_from_salary'] ?? true);
@@ -107,6 +116,7 @@ class PaieController extends Controller
                 'montant_nuit'          => $montantNuit,
                 'prime_transport'       => $param->prime_transport,
                 'prime_presence'        => $param->prime_presence,
+                'autres_primes'         => $remunerationItemsTotal,
                 'retenue_cnaps'         => $cnaps,
                 'retenue_ostie'         => $ostie,
                 'retenue_irsa'          => $irsa,
@@ -123,20 +133,38 @@ class PaieController extends Controller
                 PaiePrime::create([
                     'paie_id' => $paie->id,
                     'libelle' => 'Prime transport',
+                    'nature' => 'prime',
+                    'is_taxable' => true,
                     'montant' => $param->prime_transport,
+                    'source_code' => 'param_prime_transport',
                 ]);
             }
             if ($param->prime_presence > 0) {
                 PaiePrime::create([
                     'paie_id' => $paie->id,
                     'libelle' => 'Prime présence',
+                    'nature' => 'prime',
+                    'is_taxable' => true,
                     'montant' => $param->prime_presence,
+                    'source_code' => 'param_prime_presence',
+                ]);
+            }
+
+            foreach ($appliedRemunerationItems as $item) {
+                PaiePrime::create([
+                    'paie_id' => $paie->id,
+                    'remuneration_item_id' => $item->id,
+                    'libelle' => $item->libelle,
+                    'nature' => $item->nature,
+                    'is_taxable' => (bool) $item->is_taxable,
+                    'montant' => $item->montant,
+                    'source_code' => "remuneration_item:{$item->id}",
                 ]);
             }
 
             return response()->json([
                 'message' => 'Paie générée',
-                'paie'    => $paie,
+                'paie'    => $paie->fresh(['employe', 'primes']),
             ]);
         } catch (\Throwable $e) {
             Log::error('Erreur génération paie', ['error' => $e->getMessage()]);
@@ -793,11 +821,7 @@ class PaieController extends Controller
                     ['label' => 'OSTIE', 'montant' => (float) $paie->retenue_ostie],
                     ['label' => 'IRSA', 'montant' => (float) $paie->retenue_irsa],
                 ],
-                'primes' => [
-                    ['label' => 'Prime transport', 'montant' => (float) $paie->prime_transport],
-                    ['label' => 'Prime présence', 'montant' => (float) $paie->prime_presence],
-                    ['label' => 'Autres primes', 'montant' => (float) $paie->autres_primes],
-                ],
+                'primes' => $this->buildPaiePrimesResponse($paie),
             ]);
         } catch (\Throwable $e) {
             Log::error('Erreur détail paie', ['id' => $id, 'error' => $e->getMessage()]);
@@ -815,6 +839,7 @@ class PaieController extends Controller
         try {
             $start = Carbon::createFromFormat('Y-m', $validated['mois'])->startOfMonth();
             $end = $start->copy()->endOfMonth();
+            $param = PaieParametre::first();
 
             $contrat = Contrat::with(['employe.poste', 'employe.departement'])
                 ->where('employe_id', $validated['employe_id'])
@@ -827,6 +852,11 @@ class PaieController extends Controller
                 ->firstOrFail();
 
             $salaireBase = (float) $contrat->salaire_base;
+            $appliedRemunerationItems = $this->remunerationItemService->resolveForEmploye($contrat->employe, $validated['mois']);
+            $remunerationItemsTotal = (float) $appliedRemunerationItems->sum(fn ($item) => (float) $item->montant);
+            $primeTransport = (float) ($param?->prime_transport ?? 0);
+            $primePresence = (float) ($param?->prime_presence ?? 0);
+            $totalBrut = $salaireBase + $primeTransport + $primePresence + $remunerationItemsTotal;
 
             return response()->json([
                 'paie' => [
@@ -838,15 +868,15 @@ class PaieController extends Controller
                     'heures_travaillees' => 0,
                     'heures_supplementaires' => 0,
                     'montant_hs' => 0,
-                    'prime_transport' => 0,
-                    'prime_presence' => 0,
-                    'autres_primes' => 0,
+                    'prime_transport' => $primeTransport,
+                    'prime_presence' => $primePresence,
+                    'autres_primes' => $remunerationItemsTotal,
                     'retenue_cnaps' => 0,
                     'retenue_ostie' => 0,
                     'retenue_irsa' => 0,
-                    'total_brut' => $salaireBase,
+                    'total_brut' => $totalBrut,
                     'total_retenues' => 0,
-                    'net_a_payer' => $salaireBase,
+                    'net_a_payer' => $totalBrut,
                     'demande_validation_le' => null,
                     'valide_le' => null,
                     'paye_le' => null,
@@ -864,11 +894,7 @@ class PaieController extends Controller
                     ['label' => 'OSTIE', 'montant' => 0],
                     ['label' => 'IRSA', 'montant' => 0],
                 ],
-                'primes' => [
-                    ['label' => 'Prime transport', 'montant' => 0],
-                    ['label' => 'Prime présence', 'montant' => 0],
-                    ['label' => 'Autres primes', 'montant' => 0],
-                ],
+                'primes' => $this->buildForecastPrimesResponse($primeTransport, $primePresence, $appliedRemunerationItems),
             ]);
         } catch (\Throwable $e) {
             Log::error('Erreur prévision paie', ['data' => $validated, 'error' => $e->getMessage()]);
@@ -909,6 +935,9 @@ class PaieController extends Controller
     {
         $start = Carbon::createFromFormat('Y-m', $mois)->startOfMonth();
         $end = $start->copy()->endOfMonth();
+        $param = PaieParametre::first();
+        $primeTransport = (float) ($param?->prime_transport ?? 0);
+        $primePresence = (float) ($param?->prime_presence ?? 0);
 
         $contrats = Contrat::with(['employe.poste', 'employe.departement'])
             ->where('statut', 'en_cours')
@@ -936,10 +965,12 @@ class PaieController extends Controller
             ->groupBy('paie_id')
             ->map(fn ($items) => $items->first());
 
-        return $contrats->map(function (Contrat $contrat) use ($paies, $paiementMouvements) {
+        return $contrats->map(function (Contrat $contrat) use ($paies, $paiementMouvements, $mois, $primeTransport, $primePresence) {
             $paie = $paies->get($contrat->employe_id);
             $statut = $this->statutPaie($paie);
             $mouvementPaiement = $paie ? $paiementMouvements->get($paie->id) : null;
+            $remunerationTotal = $this->remunerationItemService->totalForEmploye($contrat->employe, $mois);
+            $forecast = (float) $contrat->salaire_base + $primeTransport + $primePresence + $remunerationTotal;
 
             return [
                 'employe_id' => $contrat->employe_id,
@@ -948,7 +979,7 @@ class PaieController extends Controller
                 'contrat_debut' => optional($contrat->date_debut)->toDateString(),
                 'contrat_fin' => optional($contrat->date_fin)->toDateString(),
                 'employe' => $contrat->employe,
-                'salaire_previsionnel' => (float) $contrat->salaire_base,
+                'salaire_previsionnel' => $forecast,
                 'paie_id' => $paie?->id,
                 'statut' => $statut,
                 'statut_label' => $this->statutPaieLabel($statut),
@@ -969,6 +1000,54 @@ class PaieController extends Controller
                 'details_paie' => $this->resumePaie($paie),
             ];
         });
+    }
+
+    protected function buildPaiePrimesResponse(Paie $paie): array
+    {
+        $items = ($paie->relationLoaded('primes') ? $paie->primes : $paie->primes()->get())
+            ->map(fn (PaiePrime $prime) => [
+                'label' => $prime->libelle,
+                'montant' => (float) $prime->montant,
+                'nature' => $prime->nature ?: 'prime',
+                'is_taxable' => (bool) $prime->is_taxable,
+            ])
+            ->filter(fn (array $item) => $item['montant'] > 0)
+            ->values()
+            ->all();
+
+        if (!empty($items)) {
+            return $items;
+        }
+
+        return array_values(array_filter([
+            ['label' => 'Prime transport', 'montant' => (float) $paie->prime_transport, 'nature' => 'prime', 'is_taxable' => true],
+            ['label' => 'Prime présence', 'montant' => (float) $paie->prime_presence, 'nature' => 'prime', 'is_taxable' => true],
+            ['label' => 'Autres primes', 'montant' => (float) $paie->autres_primes, 'nature' => 'prime', 'is_taxable' => true],
+        ], fn (array $item) => $item['montant'] > 0));
+    }
+
+    protected function buildForecastPrimesResponse(float $primeTransport, float $primePresence, $appliedRemunerationItems): array
+    {
+        $rows = [];
+
+        if ($primeTransport > 0) {
+            $rows[] = ['label' => 'Prime transport', 'montant' => $primeTransport, 'nature' => 'prime', 'is_taxable' => true];
+        }
+
+        if ($primePresence > 0) {
+            $rows[] = ['label' => 'Prime présence', 'montant' => $primePresence, 'nature' => 'prime', 'is_taxable' => true];
+        }
+
+        foreach ($appliedRemunerationItems as $item) {
+            $rows[] = [
+                'label' => $item->libelle,
+                'montant' => (float) $item->montant,
+                'nature' => $item->nature,
+                'is_taxable' => (bool) $item->is_taxable,
+            ];
+        }
+
+        return $rows;
     }
 
     protected function resumePaie(?Paie $paie): array

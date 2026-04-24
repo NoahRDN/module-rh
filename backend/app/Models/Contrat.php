@@ -57,4 +57,9 @@ class Contrat extends Model
     {
         return $this->belongsTo(Employe::class);
     }
+
+    public function remunerationItems()
+    {
+        return $this->hasMany(RemunerationItem::class);
+    }
 }

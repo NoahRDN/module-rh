@@ -21,6 +21,8 @@ import PaieParametresView from '../views/PaieParametresView.vue'
 import PaieGenerationView from '../views/PaieGenerationView.vue'
 import PaieEtatView from '../views/PaieEtatView.vue'
 import PaieDetailView from '../views/PaieDetailView.vue'
+import RemunerationItemsView from '../views/RemunerationItemsView.vue'
+import RemunerationItemFormView from '../views/RemunerationItemFormView.vue'
 import CaisseEtatView from '../views/CaisseEtatView.vue'
 import CaisseTypesView from '../views/CaisseTypesView.vue'
 import CaisseMouvementCreateView from '../views/CaisseMouvementCreateView.vue'
@@ -138,6 +140,9 @@ const routes = [
       { path: 'releve-presence', name: 'releve-presence', component: RelevePresenceView, meta: { subtitle: 'Présence' } },
       { path: 'worktime-config', name: 'worktime-config', component: WorktimeConfigView, meta: { subtitle: 'Horaires' } },
       { path: 'paie-parametres', name: 'paie-parametres', component: PaieParametresView, meta: { subtitle: 'Paie' } },
+      { path: 'remuneration-items', name: 'remuneration-items', component: RemunerationItemsView, meta: { subtitle: 'Indemnités et primes' } },
+      { path: 'remuneration-items/nouveau', name: 'remuneration-item-create', component: RemunerationItemFormView, meta: { subtitle: 'Nouvel élément de rémunération' } },
+      { path: 'remuneration-items/:id/modifier', name: 'remuneration-item-edit', component: RemunerationItemFormView, meta: { subtitle: 'Modifier élément de rémunération' } },
       { path: 'paie-generation', name: 'paie-generation', component: PaieGenerationView, meta: { subtitle: 'Paie' } },
       { path: 'paie-etat', name: 'paie-etat', component: PaieEtatView, meta: { subtitle: 'État de paie' } },
       { path: 'paies/prevision/:employeId/:mois', name: 'paie-prevision', component: PaieDetailView, meta: { subtitle: 'Prévision paie' } },

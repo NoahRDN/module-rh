@@ -14,6 +14,7 @@ class PosteController extends Controller
     {
         try {
             $dep = $request->query('departement_id');
+            $all = $request->boolean('all', false);
 
             $query = Poste::with('departement')->orderBy('nom');
 
@@ -21,7 +22,7 @@ class PosteController extends Controller
                 $query->where('departement_id', $dep);
             }
 
-            return response()->json($query->paginate(10));
+            return response()->json($all ? $query->get() : $query->paginate(10));
         } catch (\Throwable $e) {
             Log::error('Erreur liste postes', ['error' => $e->getMessage()]);
             return response()->json(['message' => 'Erreur serveur'], 500);

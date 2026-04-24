@@ -183,6 +183,27 @@
           </tbody>
         </table>
       </div>
+
+      <div class="rh-table-shell" v-if="paiePrimes.length">
+        <table class="table detail-table">
+          <thead>
+            <tr>
+              <th>Nature</th>
+              <th>Fiscalité</th>
+              <th>Libellé</th>
+              <th>Montant</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="item in paiePrimes" :key="`${item.libelle}-${item.id || item.source_code || item.montant}`">
+              <td>{{ item.nature === 'indemnite' ? 'Indemnité' : 'Prime' }}</td>
+              <td>{{ item.is_taxable === false ? 'Non imposable' : 'Imposable' }}</td>
+              <td>{{ item.libelle }}</td>
+              <td>{{ item.montant }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </article>
 
     <article class="card rh-section-card rh-empty-state" v-else>
@@ -211,6 +232,7 @@ const form = ref({
 const selectedEmploye = computed(
   () => employes.value.find((item) => String(item.id) === String(form.value.employe_id)) || null,
 )
+const paiePrimes = computed(() => (paie.value?.primes || []).filter((item) => Number(item.montant || 0) > 0))
 
 const formatInteger = (value) => new Intl.NumberFormat('fr-FR').format(Number(value || 0))
 

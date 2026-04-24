@@ -54,6 +54,7 @@ use App\Http\Controllers\Api\ManagerController;
 use App\Http\Controllers\Api\AuditController;
 use App\Http\Controllers\Api\ArchiveController;
 use App\Http\Controllers\Api\PermissionController;
+use App\Http\Controllers\Api\RemunerationItemController;
 
 // Nouveaux controllers IA et Automatisation
 use App\Http\Controllers\Api\ChatbotController;
@@ -181,6 +182,7 @@ Route::prefix('v1')->group(function () {
     Route::get('documents/types', [DocumentUploadController::class, 'types']);
     Route::post('documents/upload', [DocumentUploadController::class, 'store']);
     Route::apiResource('documents', DocumentEmployeController::class)->whereNumber('document');
+    Route::apiResource('remuneration-items', RemunerationItemController::class);
     Route::apiResource('soldes-conges', SoldeCongeController::class)->only(['index','show']);
     Route::get('worktime', [WorktimeSettingController::class, 'show']);
     Route::put('worktime', [WorktimeSettingController::class, 'update']);

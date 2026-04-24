@@ -17,7 +17,7 @@ class PaiePdfController extends Controller
     public function telecharger($id)
     {
         try {
-            $paie = Paie::with(['employe', 'employe.poste', 'employe.historiquePostes', 'details'])->findOrFail($id);
+            $paie = Paie::with(['employe', 'employe.poste', 'employe.historiquePostes', 'details', 'primes'])->findOrFail($id);
             $employe = $paie->employe;
             $posteActif = $employe->posteActifPourDate($paie->mois);
             if ($posteActif) {
@@ -37,9 +37,13 @@ class PaiePdfController extends Controller
             $hs_breakdown = $this->calculerRepartitionHeuresSup($paie, $taux_horaire);
             $details_revenus = $this->extraireDetailsRevelus($paie, $taux_horaire, $hs_breakdown);
 
+            $nonTaxableRemunerationTotal = (float) $paie->primes
+                ->where('is_taxable', false)
+                ->sum(fn ($prime) => (float) $prime->montant);
+
             // Calculer les détails IRSA (progressif via tranches)
             [$details_irsa, $irsa_brut, $reduction_irsa] = $this->calculerDetailIRSAProgressif(
-                $paie->total_brut - $paie->retenue_cnaps - $paie->retenue_ostie
+                ($paie->total_brut - $nonTaxableRemunerationTotal) - $paie->retenue_cnaps - $paie->retenue_ostie
             );
             $irsa_net = round($irsa_brut - $reduction_irsa, 2);
 
@@ -48,7 +52,7 @@ class PaiePdfController extends Controller
             $total_retenues_affiche = round($cotisations_sociales + $irsa_net + $autres_retenues, 2);
 
             // Autres données
-            $revenu_imposable = $paie->total_brut - $paie->retenue_cnaps - $paie->retenue_ostie;
+            $revenu_imposable = ($paie->total_brut - $nonTaxableRemunerationTotal) - $paie->retenue_cnaps - $paie->retenue_ostie;
             $enfants_charge = $employe->enfants_a_charge ?? 0;
             Log::info("Generating PDF for Paie ID: {$paie->id}");
             Log::info("Employe ID: {$employe->id}, mois: {$paie->mois} ,Annee: {$paie->annee}");
@@ -133,31 +137,18 @@ class PaiePdfController extends Controller
             ];
         }
 
-        // Ajouter les primes
-        if ($paie->prime_transport > 0) {
-            $details[] = [
-                'libelle' => 'Prime de transport',
-                'nombre' => '—',
-                'taux' => '—',
-                'montant' => $paie->prime_transport,
-            ];
-        }
+        $primes = $paie->relationLoaded('primes') ? $paie->primes : $paie->primes()->get();
 
-        if ($paie->prime_presence > 0) {
-            $details[] = [
-                'libelle' => 'Prime de présence',
-                'nombre' => '—',
-                'taux' => '—',
-                'montant' => $paie->prime_presence,
-            ];
-        }
+        foreach ($primes as $prime) {
+            if ((float) $prime->montant <= 0) {
+                continue;
+            }
 
-        if ($paie->autres_primes > 0) {
             $details[] = [
-                'libelle' => 'Autres primes',
+                'libelle' => $prime->libelle,
                 'nombre' => '—',
                 'taux' => '—',
-                'montant' => $paie->autres_primes,
+                'montant' => $prime->montant,
             ];
         }
 

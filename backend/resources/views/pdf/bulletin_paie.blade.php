@@ -249,7 +249,7 @@
 <!-- ================= SIGNATURE ================= -->
 <table class="signature">
 <tr>
-    <td class="center">L’Employeur</td>
+    <td class="center">Le Responsable</td>
     <td class="center">L’Employé(e)</td>
 </tr>
 </table>

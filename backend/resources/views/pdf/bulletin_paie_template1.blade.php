@@ -245,7 +245,7 @@
 
 <table class="signature">
     <tr>
-        <td class="center">L’employeur</td>
+        <td class="center">Le Responsable</td>
         <td class="center">L’employé(e)</td>
     </tr>
 </table>

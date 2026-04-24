@@ -10,12 +10,25 @@ class PaiePrime extends Model
 
     protected $fillable = [
         'paie_id',
+        'remuneration_item_id',
         'libelle',
+        'nature',
+        'is_taxable',
         'montant',
+        'source_code',
+    ];
+
+    protected $casts = [
+        'is_taxable' => 'boolean',
     ];
 
     public function paie()
     {
         return $this->belongsTo(Paie::class);
+    }
+
+    public function remunerationItem()
+    {
+        return $this->belongsTo(RemunerationItem::class);
     }
 }

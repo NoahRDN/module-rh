@@ -83,6 +83,11 @@ class Employe extends Model
         return $this->formations()->wherePivot('statut', 'terminee');
     }
 
+    public function remunerationItems()
+    {
+        return $this->hasMany(RemunerationItem::class);
+    }
+
     public function user()
     {
         return $this->hasOne(User::class, 'employe_id');

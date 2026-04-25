@@ -166,7 +166,7 @@
     </td>
     <td class="right">
         {{ number_format($paie->retenue_ostie, 2, ',', ' ') }}
-
+        
     </td>
 </tr>
 

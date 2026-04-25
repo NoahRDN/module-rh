@@ -83,16 +83,7 @@
     </section>
 
     <section class="metric-grid">
-      <article v-for="metric in metrics" :key="metric.label" class="metric-card">
-        <span class="metric-chip">{{ metric.tag }}</span>
-        <p class="metric-label">{{ metric.label }}</p>
-        <p class="metric-value">{{ metric.value }}</p>
-        <p class="metric-caption">{{ metric.caption }}</p>
-      </article>
-    </section>
-
-    <section class="metric-grid">
-      <article v-for="metric in contributionMetrics" :key="metric.label" class="metric-card">
+      <article v-for="metric in allMetrics" :key="metric.label" class="metric-card">
         <span class="metric-chip">{{ metric.tag }}</span>
         <p class="metric-label">{{ metric.label }}</p>
         <p class="metric-value">{{ metric.value }}</p>
@@ -116,21 +107,27 @@
               <tr>
                 <th>Mois</th>
                 <th>Fiches</th>
+                <th>Payées</th>
+                <th>Non payées</th>
                 <th>Total brut</th>
                 <th>Retenues</th>
-                <th>Net à payer</th>
+                <th>Déjà payé</th>
+                <th>Reste à payer</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="row in parMois" :key="row.mois">
                 <td>{{ row.mois }}</td>
                 <td>{{ formatInteger(row.bulletins) }}</td>
+                <td>{{ formatInteger(row.bulletins_payes) }}</td>
+                <td>{{ formatInteger(row.bulletins_non_payes) }}</td>
                 <td>{{ formatMoney(row.total_brut) }}</td>
                 <td>{{ formatMoney(row.total_retenues) }}</td>
-                <td class="accent">{{ formatMoney(row.net_a_payer) }}</td>
+                <td>{{ formatMoney(row.deja_paye) }}</td>
+                <td class="accent">{{ formatMoney(row.reste_a_payer) }}</td>
               </tr>
               <tr v-if="!parMois.length">
-                <td colspan="5" class="muted">Aucune fiche sur cette période.</td>
+                <td colspan="8" class="muted">Aucune fiche sur cette période.</td>
               </tr>
             </tbody>
           </table>
@@ -249,6 +246,8 @@ const details = ref([])
 const parMois = ref([])
 const statusCounts = ref({})
 const cotisations = ref({})
+const paymentSummary = ref({})
+const paymentDue = ref({})
 const caisses = ref([])
 const selectedCaisseByPaie = ref({})
 
@@ -277,6 +276,7 @@ const titleLabel = computed(() => {
 
 const formatInteger = (value) => new Intl.NumberFormat('fr-FR').format(Number(value || 0))
 const formatMoney = (amount) => formatMoneyAmount(amount)
+const formatPercent = (value) => `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(Number(value || 0))} %`
 
 const formatDateTime = (value) => {
   if (!value) return ''
@@ -306,31 +306,19 @@ const metrics = computed(() => [
     caption: isSummaryMode.value ? 'Somme des fiches générées' : 'Somme des salaires de base des contrats actifs',
   },
   {
-    tag: 'Due',
-    label: 'Reste à payer',
-    value: formatMoney(totaux.value.reste_a_payer || totaux.value.net_a_payer),
-    caption: 'Inclut les fiches non générées et non payées',
-  },
-  {
-    tag: 'Paid',
-    label: 'Déjà payé',
-    value: formatMoney(totaux.value.deja_paye),
-    caption: `${formatInteger(statusCounts.value.paye)} fiche(s) payée(s)`,
+    tag: 'Payment',
+    label: 'À payer / déjà payé',
+    value: `${formatMoney(totaux.value.reste_a_payer || totaux.value.net_a_payer)} / ${formatMoney(totaux.value.deja_paye)}`,
+    caption: `${formatInteger(paymentSummary.value.non_payes)} restant(s), ${formatInteger(statusCounts.value.paye)} payé(s)`,
   },
 ])
 
 const contributionMetrics = computed(() => [
   {
     tag: 'CNAPS',
-    label: 'Total CNAPS salarié',
-    value: formatMoney(cotisations.value.cnaps_salarie),
-    caption: 'Part retenue sur les salariés, à reverser',
-  },
-  {
-    tag: 'CNAPS',
-    label: 'Total CNAPS employeur',
-    value: formatMoney(cotisations.value.cnaps_employeur),
-    caption: 'Part patronale estimée ou générée',
+    label: 'Total CNAPS',
+    value: formatMoney(Number(cotisations.value.cnaps_salarie || 0) + Number(cotisations.value.cnaps_employeur || 0)),
+    caption: `Salarié ${formatMoney(cotisations.value.cnaps_salarie)} + Employeur ${formatMoney(cotisations.value.cnaps_employeur)}`,
   },
   {
     tag: 'OSTIE',
@@ -344,6 +332,45 @@ const contributionMetrics = computed(() => [
     value: formatMoney(cotisations.value.irsa),
     caption: 'Impôt à reverser',
   },
+])
+
+const paymentMetrics = computed(() => [
+  {
+    tag: 'Employee',
+    label: 'À payer employés',
+    value: formatMoney(paymentDue.value.employes),
+    caption: 'Net employé restant à décaisser',
+  },
+  {
+    tag: 'CNAPS',
+    label: 'À payer CNAPS',
+    value: formatMoney(paymentDue.value.cnaps),
+    caption: 'Part salarié + part employeur',
+  },
+  {
+    tag: 'OSTIE',
+    label: 'À payer OSTIE',
+    value: formatMoney(paymentDue.value.ostie),
+    caption: 'Part salarié + part employeur',
+  },
+  {
+    tag: 'IRSA',
+    label: 'À payer IRSA',
+    value: formatMoney(paymentDue.value.irsa),
+    caption: 'Impôt restant à reverser',
+  },
+  {
+    tag: 'Coverage',
+    label: 'Taux payé / non payé',
+    value: `${formatPercent(paymentSummary.value.pourcentage_paye)} / ${formatPercent(paymentSummary.value.pourcentage_non_paye)}`,
+    caption: `${formatInteger(paymentSummary.value.payes)} payé(s), ${formatInteger(paymentSummary.value.non_payes)} restant(s)`,
+  },
+])
+
+const allMetrics = computed(() => [
+  ...metrics.value,
+  ...contributionMetrics.value,
+  ...paymentMetrics.value,
 ])
 
 const statusClass = (statut) => ({
@@ -391,6 +418,8 @@ const refresh = async () => {
     totaux.value = data.totaux || {}
     statusCounts.value = data.status_counts || {}
     cotisations.value = data.cotisations || {}
+    paymentSummary.value = data.payment_summary || {}
+    paymentDue.value = data.payment_due || {}
     parMois.value = data.par_mois || []
     details.value = data.details || []
     syncSelectedCaisses(details.value)

@@ -7,6 +7,7 @@ use App\Models\Contrat;
 use App\Models\Paie;
 use App\Models\DemandeConge;
 use App\Models\Evaluation;
+use App\Models\EntrepriseSetting;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Storage;
@@ -22,7 +23,7 @@ class DocumentGeneratorService
             ->where('statut', 'actif')
             ->first();
 
-        $data = [
+        $data = $this->documentData([
             'employe' => $employe,
             'contrat' => $contrat,
             'date_generation' => Carbon::now()->format('d/m/Y'),
@@ -30,7 +31,7 @@ class DocumentGeneratorService
             'anciennete' => $employe->date_embauche 
                 ? Carbon::parse($employe->date_embauche)->diffInYears(now()) . ' ans' 
                 : 'N/A',
-        ];
+        ]);
 
         $pdf = Pdf::loadView('documents.attestation_travail', $data);
         
@@ -59,7 +60,7 @@ class DocumentGeneratorService
         $premierContrat = $contrats->first();
         $dernierContrat = $contrats->last();
 
-        $data = [
+        $data = $this->documentData([
             'employe' => $employe,
             'date_debut' => $premierContrat?->date_debut?->format('d/m/Y') ?? 'N/A',
             'date_fin' => $dateFin ?? Carbon::now()->format('d/m/Y'),
@@ -70,7 +71,7 @@ class DocumentGeneratorService
             'dernier_poste' => $employe->poste?->nom ?? 'N/A',
             'date_generation' => Carbon::now()->format('d/m/Y'),
             'numero_certificat' => 'CERT-' . date('Y') . '-' . str_pad($employe->id, 5, '0', STR_PAD_LEFT),
-        ];
+        ]);
 
         $pdf = Pdf::loadView('documents.certificat_travail', $data);
         
@@ -103,7 +104,7 @@ class DocumentGeneratorService
 
         $moyenneSalaire = $paies->avg('net_a_payer');
 
-        $data = [
+        $data = $this->documentData([
             'employe' => $employe,
             'contrat' => $contrat,
             'paies' => $paies,
@@ -113,7 +114,7 @@ class DocumentGeneratorService
                 : 'N/A',
             'date_generation' => Carbon::now()->format('d/m/Y'),
             'numero_attestation' => 'SAL-' . date('Y') . '-' . str_pad($employe->id, 5, '0', STR_PAD_LEFT),
-        ];
+        ]);
 
         $pdf = Pdf::loadView('documents.attestation_salaire', $data);
         
@@ -137,7 +138,7 @@ class DocumentGeneratorService
     {
         $employe = $demande->employe;
 
-        $data = [
+        $data = $this->documentData([
             'employe' => $employe,
             'demande' => $demande,
             'type_conge' => $demande->typeConge?->nom ?? 'Congé',
@@ -146,7 +147,7 @@ class DocumentGeneratorService
             'jours' => $demande->jours_demandes,
             'date_generation' => Carbon::now()->format('d/m/Y'),
             'numero_attestation' => 'CON-' . date('Y') . '-' . str_pad($demande->id, 5, '0', STR_PAD_LEFT),
-        ];
+        ]);
 
         $pdf = Pdf::loadView('documents.attestation_conge', $data);
         
@@ -179,7 +180,7 @@ class DocumentGeneratorService
             ->limit(5)
             ->get();
 
-        $data = [
+        $data = $this->documentData([
             'employe' => $employe,
             'evaluations' => $evaluations,
             'moyenne_note' => round($moyenneNote, 1),
@@ -189,7 +190,7 @@ class DocumentGeneratorService
                 : 'N/A',
             'destinataire' => $options['destinataire'] ?? 'À qui de droit',
             'date_generation' => Carbon::now()->format('d/m/Y'),
-        ];
+        ]);
 
         $pdf = Pdf::loadView('documents.lettre_recommandation', $data);
         
@@ -213,14 +214,14 @@ class DocumentGeneratorService
     {
         $employe = $contrat->employe;
 
-        $data = [
+        $data = $this->documentData([
             'contrat' => $contrat,
             'employe' => $employe,
             'poste' => $employe->poste,
             'departement' => $employe->departement,
             'date_generation' => Carbon::now()->format('d/m/Y'),
             'salaire_lettres' => $this->nombreEnLettres($contrat->salaire_base),
-        ];
+        ]);
 
         $pdf = Pdf::loadView('documents.contrat_travail', $data);
         
@@ -244,14 +245,14 @@ class DocumentGeneratorService
     {
         $employe = $contrat->employe;
 
-        $data = [
+        $data = $this->documentData([
             'contrat' => $contrat,
             'employe' => $employe,
             'modifications' => $modifications,
             'date_effet' => $modifications['date_effet'] ?? Carbon::now()->format('d/m/Y'),
             'date_generation' => Carbon::now()->format('d/m/Y'),
             'numero_avenant' => 'AV-' . $contrat->numero . '-' . date('Ymd'),
-        ];
+        ]);
 
         $pdf = Pdf::loadView('documents.avenant_contrat', $data);
         
@@ -277,7 +278,7 @@ class DocumentGeneratorService
             ->where('formation_id', $formation->id)
             ->first();
 
-        $data = [
+        $data = $this->documentData([
             'employe' => $employe,
             'formation' => $formation,
             'inscription' => $inscription,
@@ -287,7 +288,7 @@ class DocumentGeneratorService
             'certificat_obtenu' => $inscription?->pivot->certificat_obtenu,
             'date_generation' => Carbon::now()->format('d/m/Y'),
             'numero_attestation' => 'FOR-' . date('Y') . '-' . str_pad($formation->id, 5, '0', STR_PAD_LEFT),
-        ];
+        ]);
 
         $pdf = Pdf::loadView('documents.attestation_formation', $data);
         
@@ -427,5 +428,20 @@ class DocumentGeneratorService
         }
         
         return trim($result) . ' Ariary';
+    }
+
+    private function documentData(array $data): array
+    {
+        $entreprise = EntrepriseSetting::firstOrCreate(
+            [],
+            ['nom' => config('app.name', 'Module RH')]
+        );
+
+        return array_merge($data, [
+            'entreprise' => $entreprise,
+            'entreprise_logo_path' => $entreprise->logo_path
+                ? storage_path('app/public/' . $entreprise->logo_path)
+                : null,
+        ]);
     }
 }

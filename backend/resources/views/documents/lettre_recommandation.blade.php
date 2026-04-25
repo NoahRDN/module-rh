@@ -102,9 +102,7 @@
 </head>
 <body>
     <div class="header">
-        <div class="company-name">ENTREPRISE XYZ</div>
-        <div>Adresse de l'entreprise</div>
-        <div>Téléphone: +261 XX XX XXX XX | Email: contact@entreprise.com</div>
+        @include('documents.partials.company_header')
     </div>
 
     <div class="destinataire">

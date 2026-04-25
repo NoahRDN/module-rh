@@ -2,12 +2,13 @@
   <aside class="sidebar" :class="{ closed: !open }">
     <div class="sidebar-shell">
       <div class="brand">
-        <div class="brand-mark">
+        <div class="brand-mark" :class="{ 'has-logo': entreprise.logoUrl }">
+          <img v-if="entreprise.logoUrl" :src="entreprise.logoUrl" :alt="`Logo ${entreprise.nom}`" />
           <AppIcon name="grid" :size="18" />
         </div>
         <div>
           <p class="brand-eyebrow">Executive Layer</p>
-          <p class="brand-name">Module RH</p>
+          <p class="brand-name">{{ entreprise.nom || 'Module RH' }}</p>
           <p class="brand-sub">People ops and payroll</p>
         </div>
       </div>
@@ -42,8 +43,9 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
+import api, { resolveBackendAssetUrl } from '../../services/api'
 import AppIcon from '../ui/AppIcon.vue'
 
 defineProps({
@@ -55,6 +57,25 @@ defineProps({
 
 const route = useRoute()
 const role = localStorage.getItem('role') || ''
+const entreprise = ref({
+  nom: 'Module RH',
+  logoUrl: '',
+})
+
+const loadEntrepriseBranding = async () => {
+  try {
+    const { data } = await api.get('/v1/entreprise-settings')
+    entreprise.value = {
+      nom: data.nom || 'Module RH',
+      logoUrl: resolveBackendAssetUrl(data.logo_url || ''),
+    }
+  } catch (error) {
+    entreprise.value = {
+      nom: 'Module RH',
+      logoUrl: '',
+    }
+  }
+}
 
 const groups = [
   {
@@ -104,6 +125,7 @@ const groups = [
       { to: '/caisses/mouvements/nouveau', label: 'Mouvement caisse', hint: 'Entrée ou sortie', icon: 'plus' },
       { to: '/caisses/validations', label: 'Validation caisse', hint: 'Appliquer au solde', icon: 'shield' },
       { to: '/worktime-config', label: 'Horaires', hint: 'Temps de travail', icon: 'clock' },
+      { to: '/entreprise-settings', label: 'Entreprise', hint: 'Nom et logo', icon: 'building' },
     ],
   },
 ]
@@ -143,6 +165,8 @@ const isActive = (path) => {
 
   return !hasMoreSpecificActiveItem
 }
+
+onMounted(loadEntrepriseBranding)
 </script>
 
 <style scoped>
@@ -184,12 +208,31 @@ const isActive = (path) => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: none;
   width: 46px;
   height: 46px;
   border-radius: 16px;
   background: linear-gradient(135deg, var(--brand-500), var(--brand-700));
   color: #ffffff;
   box-shadow: 0 16px 28px rgba(79, 70, 229, 0.24);
+  overflow: hidden;
+}
+
+.brand-mark.has-logo {
+  background: #ffffff;
+  color: transparent;
+  box-shadow: none;
+}
+
+.brand-mark.has-logo svg {
+  display: none;
+}
+
+.brand-mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 6px;
 }
 
 .brand-eyebrow,

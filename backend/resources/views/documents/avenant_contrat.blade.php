@@ -96,8 +96,7 @@
 </head>
 <body>
     <div class="header">
-        <div class="company-name">ENTREPRISE XYZ</div>
-        <div>Adresse de l'entreprise</div>
+        @include('documents.partials.company_header')
     </div>
 
     <div class="reference">
@@ -111,7 +110,7 @@
     <div class="parties">
         <p><strong>Entre les soussignés :</strong></p>
         <p>
-            <strong>L'Employeur :</strong> ENTREPRISE XYZ, représentée par son Directeur Général,
+            <strong>L'Employeur :</strong> {{ $entreprise->nom ?? 'Module RH' }}, représentée par son Directeur Général,
             ci-après dénommée « L'Employeur »,
         </p>
         <p><strong>Et :</strong></p>

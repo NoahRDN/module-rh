@@ -625,6 +625,15 @@ class PaieController extends Controller
                 ->map(fn (Paie $paie) => $this->statutPaie($paie))
                 ->countBy()
                 ->all();
+            $summaryEmployerCharges = (clone $baseQuery)
+                ->get()
+                ->reduce(function (array $carry, Paie $paie) {
+                    $charges = $this->estimateEmployerChargesForPaie($paie);
+                    $carry['cnaps'] += $charges['cnaps'];
+                    $carry['ostie'] += $charges['ostie'];
+
+                    return $carry;
+                }, ['cnaps' => 0, 'ostie' => 0]);
 
             return response()->json([
                 'periode' => [
@@ -653,6 +662,12 @@ class PaieController extends Controller
                             ->whereNotNull('paye_le')
                             ->sum('net_a_payer')
                         : 0,
+                ],
+                'cotisations' => [
+                    'cnaps_salarie' => (float) ($totaux->retenue_cnaps ?? 0),
+                    'cnaps_employeur' => round($summaryEmployerCharges['cnaps'], 2),
+                    'ostie' => round((float) ($totaux->retenue_ostie ?? 0) + $summaryEmployerCharges['ostie'], 2),
+                    'irsa' => (float) ($totaux->retenue_irsa ?? 0),
                 ],
                 'status_counts' => [
                     'non_genere' => 0,
@@ -696,6 +711,9 @@ class PaieController extends Controller
             'retenue_cnaps' => round($rows->sum('retenue_cnaps'), 2),
             'retenue_ostie' => round($rows->sum('retenue_ostie'), 2),
             'retenue_irsa' => round($rows->sum('retenue_irsa'), 2),
+            'cnaps_employeur' => round($rows->sum('cnaps_employeur'), 2),
+            'ostie_employeur' => round($rows->sum('ostie_employeur'), 2),
+            'total_ostie' => round($rows->sum('retenue_ostie') + $rows->sum('ostie_employeur'), 2),
             'reste_a_payer' => round($resteAPayer, 2),
             'deja_paye' => round($rows->where('statut', 'paye')->sum('net_a_payer'), 2),
         ];
@@ -715,6 +733,12 @@ class PaieController extends Controller
                 'non_paye' => (int) ($statusCounts['non_paye'] ?? 0),
                 'paiement_en_validation' => (int) ($statusCounts['paiement_en_validation'] ?? 0),
                 'paye' => (int) ($statusCounts['paye'] ?? 0),
+            ],
+            'cotisations' => [
+                'cnaps_salarie' => round($rows->sum('retenue_cnaps'), 2),
+                'cnaps_employeur' => round($rows->sum('cnaps_employeur'), 2),
+                'ostie' => round($rows->sum('retenue_ostie') + $rows->sum('ostie_employeur'), 2),
+                'irsa' => round($rows->sum('retenue_irsa'), 2),
             ],
             'details' => $rows->values(),
         ]);
@@ -1013,6 +1037,9 @@ class PaieController extends Controller
             $statut = $this->statutPaie($paie);
             $mouvementPaiement = $paie ? $paiementMouvements->get($paie->id) : null;
             $forecast = $this->buildPaieForecast($contrat, $mois, null, false);
+            $employerCharges = $paie
+                ? $this->estimateEmployerChargesForPaie($paie)
+                : $forecast['charges_patronales'];
 
             return [
                 'employe_id' => $contrat->employe_id,
@@ -1024,8 +1051,10 @@ class PaieController extends Controller
                 'salaire_previsionnel' => $forecast['cout_reel_entreprise'],
                 'net_a_payer_previsionnel' => $forecast['net_a_payer'],
                 'brut_previsionnel' => $forecast['total_brut'],
-                'charges_patronales' => $forecast['charges_patronales']['total'],
-                'cotisations_a_reverser' => $forecast['cotisations_a_reverser']['total'],
+                'charges_patronales' => $paie ? $employerCharges['total'] : $forecast['charges_patronales']['total'],
+                'cotisations_a_reverser' => $paie
+                    ? (float) ($paie->retenue_cnaps + $employerCharges['cnaps'] + $paie->retenue_ostie + $employerCharges['ostie'] + $paie->retenue_irsa)
+                    : $forecast['cotisations_a_reverser']['total'],
                 'paie_id' => $paie?->id,
                 'statut' => $statut,
                 'statut_label' => $this->statutPaieLabel($statut),
@@ -1036,6 +1065,8 @@ class PaieController extends Controller
                 'retenue_cnaps' => (float) ($paie?->retenue_cnaps ?? 0),
                 'retenue_ostie' => (float) ($paie?->retenue_ostie ?? 0),
                 'retenue_irsa' => (float) ($paie?->retenue_irsa ?? 0),
+                'cnaps_employeur' => $employerCharges['cnaps'],
+                'ostie_employeur' => $employerCharges['ostie'],
                 'paye_le' => $paie?->paye_le?->toDateString(),
                 'demande_validation_le' => $paie?->demande_validation_le?->toDateTimeString() ?? $paie?->created_at?->toDateTimeString(),
                 'valide_le' => $paie?->valide_le?->toDateTimeString(),
@@ -1046,6 +1077,21 @@ class PaieController extends Controller
                 'details_paie' => $this->resumePaie($paie),
             ];
         });
+    }
+
+    protected function estimateEmployerChargesForPaie(Paie $paie): array
+    {
+        $param = PaieParametre::first();
+        $brut = (float) $paie->total_brut;
+        $baseCnaps = min($brut, (float) ($param?->cnaps_plafond ?? $brut));
+        $cnapsEmployeur = $baseCnaps * ((float) ($param?->cnaps_taux_employeur ?? 0) / 100);
+        $ostieEmployeur = $brut * ((float) ($param?->ostie_taux_employeur ?? 0) / 100);
+
+        return [
+            'cnaps' => round($cnapsEmployeur, 2),
+            'ostie' => round($ostieEmployeur, 2),
+            'total' => round($cnapsEmployeur + $ostieEmployeur, 2),
+        ];
     }
 
     protected function buildPaieForecast(Contrat $contrat, string $mois, ?PaieParametre $param = null, bool $withDetails = true): array

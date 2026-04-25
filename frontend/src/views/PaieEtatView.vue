@@ -91,6 +91,15 @@
       </article>
     </section>
 
+    <section class="metric-grid">
+      <article v-for="metric in contributionMetrics" :key="metric.label" class="metric-card">
+        <span class="metric-chip">{{ metric.tag }}</span>
+        <p class="metric-label">{{ metric.label }}</p>
+        <p class="metric-value">{{ metric.value }}</p>
+        <p class="metric-caption">{{ metric.caption }}</p>
+      </article>
+    </section>
+
     <section class="content-grid">
       <article class="card section-card table-card">
         <div class="section-heading">
@@ -239,6 +248,7 @@ const totaux = ref({})
 const details = ref([])
 const parMois = ref([])
 const statusCounts = ref({})
+const cotisations = ref({})
 const caisses = ref([])
 const selectedCaisseByPaie = ref({})
 
@@ -309,6 +319,33 @@ const metrics = computed(() => [
   },
 ])
 
+const contributionMetrics = computed(() => [
+  {
+    tag: 'CNAPS',
+    label: 'Total CNAPS salarié',
+    value: formatMoney(cotisations.value.cnaps_salarie),
+    caption: 'Part retenue sur les salariés, à reverser',
+  },
+  {
+    tag: 'CNAPS',
+    label: 'Total CNAPS employeur',
+    value: formatMoney(cotisations.value.cnaps_employeur),
+    caption: 'Part patronale estimée ou générée',
+  },
+  {
+    tag: 'OSTIE',
+    label: 'Total OSTIE',
+    value: formatMoney(cotisations.value.ostie),
+    caption: 'Part salarié + part employeur',
+  },
+  {
+    tag: 'IRSA',
+    label: 'Total IRSA',
+    value: formatMoney(cotisations.value.irsa),
+    caption: 'Impôt à reverser',
+  },
+])
+
 const statusClass = (statut) => ({
   'muted-chip': statut === 'non_genere',
   warning: ['en_attente_validation', 'paiement_en_validation'].includes(statut),
@@ -353,6 +390,7 @@ const refresh = async () => {
     const { data } = await api.get('/v1/paies/etat', { params })
     totaux.value = data.totaux || {}
     statusCounts.value = data.status_counts || {}
+    cotisations.value = data.cotisations || {}
     parMois.value = data.par_mois || []
     details.value = data.details || []
     syncSelectedCaisses(details.value)

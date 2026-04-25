@@ -16,9 +16,12 @@ class CaisseController extends Controller
         $validated = $request->validate([
             'caisse_id' => 'nullable|exists:caisses,id',
             'type' => 'nullable|in:entree,sortie',
+            'categorie' => 'nullable|string|max:64',
             'statut' => 'nullable|in:tous,en_attente_validation,valide,rejete',
             'active' => 'nullable|in:1,0,true,false',
         ]);
+
+        $categories = $this->categories();
 
         $caisses = Caisse::query()
             ->when($request->has('active'), fn ($query) => $query->where('active', filter_var($request->query('active'), FILTER_VALIDATE_BOOLEAN)))
@@ -31,6 +34,7 @@ class CaisseController extends Controller
             ])
             ->when(!empty($validated['caisse_id']), fn ($query) => $query->where('caisse_id', $validated['caisse_id']))
             ->when(!empty($validated['type']), fn ($query) => $query->where('type', $validated['type']))
+            ->when(!empty($validated['categorie']), fn ($query) => $query->where('categorie', $validated['categorie']))
             ->when(!empty($validated['statut']) && $validated['statut'] !== 'tous', fn ($query) => $query->where('statut', $validated['statut']))
             ->orderByDesc('created_at')
             ->paginate(20);
@@ -38,6 +42,7 @@ class CaisseController extends Controller
         return response()->json([
             'caisses' => $caisses,
             'mouvements' => $mouvements,
+            'categories' => $categories,
         ]);
     }
 
@@ -45,6 +50,7 @@ class CaisseController extends Controller
     {
         return response()->json([
             'caisses' => Caisse::orderBy('nom')->get(),
+            'categories' => $this->categories(),
         ]);
     }
 
@@ -66,15 +72,21 @@ class CaisseController extends Controller
 
     public function storeMouvement(Request $request)
     {
+        $categories = $this->categories();
         $data = $request->validate([
             'caisse_id' => 'required|exists:caisses,id',
             'type' => 'required|in:entree,sortie',
+            'categorie' => 'required|string|max:64',
             'montant' => 'required|numeric|min:0.01',
             'source' => 'required|string|max:255',
             'description' => 'nullable|string',
         ]);
 
         try {
+            if (!$this->isValidCategory($data['type'], $data['categorie'], $categories)) {
+                return response()->json(['message' => 'Catégorie de mouvement invalide pour ce type'], 422);
+            }
+
             if (!Caisse::where('id', $data['caisse_id'])->where('active', true)->exists()) {
                 return response()->json(['message' => 'Cette caisse est désactivée'], 422);
             }
@@ -97,6 +109,7 @@ class CaisseController extends Controller
 
     public function enAttente()
     {
+        $categories = $this->categories();
         $mouvements = CaisseMouvement::with([
                 'caisse:id,nom,solde',
                 'paie.employe:id,matricule,nom,prenom',
@@ -105,7 +118,20 @@ class CaisseController extends Controller
             ->orderBy('created_at')
             ->get();
 
-        return response()->json(['mouvements' => $mouvements]);
+        return response()->json([
+            'mouvements' => $mouvements,
+            'categories' => $categories,
+        ]);
+    }
+
+    private function categories(): array
+    {
+        return config('caisse_mouvements.categories', ['entree' => [], 'sortie' => []]);
+    }
+
+    private function isValidCategory(string $type, string $categorie, array $categories): bool
+    {
+        return collect($categories[$type] ?? [])->pluck('code')->contains($categorie);
     }
 
     public function valider($id)

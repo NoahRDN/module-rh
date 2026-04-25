@@ -12,6 +12,7 @@
           <span class="pill">{{ employeeName }}</span>
           <span class="pill" :class="statusPillClass">{{ statutLabel }}</span>
           <span class="pill">{{ formatMoney(paie?.net_a_payer) }}</span>
+          <span v-if="coutReelEntreprise" class="pill">{{ formatMoney(coutReelEntreprise) }} coût entreprise</span>
         </div>
       </div>
 
@@ -112,6 +113,11 @@
                 <p class="overview-label">Net à payer</p>
                 <p class="overview-value accent">{{ formatMoney(paie.net_a_payer) }}</p>
                 <p class="overview-copy">Montant final collaborateur</p>
+              </div>
+              <div v-if="coutReelEntreprise" class="overview-card">
+                <p class="overview-label">Coût réel entreprise</p>
+                <p class="overview-value accent">{{ formatMoney(coutReelEntreprise) }}</p>
+                <p class="overview-copy">Brut + cotisations patronales + remboursements</p>
               </div>
             </div>
           </article>
@@ -234,6 +240,98 @@
             </div>
           </article>
 
+          <article v-if="hasEmployerCharges" class="card section-card side-card">
+            <div class="section-heading compact">
+              <div>
+                <p class="section-kicker">Employer costs</p>
+                <h2>Charges patronales</h2>
+              </div>
+            </div>
+
+            <div class="amount-list">
+              <div class="amount-row">
+                <span>CNAPS employeur</span>
+                <strong>{{ formatMoney(chargesPatronales.cnaps) }}</strong>
+              </div>
+              <div class="amount-row">
+                <span>OSTIE employeur</span>
+                <strong>{{ formatMoney(chargesPatronales.ostie) }}</strong>
+              </div>
+              <div class="amount-row total">
+                <span>Total charges patronales</span>
+                <strong>{{ formatMoney(chargesPatronales.total) }}</strong>
+              </div>
+            </div>
+          </article>
+
+          <article v-if="hasPrevisionBreakdown" class="card section-card side-card">
+            <div class="section-heading compact">
+              <div>
+                <p class="section-kicker">Forecast method</p>
+                <h2>Méthode de prévision</h2>
+              </div>
+            </div>
+
+            <div class="amount-list">
+              <div class="amount-row">
+                <span>Salaire brut</span>
+                <strong>{{ formatMoney(previsionBreakdown.salaire_brut) }}</strong>
+              </div>
+              <div class="amount-row">
+                <span>Charges salariales</span>
+                <strong>-{{ formatMoney(previsionBreakdown.charges_salariales) }}</strong>
+              </div>
+              <div class="amount-row">
+                <span>Net salaire</span>
+                <strong>{{ formatMoney(previsionBreakdown.net_salaire) }}</strong>
+              </div>
+              <div class="amount-row">
+                <span>Indemnités à payer</span>
+                <strong>{{ formatMoney(previsionBreakdown.indemnites_a_payer) }}</strong>
+              </div>
+              <div class="amount-row">
+                <span>Cotisations patronales</span>
+                <strong>{{ formatMoney(previsionBreakdown.cotisations_patronales) }}</strong>
+              </div>
+              <div class="amount-row">
+                <span>Net à payer employé</span>
+                <strong>{{ formatMoney(previsionBreakdown.net_a_payer_employe) }}</strong>
+              </div>
+              <div class="amount-row total">
+                <span>Coût réel entreprise</span>
+                <strong>{{ formatMoney(previsionBreakdown.cout_reel_entreprise) }}</strong>
+              </div>
+            </div>
+          </article>
+
+          <article v-if="hasCotisations" class="card section-card side-card">
+            <div class="section-heading compact">
+              <div>
+                <p class="section-kicker">Reversements</p>
+                <h2>Cotisations à reverser</h2>
+              </div>
+            </div>
+
+            <div class="amount-list">
+              <div class="amount-row">
+                <span>CNAPS total</span>
+                <strong>{{ formatMoney(cotisationsAReverser.cnaps) }}</strong>
+              </div>
+              <div class="amount-row">
+                <span>OSTIE total</span>
+                <strong>{{ formatMoney(cotisationsAReverser.ostie) }}</strong>
+              </div>
+              <div class="amount-row">
+                <span>IRSA</span>
+                <strong>{{ formatMoney(cotisationsAReverser.irsa) }}</strong>
+              </div>
+              <div class="amount-row total">
+                <span>Total à reverser</span>
+                <strong>{{ formatMoney(cotisationsAReverser.total) }}</strong>
+              </div>
+            </div>
+          </article>
+
           <article class="card section-card side-card">
             <div class="section-heading compact">
               <div>
@@ -283,6 +381,9 @@ const resume = ref({})
 const retenues = ref([])
 const primes = ref([])
 const mouvementPaiement = ref(null)
+const chargesPatronales = ref({})
+const cotisationsAReverser = ref({})
+const previsionBreakdown = ref({})
 
 const details = computed(() => paie.value?.details || [])
 const employeeName = computed(() => {
@@ -292,6 +393,10 @@ const employeeName = computed(() => {
 })
 const statutCode = computed(() => statut.value?.code || '')
 const statutLabel = computed(() => statut.value?.label || '—')
+const hasEmployerCharges = computed(() => Number(chargesPatronales.value?.total || 0) > 0)
+const hasCotisations = computed(() => Number(cotisationsAReverser.value?.total || 0) > 0)
+const coutReelEntreprise = computed(() => Number(previsionBreakdown.value?.cout_reel_entreprise || 0))
+const hasPrevisionBreakdown = computed(() => coutReelEntreprise.value > 0)
 const statusPillClass = computed(() => ({
   'pill-green': statutCode.value === 'paye',
   'pill-red': statutCode.value === 'non_paye',
@@ -363,6 +468,9 @@ const fetchDetail = async () => {
     retenues.value = data.retenues || []
     primes.value = data.primes || []
     mouvementPaiement.value = data.mouvement_paiement || null
+    chargesPatronales.value = data.charges_patronales || {}
+    cotisationsAReverser.value = data.cotisations_a_reverser || {}
+    previsionBreakdown.value = data.prevision_breakdown || {}
   } catch (e) {
     error.value = e.response?.data?.message || e.message || 'Erreur chargement fiche de paie'
   } finally {

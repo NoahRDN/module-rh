@@ -29,6 +29,7 @@
             <select class="select" v-model="mode" @change="refresh">
               <option value="mois">Mois</option>
               <option value="annee">Année</option>
+              <option value="periode">Période</option>
             </select>
           </label>
 
@@ -57,10 +58,21 @@
             </label>
           </div>
 
-          <label class="field-card" v-else>
+          <label class="field-card" v-else-if="mode === 'annee'">
             <span class="field-label">Année</span>
             <input class="input" type="number" min="2000" max="2100" v-model.number="year" @change="refresh" />
           </label>
+
+          <div class="action-row" v-else>
+            <label class="field-card">
+              <span class="field-label">Début période</span>
+              <input class="input" type="month" v-model="periodStart" @change="refresh" />
+            </label>
+            <label class="field-card">
+              <span class="field-label">Fin période</span>
+              <input class="input" type="month" v-model="periodEnd" @change="refresh" />
+            </label>
+          </div>
 
           <div v-if="error" class="status-banner danger">
             <span class="status-dot"></span>
@@ -71,7 +83,7 @@
     </section>
 
     <section class="metric-grid">
-      <article v-for="metric in metrics" :key="metric.label" class="metric-card">
+      <article v-for="metric in allMetrics" :key="metric.label" class="metric-card">
         <span class="metric-chip">{{ metric.tag }}</span>
         <p class="metric-label">{{ metric.label }}</p>
         <p class="metric-value">{{ metric.value }}</p>
@@ -89,27 +101,33 @@
           <span class="section-chip">{{ formatInteger(totaux.bulletins) }} fiches générées</span>
         </div>
 
-        <div v-if="mode === 'annee'" class="table-shell">
+        <div v-if="isSummaryMode" class="table-shell">
           <table class="table">
             <thead>
               <tr>
                 <th>Mois</th>
                 <th>Fiches</th>
+                <th>Payées</th>
+                <th>Non payées</th>
                 <th>Total brut</th>
                 <th>Retenues</th>
-                <th>Net à payer</th>
+                <th>Déjà payé</th>
+                <th>Reste à payer</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="row in parMois" :key="row.mois">
                 <td>{{ row.mois }}</td>
                 <td>{{ formatInteger(row.bulletins) }}</td>
+                <td>{{ formatInteger(row.bulletins_payes) }}</td>
+                <td>{{ formatInteger(row.bulletins_non_payes) }}</td>
                 <td>{{ formatMoney(row.total_brut) }}</td>
                 <td>{{ formatMoney(row.total_retenues) }}</td>
-                <td class="accent">{{ formatMoney(row.net_a_payer) }}</td>
+                <td>{{ formatMoney(row.deja_paye) }}</td>
+                <td class="accent">{{ formatMoney(row.reste_a_payer) }}</td>
               </tr>
               <tr v-if="!parMois.length">
-                <td colspan="5" class="muted">Aucune fiche sur cette année.</td>
+                <td colspan="8" class="muted">Aucune fiche sur cette période.</td>
               </tr>
             </tbody>
           </table>
@@ -121,7 +139,7 @@
               <tr>
                 <th>Employé</th>
                 <th>Contrat</th>
-                <th>Prévision</th>
+                <th>Coût prévisionnel</th>
                 <th>Net fiche</th>
                 <th>Statut</th>
                 <th>Demande validation</th>
@@ -140,7 +158,10 @@
                   <div>{{ row.contrat_numero || `#${row.contrat_id}` }}</div>
                   <div class="muted">{{ row.contrat_debut || '—' }} → {{ row.contrat_fin || '—' }}</div>
                 </td>
-                <td>{{ formatMoney(row.salaire_previsionnel) }}</td>
+                <td class="cell-stack">
+                  <div>{{ formatMoney(row.salaire_previsionnel) }}</div>
+                  <div class="muted">Net employé: {{ formatMoney(row.net_a_payer_previsionnel || row.salaire_previsionnel) }}</div>
+                </td>
                 <td class="accent">{{ row.paie_id ? formatMoney(row.net_a_payer) : '—' }}</td>
                 <td class="status-col">
                   <div class="status-chip-scroll">
@@ -216,11 +237,17 @@ const statusFilter = ref('tous')
 const now = new Date()
 const year = ref(now.getFullYear())
 const month = ref(String(now.getMonth() + 1).padStart(2, '0'))
+const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+const periodStart = ref(`${now.getFullYear()}-01`)
+const periodEnd = ref(currentMonth)
 
 const totaux = ref({})
 const details = ref([])
 const parMois = ref([])
 const statusCounts = ref({})
+const cotisations = ref({})
+const paymentSummary = ref({})
+const paymentDue = ref({})
 const caisses = ref([])
 const selectedCaisseByPaie = ref({})
 
@@ -240,10 +267,16 @@ const monthOptions = [
 ]
 
 const selectedMonth = computed(() => `${year.value}-${month.value}`)
-const titleLabel = computed(() => mode.value === 'annee' ? `Synthèse ${year.value}` : `Employés éligibles ${selectedMonth.value}`)
+const isSummaryMode = computed(() => mode.value !== 'mois')
+const titleLabel = computed(() => {
+  if (mode.value === 'annee') return `Synthèse ${year.value}`
+  if (mode.value === 'periode') return `Synthèse ${periodStart.value || '—'} → ${periodEnd.value || '—'}`
+  return `Employés éligibles ${selectedMonth.value}`
+})
 
 const formatInteger = (value) => new Intl.NumberFormat('fr-FR').format(Number(value || 0))
 const formatMoney = (amount) => formatMoneyAmount(amount)
+const formatPercent = (value) => `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(Number(value || 0))} %`
 
 const formatDateTime = (value) => {
   if (!value) return ''
@@ -262,28 +295,82 @@ const fullName = (employe) => {
 const metrics = computed(() => [
   {
     tag: 'Active',
-    label: mode.value === 'annee' ? 'Fiches générées' : 'Employés actifs',
-    value: formatInteger(mode.value === 'annee' ? totaux.value.bulletins : (totaux.value.employes_actifs || details.value.length)),
-    caption: mode.value === 'mois' ? 'Contrat actif sur la période' : 'Fiches générées sur l’année',
+    label: isSummaryMode.value ? 'Fiches générées' : 'Employés actifs',
+    value: formatInteger(isSummaryMode.value ? totaux.value.bulletins : (totaux.value.employes_actifs || details.value.length)),
+    caption: mode.value === 'mois' ? 'Contrat actif sur la période' : 'Fiches générées sur la période',
   },
   {
     tag: 'Forecast',
-    label: mode.value === 'annee' ? 'Total brut' : 'Prévision salaires',
-    value: formatMoney(mode.value === 'annee' ? totaux.value.total_brut : totaux.value.prevision_salaire_base),
-    caption: mode.value === 'annee' ? 'Somme des fiches générées' : 'Somme des salaires de base des contrats actifs',
+    label: isSummaryMode.value ? 'Total brut' : 'Prévision salaires',
+    value: formatMoney(isSummaryMode.value ? totaux.value.total_brut : totaux.value.prevision_salaire_base),
+    caption: isSummaryMode.value ? 'Somme des fiches générées' : 'Somme des salaires de base des contrats actifs',
   },
   {
-    tag: 'Due',
-    label: 'Reste à payer',
-    value: formatMoney(totaux.value.reste_a_payer || totaux.value.net_a_payer),
-    caption: 'Inclut les fiches non générées et non payées',
+    tag: 'Payment',
+    label: 'À payer / déjà payé',
+    value: `${formatMoney(totaux.value.reste_a_payer || totaux.value.net_a_payer)} / ${formatMoney(totaux.value.deja_paye)}`,
+    caption: `${formatInteger(paymentSummary.value.non_payes)} restant(s), ${formatInteger(statusCounts.value.paye)} payé(s)`,
+  },
+])
+
+const contributionMetrics = computed(() => [
+  {
+    tag: 'CNAPS',
+    label: 'Total CNAPS',
+    value: formatMoney(Number(cotisations.value.cnaps_salarie || 0) + Number(cotisations.value.cnaps_employeur || 0)),
+    caption: `Salarié ${formatMoney(cotisations.value.cnaps_salarie)} + Employeur ${formatMoney(cotisations.value.cnaps_employeur)}`,
   },
   {
-    tag: 'Paid',
-    label: 'Déjà payé',
-    value: formatMoney(totaux.value.deja_paye),
-    caption: `${formatInteger(statusCounts.value.paye)} fiche(s) payée(s)`,
+    tag: 'OSTIE',
+    label: 'Total OSTIE',
+    value: formatMoney(cotisations.value.ostie),
+    caption: 'Part salarié + part employeur',
   },
+  {
+    tag: 'IRSA',
+    label: 'Total IRSA',
+    value: formatMoney(cotisations.value.irsa),
+    caption: 'Impôt à reverser',
+  },
+])
+
+const paymentMetrics = computed(() => [
+  {
+    tag: 'Employee',
+    label: 'À payer employés',
+    value: formatMoney(paymentDue.value.employes),
+    caption: 'Net employé restant à décaisser',
+  },
+  {
+    tag: 'CNAPS',
+    label: 'À payer CNAPS',
+    value: formatMoney(paymentDue.value.cnaps),
+    caption: 'Part salarié + part employeur',
+  },
+  {
+    tag: 'OSTIE',
+    label: 'À payer OSTIE',
+    value: formatMoney(paymentDue.value.ostie),
+    caption: 'Part salarié + part employeur',
+  },
+  {
+    tag: 'IRSA',
+    label: 'À payer IRSA',
+    value: formatMoney(paymentDue.value.irsa),
+    caption: 'Impôt restant à reverser',
+  },
+  {
+    tag: 'Coverage',
+    label: 'Taux payé / non payé',
+    value: `${formatPercent(paymentSummary.value.pourcentage_paye)} / ${formatPercent(paymentSummary.value.pourcentage_non_paye)}`,
+    caption: `${formatInteger(paymentSummary.value.payes)} payé(s), ${formatInteger(paymentSummary.value.non_payes)} restant(s)`,
+  },
+])
+
+const allMetrics = computed(() => [
+  ...metrics.value,
+  ...contributionMetrics.value,
+  ...paymentMetrics.value,
 ])
 
 const statusClass = (statut) => ({
@@ -320,13 +407,19 @@ const refresh = async () => {
   parMois.value = []
 
   try {
-    const params = mode.value === 'annee'
-      ? { annee: String(year.value), statut: statusFilter.value }
-      : { mois: selectedMonth.value, statut: statusFilter.value }
+    const params = {
+      statut: statusFilter.value,
+      ...(mode.value === 'annee' ? { annee: String(year.value) } : {}),
+      ...(mode.value === 'periode' ? { debut: periodStart.value, fin: periodEnd.value } : {}),
+      ...(mode.value === 'mois' ? { mois: selectedMonth.value } : {}),
+    }
 
     const { data } = await api.get('/v1/paies/etat', { params })
     totaux.value = data.totaux || {}
     statusCounts.value = data.status_counts || {}
+    cotisations.value = data.cotisations || {}
+    paymentSummary.value = data.payment_summary || {}
+    paymentDue.value = data.payment_due || {}
     parMois.value = data.par_mois || []
     details.value = data.details || []
     syncSelectedCaisses(details.value)

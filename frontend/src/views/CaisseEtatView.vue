@@ -46,6 +46,13 @@
                 <option value="sortie">Sortie</option>
               </select>
             </label>
+            <label class="field-card">
+              <span class="field-label">Catégorie</span>
+              <select class="select" v-model="filters.categorie" @change="fetchData">
+                <option value="">Toutes</option>
+                <option v-for="category in filterCategories" :key="category.code" :value="category.code">{{ category.label }}</option>
+              </select>
+            </label>
           </div>
 
           <label class="field-card">
@@ -128,6 +135,7 @@
                 <th>Date demande</th>
                 <th>Caisse</th>
                 <th>Type</th>
+                <th>Catégorie</th>
                 <th>Source</th>
                 <th>Paie</th>
                 <th>Montant</th>
@@ -144,6 +152,7 @@
                     {{ mouvement.type === 'entree' ? 'Entrée' : 'Sortie' }}
                   </span>
                 </td>
+                <td>{{ categoryLabel(mouvement.type, mouvement.categorie) }}</td>
                 <td class="cell-stack">
                   <div>{{ mouvement.source }}</div>
                   <div class="muted">{{ mouvement.description || '—' }}</div>
@@ -154,7 +163,7 @@
                 <td><span class="chip" :class="statusClass(mouvement.statut)">{{ statusLabel(mouvement.statut) }}</span></td>
               </tr>
               <tr v-if="!mouvements.length">
-                <td colspan="8" class="muted">Aucun mouvement ne correspond aux filtres.</td>
+                <td colspan="9" class="muted">Aucun mouvement ne correspond aux filtres.</td>
               </tr>
             </tbody>
           </table>
@@ -165,7 +174,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import api from '../services/api'
 import AppIcon from '../components/ui/AppIcon.vue'
@@ -175,9 +184,11 @@ const loading = ref(false)
 const error = ref('')
 const caisses = ref([])
 const mouvements = ref([])
+const categories = ref({ entree: [], sortie: [] })
 const filters = ref({
   caisse_id: '',
   type: '',
+  categorie: '',
   statut: 'tous',
 })
 
@@ -202,10 +213,26 @@ const metrics = computed(() => {
   ]
 })
 
+const filterCategories = computed(() => {
+  if (filters.value.type) return categories.value[filters.value.type] || []
+  const unique = new Map()
+  for (const item of [...(categories.value.entree || []), ...(categories.value.sortie || [])]) {
+    if (!unique.has(item.code)) {
+      unique.set(item.code, item)
+    }
+  }
+  return Array.from(unique.values())
+})
+
 const employeeName = (mouvement) => {
   const employe = mouvement.paie?.employe
   if (!employe) return '—'
   return `${employe.nom || ''} ${employe.prenom || ''}`.trim() || employe.matricule || '—'
+}
+
+const categoryLabel = (type, code) => {
+  const items = categories.value[type] || []
+  return items.find((item) => item.code === code)?.label || code || '—'
 }
 
 const statusLabel = (statut) => ({
@@ -228,12 +255,20 @@ const fetchData = async () => {
     const { data } = await api.get('/v1/caisses', { params })
     caisses.value = data.caisses || []
     mouvements.value = data.mouvements?.data || data.mouvements || []
+    categories.value = data.categories || { entree: [], sortie: [] }
   } catch (e) {
     error.value = e.response?.data?.message || e.message || 'Erreur chargement caisse'
   } finally {
     loading.value = false
   }
 }
+
+watch(() => filters.value.type, (type) => {
+  const options = type ? (categories.value[type] || []) : filterCategories.value
+  if (!options.some((item) => item.code === filters.value.categorie)) {
+    filters.value.categorie = ''
+  }
+})
 
 onMounted(fetchData)
 </script>

@@ -10,6 +10,7 @@ class CaisseMouvement extends Model
         'caisse_id',
         'paie_id',
         'type',
+        'categorie',
         'montant',
         'source',
         'description',

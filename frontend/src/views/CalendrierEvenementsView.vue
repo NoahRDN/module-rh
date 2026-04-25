@@ -187,7 +187,7 @@
               <div class="day-badge" :class="badgeClass(evt.type)">{{ formatType(evt.type) }}</div>
               <div class="day-copy">
                 <p>{{ compactEventLabel(evt) }}</p>
-                <span>{{ evt.date_debut }} → {{ evt.date_fin }}</span>
+                <span>{{ formatDisplayDate(evt.date_debut) }} → {{ formatDisplayDate(evt.date_fin) || '—' }}</span>
               </div>
               <span class="chip">{{ evt.employe?.matricule || 'Global' }}</span>
             </button>
@@ -226,7 +226,7 @@
           <div v-for="evt in upcomingEvents" :key="eventKey(evt)" class="upcoming-item">
             <div class="upcoming-top">
               <span class="day-badge" :class="badgeClass(evt.type)">{{ formatType(evt.type) }}</span>
-              <span class="upcoming-date">{{ formatDate(evt.date_debut) }}</span>
+              <span class="upcoming-date">{{ formatDisplayDate(evt.date_debut) }}</span>
             </div>
             <p>{{ evt.description || evt.meta?.type_conge_libelle || 'Événement RH' }}</p>
             <span>{{ evt.employe?.matricule || 'Global' }}</span>
@@ -269,7 +269,7 @@
             <p>{{ evt.meta?.type_conge_libelle || evt.description || detailLine(evt) }}</p>
 
             <div class="event-date-meta">
-              <span>{{ formatDate(evt.date_debut) }} → {{ formatDate(evt.date_fin) || '—' }}</span>
+              <span>{{ formatDisplayDate(evt.date_debut) }} → {{ formatDisplayDate(evt.date_fin) || '—' }}</span>
               <span>{{ detailLine(evt) }}</span>
             </div>
 

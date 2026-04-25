@@ -156,7 +156,7 @@
                 </td>
                 <td class="cell-stack">
                   <div>{{ row.contrat_numero || `#${row.contrat_id}` }}</div>
-                  <div class="muted">{{ row.contrat_debut || '—' }} → {{ row.contrat_fin || '—' }}</div>
+                  <div class="muted">{{ formatDate(row.contrat_debut) || '—' }} → {{ formatDate(row.contrat_fin) || '—' }}</div>
                 </td>
                 <td class="cell-stack">
                   <div>{{ formatMoney(row.salaire_previsionnel) }}</div>
@@ -173,7 +173,7 @@
                 <td class="cell-stack">
                   <div>{{ row.caisse_nom || '—' }}</div>
                   <div class="muted">
-                    {{ row.paiement_valide_le ? formatDateTime(row.paiement_valide_le) : (row.paiement_demande_le ? `Demandé ${formatDateTime(row.paiement_demande_le)}` : (row.paye_le || '—')) }}
+                    {{ row.paiement_valide_le ? formatDateTime(row.paiement_valide_le) : (row.paiement_demande_le ? `Demandé ${formatDateTime(row.paiement_demande_le)}` : (formatDate(row.paye_le) || '—')) }}
                   </div>
                 </td>
                 <td class="actions">
@@ -227,7 +227,7 @@ import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import api from '../services/api'
 import AppIcon from '../components/ui/AppIcon.vue'
-import { formatMoneyAmount } from '../utils/formatters'
+import { formatDateValue, formatMoneyAmount } from '../utils/formatters'
 
 const loading = ref(false)
 const error = ref('')
@@ -282,6 +282,8 @@ const formatDateTime = (value) => {
   if (!value) return ''
   return new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value))
 }
+
+const formatDate = (value) => formatDateValue(value)
 
 const detailRoute = (row) => row.paie_id
   ? `/paies/${row.paie_id}`

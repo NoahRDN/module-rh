@@ -27,3 +27,42 @@ export const formatMoneyAmount = (value, options = {}) => {
 
   return unit ? `${formatted} ${unit}` : formatted
 }
+
+const parseDateValue = (value) => {
+  if (value === null || value === undefined || value === '') return null
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value
+  }
+
+  const raw = String(value).trim()
+  if (!raw) return null
+
+  const dateOnlyMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  const parsed = dateOnlyMatch
+    ? new Date(Number(dateOnlyMatch[1]), Number(dateOnlyMatch[2]) - 1, Number(dateOnlyMatch[3]))
+    : new Date(raw)
+
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
+export const formatDateValue = (value, options = {}) => {
+  const { empty = '' } = options
+  const parsed = parseDateValue(value)
+  if (!parsed) return empty
+
+  return new Intl.DateTimeFormat('fr-FR', {
+    dateStyle: 'medium',
+  }).format(parsed)
+}
+
+export const formatDateTimeValue = (value, options = {}) => {
+  const { empty = '' } = options
+  const parsed = parseDateValue(value)
+  if (!parsed) return empty
+
+  return new Intl.DateTimeFormat('fr-FR', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(parsed)
+}

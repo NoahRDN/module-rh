@@ -82,8 +82,8 @@
                     <span v-if="item.demande_id">Demande #{{ item.demande_id }}</span>
                     <span v-if="item.contrat_id">Contrat #{{ item.contrat_id }}</span>
                     <span v-if="item.evenement_id">Événement #{{ item.evenement_id }}</span>
-                    <span v-if="item.date_fin">Fin le {{ item.date_fin }}</span>
-                    <span v-if="item.date_debut">Prévu le {{ item.date_debut }}</span>
+                    <span v-if="item.date_fin">Fin le {{ formatDate(item.date_fin) }}</span>
+                    <span v-if="item.date_debut">Prévu le {{ formatDate(item.date_debut) }}</span>
                     <span v-if="item.solde">Solde {{ item.solde }} jours</span>
                     <span class="type-tag">{{ formatType(item.type) }}</span>
                   </div>
@@ -172,6 +172,7 @@ import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import api from '../services/api'
 import AppIcon from '../components/ui/AppIcon.vue'
+import { formatDateValue } from '../utils/formatters'
 
 const alertes = ref([])
 
@@ -321,6 +322,8 @@ const formatType = (type) => {
   }
   return types[type] || type
 }
+
+const formatDate = (value) => formatDateValue(value)
 
 onMounted(fetchAlertes)
 </script>

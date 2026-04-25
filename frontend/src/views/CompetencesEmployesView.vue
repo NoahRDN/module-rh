@@ -75,6 +75,7 @@
 import { ref, onMounted } from 'vue'
 import competenceService from '../services/competenceService'
 import api from '../services/api'
+import { formatDateValue } from '../utils/formatters'
 
 const employes = ref([])
 const competences = ref([])
@@ -136,8 +137,7 @@ const removeCompetence = async (competenceId) => {
 }
 
 const formatDate = (d) => {
-  if (!d) return '—'
-  return String(d).split('T')[0]
+  return formatDateValue(d, { empty: '—' })
 }
 
 onMounted(loadRefs)

@@ -20,7 +20,7 @@
         <div class="font-semibold">{{ contratLabel }}</div>
       </div>
       <div class="grid gap-1">
-        <div class="flex justify-between"><span class="muted">Premier acquis</span><span>{{ solde.premier_acquis || solde.acquis_first || '—' }}</span></div>
+        <div class="flex justify-between"><span class="muted">Premier acquis</span><span>{{ formatDate(solde.premier_acquis || solde.acquis_first) || '—' }}</span></div>
         <div class="flex justify-between"><span class="muted">Expiration max</span><span>{{ expirationMax }}</span></div>
         <div class="flex justify-between"><span class="muted">Solde actuel</span><span class="font-semibold">{{ solde.solde_actuel }}</span></div>
       </div>
@@ -49,8 +49,8 @@
         </thead>
         <tbody>
           <tr v-for="d in demandes" :key="d.id">
-            <td>{{ d.date_debut }}</td>
-            <td>{{ d.date_fin || '—' }}</td>
+            <td>{{ formatDate(d.date_debut) || '—' }}</td>
+            <td>{{ formatDate(d.date_fin) || '—' }}</td>
             <td>{{ d.statut }}</td>
             <td>{{ d.motif || '—' }}</td>
           </tr>
@@ -67,6 +67,7 @@
 import { onMounted, ref, watch, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '../services/api'
+import { formatDateValue } from '../utils/formatters'
 
 const route = useRoute()
 const solde = ref(null)
@@ -86,9 +87,9 @@ const contratLabel = computed(() => {
   if (!s) return '—'
   const type = s.contrat_type || s.contratType
   const fin = s.contrat_fin || s.contratFin
-  if (type && fin) return `${type} — fin ${fin}`
+  if (type && fin) return `${type} — fin ${formatDate(fin)}`
   if (type) return type
-  if (fin) return fin
+  if (fin) return formatDate(fin)
   return '—'
 })
 
@@ -112,10 +113,12 @@ const expirationMax = computed(() => {
 
   const diffYears = Math.abs(contratFinDate - acquisDate) / (365.25 * 24 * 60 * 60 * 1000)
   if (diffYears <= 3) {
-    return contratFin
+    return formatDate(contratFin)
   }
-  return defaultVal
+  return formatDate(defaultVal) || defaultVal
 })
+
+const formatDate = (value) => formatDateValue(value)
 
 const fetchSolde = async () => {
   loading.value = true

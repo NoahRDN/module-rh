@@ -144,7 +144,7 @@
                 <p class="emp-sub">{{ d.employe ? `${d.employe.nom} ${d.employe.prenom}` : '—' }}</p>
               </td>
               <td>{{ d.type_conge?.libelle || d.type?.nom || '—' }}</td>
-              <td class="period">{{ d.date_debut }} → {{ d.date_fin }}</td>
+              <td class="period">{{ formatDate(d.date_debut) || '—' }} → {{ formatDate(d.date_fin) || '—' }}</td>
               <td>
                 <span class="status-badge" :class="badgeClass(d.statut)">{{ d.statut }}</span>
               </td>
@@ -186,6 +186,7 @@ import { RouterLink } from 'vue-router'
 import api from '../services/api'
 import { debounce } from '../utils/debounce'
 import AppIcon from '../components/ui/AppIcon.vue'
+import { formatDateValue } from '../utils/formatters'
 
 const demandes = ref([])
 const employes = ref([])
@@ -303,6 +304,7 @@ const resetFilters = () => {
 }
 
 const canAct = (demande) => demande.statut === 'en_attente' || demande.statut === 'manager_valide'
+const formatDate = (value) => formatDateValue(value)
 
 const formatInteger = (value) =>
   new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(Number(value) || 0)

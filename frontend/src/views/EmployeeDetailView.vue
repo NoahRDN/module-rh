@@ -560,7 +560,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import api from '../services/api'
-import { formatMoneyAmount } from '../utils/formatters'
+import { formatDateValue, formatMoneyAmount } from '../utils/formatters'
 
 const route = useRoute()
 const router = useRouter()
@@ -741,7 +741,7 @@ function generateAvatar(initials) {
   return `data:image/svg+xml;base64,${btoa(svg)}`
 }
 
-const formatDate = (d) => (d ? String(d).split('T')[0] : '')
+const formatDate = (d) => formatDateValue(d)
 const formatMoney = (value) => formatMoneyAmount(value, { unit: 'Ar' })
 
 const revokePreviewObjectUrl = () => {

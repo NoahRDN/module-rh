@@ -215,7 +215,7 @@
               <div class="overview-card">
                 <p class="overview-label">Contrat</p>
                 <p class="overview-value overview-value--wrap">{{ contrat?.numero || '—' }}</p>
-                <p class="overview-copy">{{ contrat?.date_debut || '—' }} → {{ contrat?.date_fin || '—' }}</p>
+                <p class="overview-copy">{{ formatDate(contrat?.date_debut) || '—' }} → {{ formatDate(contrat?.date_fin) || '—' }}</p>
               </div>
             </div>
           </article>
@@ -367,7 +367,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '../services/api'
 import AppIcon from '../components/ui/AppIcon.vue'
-import { formatMoneyAmount } from '../utils/formatters'
+import { formatDateValue, formatMoneyAmount } from '../utils/formatters'
 
 const route = useRoute()
 const router = useRouter()
@@ -434,10 +434,7 @@ const formatInteger = (value) => new Intl.NumberFormat('fr-FR').format(Number(va
 const formatMoney = (amount) => formatMoneyAmount(amount)
 const formatHours = (value) => `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(Number(value || 0))} h`
 
-const formatDate = (value) => {
-  if (!value) return ''
-  return String(value).split('T')[0]
-}
+const formatDate = (value) => formatDateValue(value)
 
 const formatDateTime = (value) => {
   if (!value) return ''

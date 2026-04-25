@@ -169,7 +169,7 @@
 
               <tbody>
                 <tr v-for="h in historiquesFiltres" :key="h.id">
-                  <td>{{ h.date_changement || '—' }}</td>
+                  <td>{{ formatDate(h.date_changement) || '—' }}</td>
                   <td>{{ h.employe ? `${h.employe.matricule} - ${h.employe.nom} ${h.employe.prenom}` : '—' }}</td>
                   <td>{{ h.poste?.nom || '—' }}</td>
                   <td>{{ h.departement?.nom || '—' }}</td>
@@ -248,6 +248,7 @@ import api from '../services/api'
 import { debounce } from '../utils/debounce'
 import { RouterLink } from 'vue-router'
 import AppIcon from '../components/ui/AppIcon.vue'
+import { formatDateValue } from '../utils/formatters'
 
 const historiques = ref([])
 const employes = ref([])
@@ -343,6 +344,8 @@ const resetFilters = () => {
 
 const formatInteger = (value) =>
   new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(Number(value) || 0)
+
+const formatDate = (value) => formatDateValue(value)
 
 const lastSyncedLabel = computed(() => {
   if (!lastRefreshedAt.value) return 'Jamais'

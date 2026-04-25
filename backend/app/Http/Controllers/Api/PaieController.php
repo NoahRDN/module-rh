@@ -202,6 +202,8 @@ class PaieController extends Controller
         $absences = 0;
         $heuresManquantes = 0;
         $details = [];
+        $hoursPerDay = (float) ($settings['hours_per_day'] ?? 8);
+        $retardThresholdHours = (float) ($settings['retard_threshold_hours'] ?? 2);
 
         $period = new DatePeriod($start, new DateInterval('P1D'), $end->copy()->addDay());
 
@@ -219,9 +221,16 @@ class PaieController extends Controller
                 $absences++;
             }
 
-            if (!$resume['ferie'] && !$resume['weekend'] && !$resume['absence_justifiee']) {
-                if ($resume['present_partiel'] && ($settings['hours_per_day'] ?? 8) > $resume['heures_travaillees']) {
-                    $heuresManquantes += ($settings['hours_per_day'] ?? 8) - $resume['heures_travaillees'];
+            if (!$resume['ferie'] && !$resume['weekend'] && !$resume['absence_justifiee'] && !$resume['absent']) {
+                if ($resume['present_partiel'] && $hoursPerDay > $resume['heures_travaillees']) {
+                    $missingHours = $hoursPerDay - $resume['heures_travaillees'];
+                    if ($missingHours > $retardThresholdHours) {
+                        $absences++;
+                        $resume['absent'] = true;
+                        $resume['present_partiel'] = false;
+                    } else {
+                        $heuresManquantes += $missingHours;
+                    }
                 }
             }
 
@@ -274,6 +283,7 @@ class PaieController extends Controller
                 'weekend' => $isWeekend,
                 'minutes_pauses' => 0,
                 'present_partiel' => false,
+                'heures_manquantes' => 0,
             ];
         }
 
@@ -295,6 +305,7 @@ class PaieController extends Controller
                 'weekend' => $isWeekend,
                 'minutes_pauses' => 0,
                 'present_partiel' => false,
+                'heures_manquantes' => 0,
             ];
         }
 
@@ -321,6 +332,7 @@ class PaieController extends Controller
         }
 
         $presentPartiel = $heuresTravaillees > 0 && $heuresTravaillees < $hoursPerDay && !$isHoliday && !$isWeekend;
+        $heuresManquantes = (!$isHoliday && !$isWeekend) ? max(0, round($hoursPerDay - $heuresTravaillees, 2)) : 0;
 
         return [
             'heures_travaillees'      => $heuresTravaillees,
@@ -336,6 +348,7 @@ class PaieController extends Controller
             'weekend'                 => $isWeekend,
             'minutes_pauses'          => $pauses,
             'present_partiel'         => $presentPartiel,
+            'heures_manquantes'       => $heuresManquantes,
         ];
     }
 
@@ -479,6 +492,7 @@ class PaieController extends Controller
                 'start_hour' => $setting->start_hour ?? config('worktime.start_hour'),
                 'start_minute' => $setting->start_minute ?? config('worktime.start_minute'),
                 'retard_tolerance_minutes' => $setting->retard_tolerance_minutes ?? config('worktime.retard_tolerance_minutes', 0),
+                'retard_threshold_hours' => $setting->retard_threshold_hours ?? config('worktime.retard_threshold_hours', 2),
                 'hours_per_day' => $setting->hours_per_day ?? config('worktime.hours_per_day'),
                 'weekly_threshold' => $setting->weekly_threshold ?? config('worktime.weekly_threshold'),
                 'multipliers' => $setting->multipliers ?: config('worktime.multipliers'),

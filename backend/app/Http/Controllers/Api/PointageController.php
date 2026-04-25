@@ -186,6 +186,7 @@ class PointageController extends Controller
         $startHour = (int) ($settings['start_hour'] ?? 8);
         $startMinute = (int) ($settings['start_minute'] ?? 0);
         $retardTolerance = (int) ($settings['retard_tolerance_minutes'] ?? 0);
+        $retardThresholdHours = (float) ($settings['retard_threshold_hours'] ?? 2);
         $hoursPerDay = (float) ($settings['hours_per_day'] ?? 8);
         $pauseMinutes = (int) ($settings['pause_minutes'] ?? 60);
 
@@ -213,6 +214,7 @@ class PointageController extends Controller
                 'weekend' => $weekend,
                 'minutes_pauses' => 0,
                 'present_partiel' => false,
+                'heures_manquantes' => 0,
             ];
         }
 
@@ -235,6 +237,8 @@ class PointageController extends Controller
                 'ferie' => $isHoliday,
                 'weekend' => $weekend,
                 'minutes_pauses' => 0,
+                'present_partiel' => false,
+                'heures_manquantes' => 0,
             ];
         }
 
@@ -262,7 +266,11 @@ class PointageController extends Controller
         }
 
         // Présence partielle si heures < heures_per_day
-        $presentPartiel = $heuresTravaillees > 0 && $heuresTravaillees < $hoursPerDay;
+        $heuresManquantes = (!$isHoliday && !$isSunday && !($isSaturday && !$isWorkingDay))
+            ? max(0, round($hoursPerDay - $heuresTravaillees, 2))
+            : 0;
+        $presentPartiel = $heuresTravaillees > 0 && $heuresManquantes > 0;
+        $isAbsenceByThreshold = $presentPartiel && $heuresManquantes > $retardThresholdHours;
 
         return [
             'heures_travaillees'      => $heuresTravaillees,
@@ -271,13 +279,14 @@ class PointageController extends Controller
             'premiere_entree'         => $debut,
             'derniere_sortie'         => $fin,
             'minutes_pauses'          => $pauses,
-            'absent'                  => false,
+            'absent'                  => $isAbsenceByThreshold,
             'absence_justifiee'       => false,
             'conge'                   => false,
             'dimanche'                => $isSunday,
             'ferie'                   => $isHoliday,
             'weekend'                 => ($isSaturday || $isSunday) && !$isWorkingDay,
-            'present_partiel'         => $presentPartiel,
+            'present_partiel'         => $presentPartiel && !$isAbsenceByThreshold,
+            'heures_manquantes'       => $heuresManquantes,
         ];
     }
 
@@ -335,6 +344,7 @@ class PointageController extends Controller
                 'start_hour' => $setting->start_hour ?? config('worktime.start_hour'),
                 'start_minute' => $setting->start_minute ?? config('worktime.start_minute'),
                 'retard_tolerance_minutes' => $setting->retard_tolerance_minutes ?? config('worktime.retard_tolerance_minutes', 0),
+                'retard_threshold_hours' => $setting->retard_threshold_hours ?? config('worktime.retard_threshold_hours', 2),
                 'hours_per_day' => $setting->hours_per_day ?? config('worktime.hours_per_day'),
                 'weekly_threshold' => $setting->weekly_threshold ?? config('worktime.weekly_threshold'),
                 'multipliers' => $setting->multipliers ?: config('worktime.multipliers'),

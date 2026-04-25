@@ -12,6 +12,7 @@ class WorktimeSetting extends Model
         'start_hour',
         'start_minute',
         'retard_tolerance_minutes',
+        'retard_threshold_hours',
         'hours_per_day',
         'weekly_threshold',
         'multipliers',

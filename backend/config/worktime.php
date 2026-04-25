@@ -12,6 +12,8 @@ return [
     'start_minute' => 0,
     // Tolérance en minutes avant de considérer un retard effectif
     'retard_tolerance_minutes' => 0,
+    // Seuil en heures manquantes pour basculer de "retard" vers "absence"
+    'retard_threshold_hours' => 2,
 
     // Durée d'une journée normale (pour le calcul des HS)
     'hours_per_day' => 8,

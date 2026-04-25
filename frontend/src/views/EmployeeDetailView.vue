@@ -742,7 +742,7 @@ function generateAvatar(initials) {
 }
 
 const formatDate = (d) => formatDateValue(d)
-const formatMoney = (value) => formatMoneyAmount(value, { unit: 'Ar' })
+const formatMoney = (value) => formatMoneyAmount(value)
 
 const revokePreviewObjectUrl = () => {
   if (previewObjectUrl.value) {

@@ -158,7 +158,7 @@
               <input type="number" v-model.number="formationForm.duree_heures" min="0" />
             </div>
             <div class="form-group">
-              <label>Coût (Ar)</label>
+              <label>Coût ({{ currencyUnit }})</label>
               <input type="number" v-model.number="formationForm.cout" min="0" />
             </div>
           </div>
@@ -249,12 +249,14 @@ import formationService from '../services/formationService'
 import competenceService from '../services/competenceService'
 import api from '../services/api'
 import { formatMoneyAmount } from '../utils/formatters'
+import { getStoredCurrency } from '../utils/currency'
 
 const formations = ref([])
 const allCompetences = ref([])
 const employes = ref([])
 const loading = ref(false)
 const saving = ref(false)
+const currencyUnit = getStoredCurrency()
 
 // Filtres
 const filtreType = ref('')
@@ -329,7 +331,7 @@ const getNiveauLabel = (niveau) => {
 }
 
 const formatMontant = (montant) => {
-  return formatMoneyAmount(montant, { unit: 'Ar' })
+  return formatMoneyAmount(montant)
 }
 
 // Load data

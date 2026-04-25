@@ -11,6 +11,7 @@
 
         <div class="rh-hero-pills hero-pills">
           <span class="pill">Nom légal</span>
+          <span class="pill">Devise</span>
           <span class="pill">Logo PDF</span>
           <span class="pill">Documents RH</span>
         </div>
@@ -72,6 +73,16 @@
             />
           </label>
 
+          <label class="rh-field-card">
+            <span class="rh-field-label">Devise de l'application</span>
+            <select class="select" v-model="form.devise">
+              <option v-for="currency in currencyOptions" :key="currency" :value="currency">
+                {{ currency }}
+              </option>
+            </select>
+            <span class="muted">Utilisée par défaut pour les montants affichés dans l'application.</span>
+          </label>
+
           <label class="rh-field-card full">
             <span class="rh-field-label">Logo</span>
             <input class="input" type="file" accept="image/*" @change="onLogoChange" />
@@ -121,6 +132,7 @@
 import { computed, onMounted, ref } from 'vue'
 import api, { resolveBackendAssetUrl } from '../services/api'
 import AppIcon from '../components/ui/AppIcon.vue'
+import { getCurrencyOptions, setStoredCurrency } from '../utils/currency'
 
 const loading = ref(false)
 const loaded = ref(false)
@@ -132,7 +144,9 @@ const existingLogoUrl = ref('')
 const removeExistingLogo = ref(false)
 const form = ref({
   nom: '',
+  devise: 'MGA',
 })
+const currencyOptions = getCurrencyOptions()
 
 const logoPreview = computed(() => localLogoPreview.value || existingLogoUrl.value)
 
@@ -143,6 +157,8 @@ const loadSettings = async () => {
   try {
     const { data } = await api.get('/v1/entreprise-settings')
     form.value.nom = data.nom || ''
+    form.value.devise = data.devise || 'MGA'
+    setStoredCurrency(form.value.devise)
     existingLogoUrl.value = resolveBackendAssetUrl(data.logo_url || '')
     logoFile.value = null
     localLogoPreview.value = ''
@@ -185,6 +201,7 @@ const save = async () => {
   try {
     const payload = new FormData()
     payload.append('nom', form.value.nom)
+    payload.append('devise', form.value.devise || 'MGA')
     if (logoFile.value) {
       payload.append('logo', logoFile.value)
     }
@@ -197,6 +214,8 @@ const save = async () => {
     })
 
     form.value.nom = data.nom || form.value.nom
+    form.value.devise = data.devise || form.value.devise || 'MGA'
+    setStoredCurrency(form.value.devise)
     existingLogoUrl.value = resolveBackendAssetUrl(data.logo_url || '')
     logoFile.value = null
     removeExistingLogo.value = false

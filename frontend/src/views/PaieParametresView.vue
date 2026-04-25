@@ -83,7 +83,7 @@
                   </span>
                   <span class="field-helper">{{ field.helper }}</span>
 
-                  <div class="input-shell" :class="{ suffix: Boolean(field.suffix) }">
+                  <div class="input-shell" :class="{ suffix: Boolean(resolveFieldSuffix(field)) }">
                     <input
                       v-model.number="form[field.key]"
                       class="input field-input"
@@ -91,7 +91,7 @@
                       min="0"
                       :step="field.step"
                     />
-                    <span v-if="field.suffix" class="input-suffix">{{ field.suffix }}</span>
+                    <span v-if="resolveFieldSuffix(field)" class="input-suffix">{{ resolveFieldSuffix(field) }}</span>
                   </div>
                 </label>
               </div>
@@ -257,6 +257,7 @@ import { computed, onMounted, ref } from 'vue'
 import api from '../services/api'
 import AppIcon from '../components/ui/AppIcon.vue'
 import { formatMoneyAmount } from '../utils/formatters'
+import { getStoredCurrency } from '../utils/currency'
 
 const createDefaultForm = () => ({
   cnaps_plafond: 0,
@@ -288,7 +289,7 @@ const fieldGroups = [
         key: 'cnaps_plafond',
         label: 'Plafond CNAPS',
         helper: 'Plafond mensuel brut pris en compte pour la cotisation.',
-        suffix: 'MGA',
+        suffix: 'currency',
         badge: 'Cap',
         step: '1',
       },
@@ -334,7 +335,7 @@ const fieldGroups = [
         key: 'irsa_base',
         label: 'Base IRSA',
         helper: 'Base ou seuil de référence utilisé par la configuration fiscale.',
-        suffix: 'MGA',
+        suffix: 'currency',
         badge: 'Tax',
         step: '1',
       },
@@ -358,7 +359,7 @@ const fieldGroups = [
         key: 'prime_transport',
         label: 'Prime transport',
         helper: 'Montant mensuel par défaut hors base brute.',
-        suffix: 'MGA',
+        suffix: 'currency',
         badge: 'Bonus',
         step: '1',
       },
@@ -366,7 +367,7 @@ const fieldGroups = [
         key: 'prime_presence',
         label: 'Prime présence',
         helper: 'Prime fixe versée selon les règles internes.',
-        suffix: 'MGA',
+        suffix: 'currency',
         badge: 'Bonus',
         step: '1',
       },
@@ -385,6 +386,9 @@ const lastSyncedAt = ref(null)
 const status = ref({ type: '', text: '' })
 const initialFormSnapshot = ref('')
 const initialTranchesSnapshot = ref('')
+const currencyUnit = ref(getStoredCurrency())
+
+const resolveFieldSuffix = (field) => (field.suffix === 'currency' ? currencyUnit.value : field.suffix)
 
 const normalizeNumber = (value, fallback = 0) => {
   if (value === '' || value === null || value === undefined) return fallback
@@ -687,6 +691,7 @@ function removeTranche(index) {
 }
 
 onMounted(() => {
+  currencyUnit.value = getStoredCurrency()
   load()
 })
 </script>

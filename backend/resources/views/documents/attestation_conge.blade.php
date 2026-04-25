@@ -97,9 +97,7 @@
 </head>
 <body>
     <div class="header">
-        <div class="company-name">ENTREPRISE XYZ</div>
-        <div>Adresse de l'entreprise</div>
-        <div>Téléphone: +261 XX XX XXX XX | Email: contact@entreprise.com</div>
+        @include('documents.partials.company_header')
     </div>
 
     <div class="reference">
@@ -112,7 +110,7 @@
     <div class="content">
         <p>
             Je soussigné(e), <strong>Directeur des Ressources Humaines</strong> de la société 
-            <strong>ENTREPRISE XYZ</strong>, atteste par la présente que :
+            <strong>{{ $entreprise->nom ?? 'Module RH' }}</strong>, atteste par la présente que :
         </p>
 
         <div class="info-box employee-info">

@@ -32,6 +32,7 @@ use App\Http\Controllers\Api\ContratPdfController;
 use App\Http\Controllers\Api\FrequenceCongeController;
 use App\Http\Controllers\Api\TypeCongeController;
 use App\Http\Controllers\Api\WorktimeSettingController;
+use App\Http\Controllers\Api\EntrepriseSettingController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\EvaluationController;
 use App\Http\Controllers\Api\CritereEvaluationController;
@@ -186,6 +187,8 @@ Route::prefix('v1')->group(function () {
     Route::apiResource('soldes-conges', SoldeCongeController::class)->only(['index','show']);
     Route::get('worktime', [WorktimeSettingController::class, 'show']);
     Route::put('worktime', [WorktimeSettingController::class, 'update']);
+    Route::get('entreprise-settings', [EntrepriseSettingController::class, 'show']);
+    Route::post('entreprise-settings', [EntrepriseSettingController::class, 'update']);
     Route::apiResource('demandes-conges', DemandeCongeController::class);
     Route::apiResource('calendrier-evenements', CalendrierEvenementController::class)->only(['index', 'store', 'update', 'destroy']);
     Route::get('alertes', [AlerteController::class, 'index']);

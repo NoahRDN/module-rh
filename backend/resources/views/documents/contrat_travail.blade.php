@@ -101,9 +101,7 @@
 </head>
 <body>
     <div class="header">
-        <div class="company-name">ENTREPRISE XYZ</div>
-        <div>Adresse de l'entreprise</div>
-        <div>NIF: XXXXXXXX | STAT: XXXXXXXX</div>
+        @include('documents.partials.company_header')
     </div>
 
     <h1 class="title">Contrat de Travail</h1>
@@ -112,7 +110,7 @@
     <div class="parties">
         <p><strong>Entre les soussignés :</strong></p>
         <p>
-            <strong>L'Employeur :</strong> ENTREPRISE XYZ, représentée par son Directeur Général,
+            <strong>L'Employeur :</strong> {{ $entreprise->nom ?? 'Module RH' }}, représentée par son Directeur Général,
             dont le siège social est situé à Antananarivo, Madagascar.
         </p>
         <p>Ci-après dénommée « L'Employeur »,</p>

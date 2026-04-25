@@ -141,7 +141,7 @@
 </head>
 <body>
     <div class="header">
-        <div class="company-name">ENTREPRISE XYZ</div>
+        @include('documents.partials.company_header')
         <div>Département des Ressources Humaines</div>
         <div>Service Formation</div>
     </div>
@@ -154,7 +154,7 @@
     <h1 class="title">🎓 Attestation de Formation</h1>
 
     <p style="text-align: center; margin: 20px 0;">
-        Nous soussignés, Direction des Ressources Humaines de ENTREPRISE XYZ,<br>
+        Nous soussignés, Direction des Ressources Humaines de {{ $entreprise->nom ?? 'Module RH' }},<br>
         attestons par la présente que :
     </p>
 
@@ -259,7 +259,7 @@
     </div>
 
     <div class="stamp-area">
-        [Cachet de l'entreprise]
+        [Cachet de {{ $entreprise->nom ?? 'l’entreprise' }}]
     </div>
 
     <div class="footer">

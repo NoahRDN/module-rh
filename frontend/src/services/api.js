@@ -2,6 +2,9 @@ import axios from 'axios'
 
 export const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://192.168.16.101:8000/api' || 'http://localhost:8000/api'
 export const backendBaseUrl = apiBaseUrl.replace(/\/api\/?$/, '')
+export const backendAssetBaseUrl = import.meta.env.VITE_PUBLIC_BACKEND_URL
+  || backendBaseUrl
+  || (typeof window !== 'undefined' ? window.location.origin : '')
 
 export const resolveBackendAssetUrl = (path) => {
   const value = String(path || '').trim()
@@ -10,12 +13,20 @@ export const resolveBackendAssetUrl = (path) => {
     return ''
   }
 
-  if (/^(https?:)?\/\//i.test(value) || value.startsWith('data:') || value.startsWith('blob:')) {
+  if (value.startsWith('data:') || value.startsWith('blob:')) {
     return value
   }
 
   try {
-    return new URL(value.startsWith('/') ? value : `/${value}`, `${backendBaseUrl}/`).toString()
+    const url = /^(https?:)?\/\//i.test(value)
+      ? new URL(value, `${backendAssetBaseUrl}/`)
+      : new URL(value.startsWith('/') ? value : `/${value}`, `${backendAssetBaseUrl}/`)
+
+    if (url.pathname.startsWith('/storage/')) {
+      return new URL(url.pathname + url.search + url.hash, `${backendAssetBaseUrl}/`).toString()
+    }
+
+    return url.toString()
   } catch (error) {
     return value
   }

@@ -33,6 +33,10 @@ export default defineConfig(({ mode }) => {
         target: backendUrl,
         changeOrigin: true,
       },
+      '/storage': {
+        target: backendUrl,
+        changeOrigin: true,
+      },
     },
   },
 }

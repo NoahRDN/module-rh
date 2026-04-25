@@ -59,6 +59,9 @@ class RemunerationItemRequest extends FormRequest
                 'min:0',
             ],
             'montant' => 'required|numeric|min:0',
+            'calculation_type' => ['nullable', Rule::in(['fixe', 'jour', 'heure', 'FIXE', 'JOUR', 'HEURE'])],
+            'prorata' => 'nullable|boolean',
+            'depends_on_presence' => 'nullable|boolean',
             'is_taxable' => 'nullable|boolean',
             'actif' => 'nullable|boolean',
         ];

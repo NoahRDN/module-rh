@@ -10,7 +10,7 @@ use Illuminate\Support\Collection;
 
 class RemunerationItemService
 {
-    public function resolveForEmploye(Employe $employe, string $mois): Collection
+    public function resolveForEmploye(Employe $employe, string $mois, array $context = []): Collection
     {
         $start = Carbon::createFromFormat('Y-m', $mois)->startOfMonth();
         $end = $start->copy()->endOfMonth();
@@ -27,7 +27,7 @@ class RemunerationItemService
             ? Carbon::parse($employe->date_embauche)->startOfDay()->diffInYears($end)
             : 0;
 
-        return RemunerationItem::query()
+        $items = RemunerationItem::query()
             ->with(['poste:id,nom', 'employe:id,matricule,nom,prenom', 'contrat:id,numero'])
             ->where('actif', true)
             ->where(function ($query) use ($employe, $posteId, $contrat) {
@@ -53,11 +53,74 @@ class RemunerationItemService
             ->filter(fn (RemunerationItem $item) => $this->matchesRecurrence($item, $mois))
             ->filter(fn (RemunerationItem $item) => $this->matchesCondition($item, $anciennete))
             ->values();
+
+        $presenceContext = $this->buildPresenceContext($context);
+
+        return $items
+            ->map(function (RemunerationItem $item) use ($presenceContext) {
+                $appliedAmount = $this->computeAppliedAmount($item, $presenceContext);
+                $item->setAttribute('montant_applique', round($appliedAmount, 2));
+                return $item;
+            })
+            ->filter(fn (RemunerationItem $item) => (float) ($item->montant_applique ?? 0) > 0)
+            ->values();
     }
 
     public function totalForEmploye(Employe $employe, string $mois): float
     {
-        return (float) $this->resolveForEmploye($employe, $mois)->sum(fn (RemunerationItem $item) => (float) $item->montant);
+        return (float) $this->resolveForEmploye($employe, $mois)->sum(
+            fn (RemunerationItem $item) => (float) ($item->montant_applique ?? $item->montant)
+        );
+    }
+
+    protected function buildPresenceContext(array $context): array
+    {
+        $details = collect($context['details'] ?? []);
+        $hoursPerDay = (float) ($context['hours_per_day'] ?? 8);
+        $workedHours = (float) ($context['heures_travaillees'] ?? $details->sum('heures_travaillees'));
+
+        $workingDays = (int) $details
+            ->filter(fn ($row) => !($row['weekend'] ?? false) && !($row['ferie'] ?? false))
+            ->count();
+        $workedDays = (int) $details
+            ->filter(fn ($row) => (float) ($row['heures_travaillees'] ?? 0) > 0)
+            ->count();
+
+        $presenceRatio = 1.0;
+        if ($workingDays > 0) {
+            $presenceRatio = max(0, min(1, $workedDays / $workingDays));
+        } elseif ($hoursPerDay > 0) {
+            $presenceRatio = max(0, min(1, $workedHours / $hoursPerDay));
+        }
+
+        return [
+            'worked_hours' => max(0, $workedHours),
+            'worked_days' => max(0, $workedDays),
+            'presence_ratio' => $presenceRatio,
+            'is_absent' => $workedDays <= 0 && $workedHours <= 0,
+        ];
+    }
+
+    protected function computeAppliedAmount(RemunerationItem $item, array $context): float
+    {
+        $baseAmount = (float) $item->montant;
+        if ($baseAmount <= 0) {
+            return 0;
+        }
+
+        if ((bool) $item->depends_on_presence && ($context['is_absent'] ?? false)) {
+            return 0;
+        }
+
+        $type = strtolower((string) ($item->calculation_type ?? 'fixe'));
+
+        return match ($type) {
+            'jour' => $baseAmount * (float) ($context['worked_days'] ?? 0),
+            'heure' => $baseAmount * (float) ($context['worked_hours'] ?? 0),
+            default => (bool) $item->prorata
+                ? $baseAmount * (float) ($context['presence_ratio'] ?? 1)
+                : $baseAmount,
+        };
     }
 
     protected function matchesRecurrence(RemunerationItem $item, string $mois): bool

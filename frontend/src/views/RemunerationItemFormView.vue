@@ -5,7 +5,7 @@
         <p class="hero-kicker">Payroll component</p>
         <h1>{{ isEditing ? 'Modifier un élément' : 'Nouvelle indemnité ou prime' }}</h1>
         <p class="hero-subtitle">
-          Paramétrez la portée, la récurrence, la condition éventuelle et le montant fixe de l’élément.
+          Paramétrez la portée, la récurrence, le mode de calcul, la présence et la condition éventuelle.
         </p>
 
         <div class="hero-pills">
@@ -107,8 +107,27 @@
         </label>
 
         <label class="field-card">
-          <span class="field-label">Montant fixe</span>
+          <span class="field-label">Montant de base</span>
           <input v-model="form.montant" class="input" type="number" min="0" step="0.01" required />
+        </label>
+
+        <label class="field-card">
+          <span class="field-label">Type de calcul</span>
+          <select v-model="form.calculation_type" class="select" required>
+            <option value="fixe">Fixe (montant mensuel)</option>
+            <option value="jour">Par jour travaillé</option>
+            <option value="heure">Par heure travaillée</option>
+          </select>
+        </label>
+
+        <label class="field-card checkbox-line">
+          <span class="field-label">Ajusté selon présence</span>
+          <input v-model="form.prorata" type="checkbox" />
+        </label>
+
+        <label class="field-card checkbox-line">
+          <span class="field-label">Dépend de la présence</span>
+          <input v-model="form.depends_on_presence" type="checkbox" />
         </label>
 
         <label class="field-card">
@@ -191,6 +210,9 @@ const form = ref({
   condition_operator: '>=',
   condition_value: '',
   montant: '',
+  calculation_type: 'fixe',
+  prorata: false,
+  depends_on_presence: false,
   is_taxable: true,
   actif: true,
 })
@@ -249,6 +271,9 @@ const loadExisting = async () => {
       condition_operator: data.condition_operator || '>=',
       condition_value: data.condition_value ?? '',
       montant: data.montant ?? '',
+      calculation_type: (data.calculation_type || 'fixe').toLowerCase(),
+      prorata: Boolean(data.prorata),
+      depends_on_presence: Boolean(data.depends_on_presence),
       is_taxable: data.is_taxable !== false,
       actif: Boolean(data.actif),
     }
@@ -276,6 +301,9 @@ const save = async () => {
     condition_operator: conditionEnabled.value ? form.value.condition_operator : null,
     condition_value: conditionEnabled.value && form.value.condition_value !== '' ? Number(form.value.condition_value) : null,
     montant: Number(form.value.montant || 0),
+    calculation_type: form.value.calculation_type || 'fixe',
+    prorata: Boolean(form.value.prorata),
+    depends_on_presence: Boolean(form.value.depends_on_presence),
     is_taxable: Boolean(form.value.is_taxable),
     actif: Boolean(form.value.actif),
   }

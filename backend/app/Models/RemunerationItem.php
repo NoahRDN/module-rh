@@ -24,6 +24,9 @@ class RemunerationItem extends Model
         'condition_operator',
         'condition_value',
         'montant',
+        'calculation_type',
+        'prorata',
+        'depends_on_presence',
         'is_taxable',
         'actif',
     ];
@@ -31,6 +34,8 @@ class RemunerationItem extends Model
     protected $casts = [
         'condition_value' => 'decimal:2',
         'montant' => 'decimal:2',
+        'prorata' => 'boolean',
+        'depends_on_presence' => 'boolean',
         'is_taxable' => 'boolean',
         'actif' => 'boolean',
     ];

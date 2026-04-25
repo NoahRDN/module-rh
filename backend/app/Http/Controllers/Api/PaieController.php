@@ -840,6 +840,7 @@ class PaieController extends Controller
                     'caisse_id' => $data['caisse_id'],
                     'paie_id' => $paie->id,
                     'type' => 'sortie',
+                    'categorie' => 'paie_employe',
                     'montant' => $paie->net_a_payer,
                     'source' => "Paiement fiche de paie {$paie->mois}",
                     'description' => 'Paiement de la fiche de paie de ' . trim(($paie->employe->nom ?? '') . ' ' . ($paie->employe->prenom ?? '')),

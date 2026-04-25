@@ -50,6 +50,7 @@
               <th>Demande</th>
               <th>Caisse</th>
               <th>Type</th>
+              <th>Catégorie</th>
               <th>Source</th>
               <th>Employé / Paie</th>
               <th>Montant</th>
@@ -68,23 +69,26 @@
                   {{ mouvement.type === 'entree' ? 'Entrée' : 'Sortie' }}
                 </span>
               </td>
+              <td>{{ categoryLabel(mouvement.type, mouvement.categorie) }}</td>
               <td class="cell-stack">
                 <div>{{ mouvement.source }}</div>
                 <div class="muted">{{ mouvement.description || '—' }}</div>
               </td>
               <td>{{ employeeName(mouvement) }}</td>
-              <td class="accent">{{ formatMoney(mouvement.montant) }}</td>
-              <td class="actions">
-                <button class="btn btn-secondary btn-xs" type="button" :disabled="loading" @click="validateMovement(mouvement)">
-                  Valider
-                </button>
-                <button class="btn btn-secondary btn-xs" type="button" :disabled="loading" @click="rejectMovement(mouvement)">
-                  Rejeter
-                </button>
+              <td class="accent amount-col">{{ formatMoney(mouvement.montant) }}</td>
+              <td class="actions-col">
+                <div class="actions-stack">
+                  <button class="btn btn-secondary btn-xs" type="button" :disabled="loading" @click="validateMovement(mouvement)">
+                    Valider
+                  </button>
+                  <button class="btn btn-secondary btn-xs" type="button" :disabled="loading" @click="rejectMovement(mouvement)">
+                    Rejeter
+                  </button>
+                </div>
               </td>
             </tr>
             <tr v-if="!mouvements.length">
-              <td colspan="7" class="muted">Aucun mouvement en attente de validation.</td>
+              <td colspan="8" class="muted">Aucun mouvement en attente de validation.</td>
             </tr>
           </tbody>
         </table>
@@ -103,6 +107,7 @@ import { formatMoneyAmount } from '../utils/formatters'
 const loading = ref(false)
 const error = ref('')
 const mouvements = ref([])
+const categories = ref({ entree: [], sortie: [] })
 
 const formatMoney = (amount) => formatMoneyAmount(amount)
 
@@ -117,12 +122,18 @@ const employeeName = (mouvement) => {
   return `${employe.nom || ''} ${employe.prenom || ''}`.trim() || employe.matricule || '—'
 }
 
+const categoryLabel = (type, code) => {
+  const items = categories.value[type] || []
+  return items.find((item) => item.code === code)?.label || code || '—'
+}
+
 const fetchData = async () => {
   loading.value = true
   error.value = ''
   try {
     const { data } = await api.get('/v1/caisses/en-attente-validation')
     mouvements.value = data.mouvements || []
+    categories.value = data.categories || { entree: [], sortie: [] }
   } catch (e) {
     error.value = e.response?.data?.message || e.message || 'Erreur chargement validations'
   } finally {
@@ -160,10 +171,20 @@ onMounted(fetchData)
   font-weight: 800;
 }
 
-.actions {
-  display: flex;
-  gap: 8px;
+.amount-col {
   white-space: nowrap;
+}
+
+.actions-col {
+  width: 1%;
+}
+
+.actions-stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-start;
+  min-width: max-content;
 }
 
 .chip.success {

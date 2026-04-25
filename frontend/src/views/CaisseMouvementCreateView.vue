@@ -46,6 +46,16 @@
         </label>
 
         <label class="field-card">
+          <span class="field-label">Catégorie</span>
+          <select class="select" v-model="form.categorie" required>
+            <option value="">Choisir une catégorie</option>
+            <option v-for="category in categoryOptions" :key="category.code" :value="category.code">
+              {{ category.label }}
+            </option>
+          </select>
+        </label>
+
+        <label class="field-card">
           <span class="field-label">Montant</span>
           <input class="input" type="number" min="0.01" step="0.01" v-model.number="form.montant" required />
         </label>
@@ -81,7 +91,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import api from '../services/api'
 import AppIcon from '../components/ui/AppIcon.vue'
@@ -92,24 +102,37 @@ const loading = ref(false)
 const error = ref('')
 const success = ref('')
 const caisses = ref([])
+const categories = ref({ entree: [], sortie: [] })
 const form = ref({
   caisse_id: '',
   type: 'entree',
+  categorie: '',
   montant: null,
   source: '',
   description: '',
 })
 
+const categoryOptions = computed(() => categories.value[form.value.type] || [])
+
 const formatMoney = (amount) => formatMoneyAmount(amount)
 
 const loadCaisses = async () => {
   try {
-    const { data } = await api.get('/v1/caisses', { params: { active: 1 } })
+    const { data } = await api.get('/v1/caisses/types')
     caisses.value = data.caisses || []
+    categories.value = data.categories || { entree: [], sortie: [] }
+    form.value.categorie = categoryOptions.value[0]?.code || ''
   } catch (e) {
     error.value = e.response?.data?.message || e.message || 'Erreur chargement caisses'
   }
 }
+
+watch(() => form.value.type, (type) => {
+  const options = categories.value[type] || []
+  if (!options.some((item) => item.code === form.value.categorie)) {
+    form.value.categorie = options[0]?.code || ''
+  }
+})
 
 const submit = async () => {
   loading.value = true

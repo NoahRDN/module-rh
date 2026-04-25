@@ -174,6 +174,7 @@ onMounted(loadEntrepriseBranding)
   position: sticky;
   top: 0;
   align-self: start;
+  height: 100vh;
   min-height: 100vh;
   width: 288px;
   overflow: hidden;
@@ -188,6 +189,7 @@ onMounted(loadEntrepriseBranding)
   display: flex;
   flex-direction: column;
   gap: 16px;
+  height: 100vh;
   min-height: 100vh;
   padding: 20px 16px 16px;
   border: 1px solid var(--border);
@@ -196,6 +198,7 @@ onMounted(loadEntrepriseBranding)
   background: var(--panel);
   box-shadow: var(--shadow-lg);
   backdrop-filter: blur(18px);
+  overflow: hidden;
 }
 
 .brand {
@@ -355,8 +358,34 @@ body[data-theme='dark'] .workspace-stat {
   flex-direction: column;
   gap: 14px;
   min-height: 0;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   padding-right: 4px;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(79, 70, 229, 0.34) transparent;
+}
+
+.nav::-webkit-scrollbar {
+  width: 10px;
+}
+
+.nav::-webkit-scrollbar-track {
+  background: rgba(148, 163, 184, 0.08);
+  border-radius: 999px;
+}
+
+.nav::-webkit-scrollbar-thumb {
+  background: rgba(79, 70, 229, 0.34);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.nav::-webkit-scrollbar-thumb:hover {
+  background: rgba(79, 70, 229, 0.5);
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 .nav-group {
@@ -478,6 +507,7 @@ body[data-theme='dark'] .nav-icon {
 @media (max-width: 1100px) {
   .sidebar {
     width: 0;
+    height: 0;
     min-height: 0;
   }
 

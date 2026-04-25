@@ -85,6 +85,7 @@
               <th>Portée</th>
               <th>Récurrence</th>
               <th>Condition</th>
+              <th>Calcul</th>
               <th>Fiscalité</th>
               <th>Montant</th>
               <th>Statut</th>
@@ -101,6 +102,7 @@
               <td>{{ scopeLabel(item.scope_type) }}</td>
               <td>{{ recurrenceLabel(item) }}</td>
               <td>{{ conditionLabel(item) }}</td>
+              <td>{{ calculationLabel(item) }}</td>
               <td>{{ item.is_taxable ? 'Imposable' : 'Non imposable' }}</td>
               <td>{{ formatMoney(item.montant) }}</td>
               <td>
@@ -120,7 +122,7 @@
               </td>
             </tr>
             <tr v-if="!filteredItems.length">
-              <td colspan="9" class="empty-state">
+              <td colspan="10" class="empty-state">
                 <p>Aucun élément configuré.</p>
                 <span>Créez une prime ou une indemnité pour l’intégrer dans la paie.</span>
               </td>
@@ -167,6 +169,21 @@ const recurrenceLabel = (item) => item.recurrence_type === 'ponctuel'
 const conditionLabel = (item) => {
   if (!item.condition_type) return 'Aucune'
   return `Ancienneté ${item.condition_operator} ${item.condition_value}`
+}
+
+const calculationLabel = (item) => {
+  const type = (item.calculation_type || 'fixe').toLowerCase()
+  const typeLabel = type === 'jour'
+    ? 'Jour'
+    : type === 'heure'
+      ? 'Heure'
+      : 'Fixe'
+
+  const options = []
+  if (item.prorata) options.push('ajusté présence')
+  if (item.depends_on_presence) options.push('présence')
+
+  return options.length ? `${typeLabel} (${options.join(', ')})` : typeLabel
 }
 
 const scopeTargetLabel = (item) => {

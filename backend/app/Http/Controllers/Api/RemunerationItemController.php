@@ -109,6 +109,9 @@ class RemunerationItemController extends Controller
             $payload['condition_value'] = null;
         }
 
+        $payload['calculation_type'] = strtolower((string) ($payload['calculation_type'] ?? 'fixe'));
+        $payload['prorata'] = array_key_exists('prorata', $payload) ? (bool) $payload['prorata'] : false;
+        $payload['depends_on_presence'] = array_key_exists('depends_on_presence', $payload) ? (bool) $payload['depends_on_presence'] : false;
         $payload['is_taxable'] = array_key_exists('is_taxable', $payload) ? (bool) $payload['is_taxable'] : true;
         $payload['actif'] = array_key_exists('actif', $payload) ? (bool) $payload['actif'] : true;
 

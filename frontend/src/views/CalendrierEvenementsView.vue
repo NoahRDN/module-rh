@@ -187,7 +187,7 @@
               <div class="day-badge" :class="badgeClass(evt.type)">{{ formatType(evt.type) }}</div>
               <div class="day-copy">
                 <p>{{ compactEventLabel(evt) }}</p>
-                <span>{{ evt.date_debut }} → {{ evt.date_fin }}</span>
+                <span>{{ formatDisplayDate(evt.date_debut) }} → {{ formatDisplayDate(evt.date_fin) || '—' }}</span>
               </div>
               <span class="chip">{{ evt.employe?.matricule || 'Global' }}</span>
             </button>
@@ -226,7 +226,7 @@
           <div v-for="evt in upcomingEvents" :key="eventKey(evt)" class="upcoming-item">
             <div class="upcoming-top">
               <span class="day-badge" :class="badgeClass(evt.type)">{{ formatType(evt.type) }}</span>
-              <span class="upcoming-date">{{ formatDate(evt.date_debut) }}</span>
+              <span class="upcoming-date">{{ formatDisplayDate(evt.date_debut) }}</span>
             </div>
             <p>{{ evt.description || evt.meta?.type_conge_libelle || 'Événement RH' }}</p>
             <span>{{ evt.employe?.matricule || 'Global' }}</span>
@@ -247,30 +247,41 @@
     <div v-if="selectedDate" class="event-modal-backdrop" @click.self="closeEventDetails">
       <article class="event-modal card">
         <div class="event-modal-head">
-          <div>
+          <div class="event-modal-copy">
             <p class="rh-section-kicker">Day details</p>
             <h2>{{ selectedDateLabel }}</h2>
+            <p class="event-modal-subtitle">Vue détaillée des absences, congés, jours fériés et événements RH de la journée.</p>
           </div>
           <button type="button" class="btn btn-secondary btn-sm" @click="closeEventDetails">Fermer</button>
         </div>
 
         <div class="event-modal-summary">
           <span class="chip">{{ selectedDateEvents.length }} événement<span v-if="selectedDateEvents.length > 1">s</span></span>
+          <span class="chip soft-chip">{{ selectedDate }}</span>
         </div>
 
         <div class="event-date-list">
           <article v-for="evt in selectedDateEvents" :key="eventKey(evt)" class="event-date-card">
             <div class="event-date-top">
-              <span class="day-badge" :class="badgeClass(evt.type)">{{ formatType(evt.type) }}</span>
-              <span class="chip">{{ evt.employe?.matricule || 'Global' }}</span>
+              <div class="event-date-tags">
+                <span class="day-badge" :class="badgeClass(evt.type)">{{ formatType(evt.type) }}</span>
+                <span class="chip event-target-chip">{{ evt.employe?.matricule || 'Global' }}</span>
+              </div>
+              <span class="event-period-chip">{{ eventPeriodLabel(evt) }}</span>
             </div>
 
-            <h3>{{ eventEmployeeName(evt) }}</h3>
-            <p>{{ evt.meta?.type_conge_libelle || evt.description || detailLine(evt) }}</p>
+            <div class="event-date-body">
+              <div class="event-date-copy">
+                <h3>{{ eventEmployeeName(evt) }}</h3>
+                <p class="event-date-description">{{ evt.meta?.type_conge_libelle || evt.description || detailLine(evt) }}</p>
+              </div>
+              <span class="event-type-label">{{ detailLine(evt) }}</span>
+            </div>
 
             <div class="event-date-meta">
-              <span>{{ formatDate(evt.date_debut) }} → {{ formatDate(evt.date_fin) || '—' }}</span>
-              <span>{{ detailLine(evt) }}</span>
+              <span class="event-meta-pill">Début: {{ formatDisplayDate(evt.date_debut) }}</span>
+              <span class="event-meta-pill">Fin: {{ formatDisplayDate(evt.date_fin) || '—' }}</span>
+              <span class="event-meta-pill">{{ evt.employe ? 'Employé' : 'Global' }}</span>
             </div>
 
             <div v-if="isEditableRhEvent(evt)" class="event-date-actions">
@@ -627,6 +638,15 @@ const detailLine = (event) => {
   if (event.type === 'absence') return 'Absence'
   if (event.type === 'ferie') return 'Jour férié'
   return 'Événement RH'
+}
+
+const eventPeriodLabel = (event) => {
+  const start = formatDisplayDate(event?.date_debut)
+  const end = formatDisplayDate(event?.date_fin)
+
+  if (!start && !end) return 'Période non définie'
+  if (start && end && start !== end) return `${start} au ${end}`
+  return start || end || 'Période non définie'
 }
 
 const openDateDetails = (dateStr) => {
@@ -1201,20 +1221,25 @@ body[data-theme='dark'] .upcoming-item {
   inset: 0;
   z-index: 80;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   padding: 24px;
   background: rgba(15, 23, 42, 0.42);
   backdrop-filter: blur(6px);
+  overflow-y: auto;
 }
 
 .event-modal {
   width: min(680px, 100%);
   display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
   gap: 18px;
   padding: 24px;
   border-radius: 28px;
   box-shadow: var(--shadow-lg);
+  margin: auto 0;
+  max-height: calc(100vh - 48px);
+  overflow: hidden;
 }
 
 .create-event-modal {
@@ -1228,6 +1253,11 @@ body[data-theme='dark'] .upcoming-item {
   gap: 14px;
 }
 
+.event-modal-copy {
+  display: grid;
+  gap: 8px;
+}
+
 .event-modal-head h2 {
   margin: 8px 0 0;
   font-size: 1.5rem;
@@ -1235,9 +1265,24 @@ body[data-theme='dark'] .upcoming-item {
   letter-spacing: -0.03em;
 }
 
+.event-modal-subtitle {
+  margin: 0;
+  max-width: 52ch;
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
 .event-modal-summary {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-start;
+  gap: 8px;
+}
+
+.soft-chip {
+  background: rgba(79, 70, 229, 0.08);
+  color: var(--brand-600);
 }
 
 .create-event-form {
@@ -1271,19 +1316,35 @@ body[data-theme='dark'] .upcoming-item {
 .event-date-list {
   display: grid;
   gap: 14px;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(79, 70, 229, 0.28) transparent;
+}
+
+.event-date-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.event-date-list::-webkit-scrollbar-thumb {
+  background: rgba(79, 70, 229, 0.28);
+  border-radius: 999px;
 }
 
 .event-date-card {
   display: grid;
-  gap: 10px;
-  padding: 16px;
+  gap: 14px;
+  padding: 18px;
   border: 1px solid var(--border);
-  border-radius: 18px;
-  background: rgba(248, 250, 252, 0.82);
+  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.9), rgba(241, 245, 249, 0.76));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
 }
 
 body[data-theme='dark'] .event-date-card {
-  background: rgba(15, 23, 42, 0.68);
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.86), rgba(15, 23, 42, 0.72));
+  box-shadow: inset 0 1px 0 rgba(148, 163, 184, 0.06);
 }
 
 .event-date-top,
@@ -1293,6 +1354,56 @@ body[data-theme='dark'] .event-date-card {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+}
+
+.event-date-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.event-target-chip {
+  font-weight: 700;
+}
+
+.event-period-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.event-date-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.event-date-copy {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.event-type-label {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  padding: 7px 10px;
+  border-radius: 12px;
+  background: rgba(79, 70, 229, 0.08);
+  color: var(--brand-600);
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .event-date-card h3,
@@ -1313,6 +1424,24 @@ body[data-theme='dark'] .event-date-card {
   line-height: 1.55;
 }
 
+.event-date-description {
+  max-width: 60ch;
+}
+
+.event-date-meta {
+  justify-content: flex-start;
+}
+
+.event-meta-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 10px;
+  border-radius: 12px;
+  background: rgba(148, 163, 184, 0.1);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  white-space: nowrap;
+}
+
 .compact {
   padding-top: 0;
   padding-bottom: 0;
@@ -1321,6 +1450,31 @@ body[data-theme='dark'] .event-date-card {
 @media (max-width: 1080px) {
   .calendar-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .event-modal-backdrop {
+    padding: 12px;
+  }
+
+  .event-modal {
+    padding: 18px;
+    border-radius: 22px;
+    max-height: calc(100vh - 24px);
+  }
+
+  .event-modal-head,
+  .event-date-top,
+  .event-date-body {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .event-period-chip,
+  .event-type-label {
+    width: fit-content;
+    max-width: 100%;
   }
 }
 

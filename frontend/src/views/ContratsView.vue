@@ -246,7 +246,7 @@
                   </td>
                   <td class="renewal-col">
                     <div class="renewal-block">
-                      <span class="renewal-main">{{ formatDate(currentEnd(c)) || '—' }}</span>
+                      <span class="renewal-main">{{ formatDisplayDate(currentEnd(c)) || '—' }}</span>
                       <span class="renewal-sub">{{ renewalMeta(c) }}</span>
                     </div>
                   </td>
@@ -389,6 +389,7 @@ import { debounce } from '../utils/debounce'
 import { parseISO, intervalToDuration, formatDuration } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import AppIcon from '../components/ui/AppIcon.vue'
+import { formatDateValue } from '../utils/formatters'
 
 const contrats = ref([])
 const employes = ref([])
@@ -431,11 +432,13 @@ const formatDate = (d) => {
   return String(d).split('T')[0]
 }
 
+const formatDisplayDate = (d) => formatDateValue(d)
+
 const currentEnd = (c) => c.periode_essai_fin || c.date_fin
 
 const formatRange = (start, end) => {
-  const startValue = formatDate(start) || '—'
-  const endValue = formatDate(end) || '—'
+  const startValue = formatDisplayDate(start) || '—'
+  const endValue = formatDisplayDate(end) || '—'
   return `${startValue} -> ${endValue}`
 }
 

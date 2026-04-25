@@ -233,6 +233,7 @@ import api, { resolveBackendAssetUrl } from '../services/api'
 import { debounce } from '../utils/debounce'
 import { RouterLink } from 'vue-router'
 import AppIcon from '../components/ui/AppIcon.vue'
+import { formatDateValue } from '../utils/formatters'
 
 const docs = ref([])
 const employes = ref([])
@@ -298,8 +299,7 @@ const fileName = (path) => {
 }
 
 const formatDate = (d) => {
-  if (!d) return ''
-  return String(d).split('T')[0]
+  return formatDateValue(d)
 }
 
 const documentUrl = (doc) => resolveBackendAssetUrl(doc?.url)

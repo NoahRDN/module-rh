@@ -532,8 +532,6 @@ const parseDate = (date) => {
   return Number.isNaN(parsed.getTime()) ? null : parsed
 }
 
-const fmt = (date) => (date ? String(date).split('T')[0] : '')
-
 const formatDisplayDate = (date) => {
   const parsed = parseDate(date)
   if (!parsed) return '—'
@@ -543,8 +541,8 @@ const formatDisplayDate = (date) => {
 }
 
 const formatPeriod = (start, end) => {
-  const startValue = fmt(start) || '—'
-  const endValue = fmt(end) || '—'
+  const startValue = formatDisplayDate(start) || '—'
+  const endValue = formatDisplayDate(end) || '—'
   return `${startValue} -> ${endValue}`
 }
 

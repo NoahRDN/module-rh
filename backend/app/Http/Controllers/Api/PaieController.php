@@ -535,28 +535,40 @@ class PaieController extends Controller
     }
 
     /**
-     * État de paie (agrégation) pour un mois (YYYY-MM) ou une année (YYYY).
+     * État de paie pour un mois (YYYY-MM), une année (YYYY) ou une période.
      * - mois=YYYY-MM -> détails par employé + totaux mois
      * - annee=YYYY -> totaux annuels + totaux par mois
+     * - debut=YYYY-MM&fin=YYYY-MM -> totaux période + totaux par mois
      */
     public function etat(Request $request)
     {
         $validated = $request->validate([
             'mois' => 'nullable|date_format:Y-m',
             'annee' => 'nullable|digits:4',
+            'debut' => 'nullable|date_format:Y-m',
+            'fin' => 'nullable|date_format:Y-m|after_or_equal:debut',
             'paiement' => 'nullable|in:prevision,paye',
             'statut' => 'nullable|in:tous,non_genere,en_attente_validation,non_paye,paiement_en_validation,paye',
         ]);
 
         $mois = $validated['mois'] ?? null;
         $annee = $validated['annee'] ?? null;
+        $debut = $validated['debut'] ?? null;
+        $fin = $validated['fin'] ?? null;
         $statut = $validated['statut'] ?? null;
         if (!$statut && ($validated['paiement'] ?? null) === 'paye') {
             $statut = 'paye';
         }
         $statut = $statut ?: 'tous';
 
-        if (!$mois && !$annee) {
+        if ($debut || $fin) {
+            $debut = $debut ?: $fin;
+            $fin = $fin ?: $debut;
+            $mois = null;
+            $annee = null;
+        }
+
+        if (!$mois && !$annee && !$debut) {
             $mois = now()->format('Y-m');
             $annee = now()->format('Y');
         }
@@ -566,9 +578,13 @@ class PaieController extends Controller
         }
 
         if (!$mois) {
-            $pattern = "{$annee}-%";
+            $baseQuery = Paie::query();
+            if ($debut && $fin) {
+                $baseQuery->whereBetween('mois', [$debut, $fin]);
+            } else {
+                $baseQuery->where('mois', 'like', "{$annee}-%");
+            }
 
-            $baseQuery = Paie::query()->where('mois', 'like', $pattern);
             if ($statut === 'paye') {
                 $baseQuery->whereNotNull('paye_le');
             } elseif ($statut === 'non_paye') {
@@ -602,10 +618,20 @@ class PaieController extends Controller
                 ->orderBy('mois')
                 ->get();
 
+            $statusCounts = Paie::query()
+                ->when($debut && $fin, fn ($query) => $query->whereBetween('mois', [$debut, $fin]))
+                ->when(!$debut, fn ($query) => $query->where('mois', 'like', "{$annee}-%"))
+                ->get()
+                ->map(fn (Paie $paie) => $this->statutPaie($paie))
+                ->countBy()
+                ->all();
+
             return response()->json([
                 'periode' => [
-                    'annee' => (int) $annee,
+                    'annee' => $annee ? (int) $annee : null,
                     'mois' => null,
+                    'debut' => $debut,
+                    'fin' => $fin,
                     'statut' => $statut,
                 ],
                 'totaux' => [
@@ -619,6 +645,21 @@ class PaieController extends Controller
                     'prime_transport' => (float) ($totaux->prime_transport ?? 0),
                     'prime_presence' => (float) ($totaux->prime_presence ?? 0),
                     'autres_primes' => (float) ($totaux->autres_primes ?? 0),
+                    'reste_a_payer' => (float) ($totaux->net_a_payer ?? 0),
+                    'deja_paye' => $statut === 'paye' || $statut === 'tous'
+                        ? (float) Paie::query()
+                            ->when($debut && $fin, fn ($query) => $query->whereBetween('mois', [$debut, $fin]))
+                            ->when(!$debut, fn ($query) => $query->where('mois', 'like', "{$annee}-%"))
+                            ->whereNotNull('paye_le')
+                            ->sum('net_a_payer')
+                        : 0,
+                ],
+                'status_counts' => [
+                    'non_genere' => 0,
+                    'en_attente_validation' => (int) ($statusCounts['en_attente_validation'] ?? 0),
+                    'non_paye' => (int) ($statusCounts['non_paye'] ?? 0),
+                    'paiement_en_validation' => (int) ($statusCounts['paiement_en_validation'] ?? 0),
+                    'paye' => (int) ($statusCounts['paye'] ?? 0),
                 ],
                 'par_mois' => $parMois,
             ]);
@@ -663,6 +704,8 @@ class PaieController extends Controller
             'periode' => [
                 'annee' => (int) $annee,
                 'mois' => $mois,
+                'debut' => null,
+                'fin' => null,
                 'statut' => $statut,
             ],
             'totaux' => $totaux,
@@ -851,12 +894,7 @@ class PaieController extends Controller
                 ->orderByDesc('date_debut')
                 ->firstOrFail();
 
-            $salaireBase = (float) $contrat->salaire_base;
-            $appliedRemunerationItems = $this->remunerationItemService->resolveForEmploye($contrat->employe, $validated['mois']);
-            $remunerationItemsTotal = (float) $appliedRemunerationItems->sum(fn ($item) => (float) $item->montant);
-            $primeTransport = (float) ($param?->prime_transport ?? 0);
-            $primePresence = (float) ($param?->prime_presence ?? 0);
-            $totalBrut = $salaireBase + $primeTransport + $primePresence + $remunerationItemsTotal;
+            $forecast = $this->buildPaieForecast($contrat, $validated['mois'], $param);
 
             return response()->json([
                 'paie' => [
@@ -864,23 +902,25 @@ class PaieController extends Controller
                     'employe_id' => $contrat->employe_id,
                     'mois' => $validated['mois'],
                     'employe' => $contrat->employe,
-                    'salaire_base' => $salaireBase,
-                    'heures_travaillees' => 0,
-                    'heures_supplementaires' => 0,
-                    'montant_hs' => 0,
-                    'prime_transport' => $primeTransport,
-                    'prime_presence' => $primePresence,
-                    'autres_primes' => $remunerationItemsTotal,
-                    'retenue_cnaps' => 0,
-                    'retenue_ostie' => 0,
-                    'retenue_irsa' => 0,
-                    'total_brut' => $totalBrut,
-                    'total_retenues' => 0,
-                    'net_a_payer' => $totalBrut,
+                    'salaire_base' => $forecast['salaire_base'],
+                    'heures_travaillees' => $forecast['heures_travaillees'],
+                    'heures_supplementaires' => $forecast['heures_supplementaires'],
+                    'montant_hs' => $forecast['montant_hs'],
+                    'heures_nuit' => $forecast['heures_nuit'],
+                    'montant_nuit' => $forecast['montant_nuit'],
+                    'prime_transport' => $forecast['prime_transport'],
+                    'prime_presence' => $forecast['prime_presence'],
+                    'autres_primes' => $forecast['autres_primes'],
+                    'retenue_cnaps' => $forecast['retenue_cnaps'],
+                    'retenue_ostie' => $forecast['retenue_ostie'],
+                    'retenue_irsa' => $forecast['retenue_irsa'],
+                    'total_brut' => $forecast['total_brut'],
+                    'total_retenues' => $forecast['total_retenues'],
+                    'net_a_payer' => $forecast['net_a_payer'],
                     'demande_validation_le' => null,
                     'valide_le' => null,
                     'paye_le' => null,
-                    'details' => [],
+                    'details' => $forecast['details'],
                 ],
                 'contrat' => $contrat,
                 'mouvement_paiement' => null,
@@ -888,13 +928,16 @@ class PaieController extends Controller
                     'code' => 'non_genere',
                     'label' => $this->statutPaieLabel('non_genere'),
                 ],
-                'resume' => $this->resumePaie(null),
+                'resume' => $forecast['resume'],
                 'retenues' => [
-                    ['label' => 'CNAPS', 'montant' => 0],
-                    ['label' => 'OSTIE', 'montant' => 0],
-                    ['label' => 'IRSA', 'montant' => 0],
+                    ['label' => 'CNAPS employé', 'montant' => $forecast['retenue_cnaps']],
+                    ['label' => 'OSTIE employé', 'montant' => $forecast['retenue_ostie']],
+                    ['label' => 'IRSA', 'montant' => $forecast['retenue_irsa']],
                 ],
-                'primes' => $this->buildForecastPrimesResponse($primeTransport, $primePresence, $appliedRemunerationItems),
+                'primes' => $forecast['primes'],
+                'charges_patronales' => $forecast['charges_patronales'],
+                'cotisations_a_reverser' => $forecast['cotisations_a_reverser'],
+                'prevision_breakdown' => $forecast['breakdown'],
             ]);
         } catch (\Throwable $e) {
             Log::error('Erreur prévision paie', ['data' => $validated, 'error' => $e->getMessage()]);
@@ -969,8 +1012,7 @@ class PaieController extends Controller
             $paie = $paies->get($contrat->employe_id);
             $statut = $this->statutPaie($paie);
             $mouvementPaiement = $paie ? $paiementMouvements->get($paie->id) : null;
-            $remunerationTotal = $this->remunerationItemService->totalForEmploye($contrat->employe, $mois);
-            $forecast = (float) $contrat->salaire_base + $primeTransport + $primePresence + $remunerationTotal;
+            $forecast = $this->buildPaieForecast($contrat, $mois, null, false);
 
             return [
                 'employe_id' => $contrat->employe_id,
@@ -979,7 +1021,11 @@ class PaieController extends Controller
                 'contrat_debut' => optional($contrat->date_debut)->toDateString(),
                 'contrat_fin' => optional($contrat->date_fin)->toDateString(),
                 'employe' => $contrat->employe,
-                'salaire_previsionnel' => $forecast,
+                'salaire_previsionnel' => $forecast['cout_reel_entreprise'],
+                'net_a_payer_previsionnel' => $forecast['net_a_payer'],
+                'brut_previsionnel' => $forecast['total_brut'],
+                'charges_patronales' => $forecast['charges_patronales']['total'],
+                'cotisations_a_reverser' => $forecast['cotisations_a_reverser']['total'],
                 'paie_id' => $paie?->id,
                 'statut' => $statut,
                 'statut_label' => $this->statutPaieLabel($statut),
@@ -1000,6 +1046,121 @@ class PaieController extends Controller
                 'details_paie' => $this->resumePaie($paie),
             ];
         });
+    }
+
+    protected function buildPaieForecast(Contrat $contrat, string $mois, ?PaieParametre $param = null, bool $withDetails = true): array
+    {
+        $param = $param ?: PaieParametre::first();
+        $employe = $contrat->employe;
+        $salaireBase = (float) $contrat->salaire_base;
+        $tauxHoraire = $salaireBase > 0 ? $salaireBase / 173.33 : 0;
+        $items = $this->remunerationItemService->resolveForEmploye($employe, $mois);
+
+        $primeTransport = (float) ($param?->prime_transport ?? 0);
+        $primePresence = (float) ($param?->prime_presence ?? 0);
+
+        [$heuresTrav, $details, $absences, $retardsTotal, $heuresManquantes] = $this->calculerHeuresMois($employe->id, $mois);
+        [$heuresSup, $montantHs, $heuresNuit, $montantNuit] = $this->calculerHsHebdo($details, $tauxHoraire);
+
+        $primesBrut = (float) $items
+            ->where('nature', 'prime')
+            ->sum(fn ($item) => (float) $item->montant);
+        $indemnitesNettes = (float) $items
+            ->where('nature', 'indemnite')
+            ->sum(fn ($item) => (float) $item->montant);
+
+        $brut = $salaireBase + $montantHs + $montantNuit + $primePresence + $primesBrut;
+
+        $baseCnaps = min($brut, (float) ($param?->cnaps_plafond ?? $brut));
+        $cnapsEmploye = $baseCnaps * ((float) ($param?->cnaps_taux_employe ?? $param?->cnaps ?? 0) / 100);
+        $ostieEmploye = $brut * ((float) ($param?->ostie_taux_employe ?? $param?->ostie ?? 0) / 100);
+        $cnapsEmployeur = $baseCnaps * ((float) ($param?->cnaps_taux_employeur ?? 0) / 100);
+        $ostieEmployeur = $brut * ((float) ($param?->ostie_taux_employeur ?? 0) / 100);
+        $revenuImposable = max(0, $brut - $cnapsEmploye - $ostieEmploye);
+        $irsa = $this->calculerIrsaProgressif($revenuImposable);
+
+        $settings = $this->loadWorktimeSettings();
+        $deductionRetards = ($retardsTotal / 60) * $tauxHoraire;
+        $deductionAbsences = $absences * ($salaireBase / 30);
+        $deductionPartiel = $heuresManquantes * $tauxHoraire;
+        $deductionsPresence = (bool) ($settings['deduct_from_salary'] ?? true)
+            ? $deductionRetards + $deductionAbsences + $deductionPartiel
+            : 0;
+
+        $retenues = $cnapsEmploye + $ostieEmploye + $irsa + $deductionsPresence;
+        $netSalaire = $brut - $retenues;
+        $indemnitesAPayer = $primeTransport + $indemnitesNettes;
+        $net = $netSalaire + $indemnitesAPayer;
+        $chargesPatronales = $cnapsEmployeur + $ostieEmployeur;
+        $coutReelEntreprise = $brut + $chargesPatronales + $indemnitesAPayer;
+
+        return [
+            'salaire_base' => round($salaireBase, 2),
+            'heures_travaillees' => round((float) $heuresTrav, 2),
+            'heures_supplementaires' => round((float) $heuresSup, 2),
+            'montant_hs' => round((float) $montantHs, 2),
+            'heures_nuit' => round((float) $heuresNuit, 2),
+            'montant_nuit' => round((float) $montantNuit, 2),
+            'prime_transport' => round($primeTransport, 2),
+            'prime_presence' => round($primePresence, 2),
+            'autres_primes' => round($primesBrut + $indemnitesNettes, 2),
+            'retenue_cnaps' => round($cnapsEmploye, 2),
+            'retenue_ostie' => round($ostieEmploye, 2),
+            'retenue_irsa' => round($irsa, 2),
+            'total_brut' => round($brut, 2),
+            'total_retenues' => round($retenues, 2),
+            'net_a_payer' => round($net, 2),
+            'net_salaire' => round($netSalaire, 2),
+            'indemnites_a_payer' => round($indemnitesAPayer, 2),
+            'cout_reel_entreprise' => round($coutReelEntreprise, 2),
+            'details' => $withDetails ? $details : [],
+            'resume' => [
+                'heures_travaillees' => round((float) $heuresTrav, 2),
+                'heures_supplementaires' => round((float) $heuresSup, 2),
+                'retard_minutes' => round((float) $retardsTotal, 2),
+                'absences' => (int) $absences,
+                'absences_justifiees' => collect($details)->where('absence_justifiee', true)->count(),
+                'jours_feries' => collect($details)->where('ferie', true)->count(),
+                'weekends' => collect($details)->where('weekend', true)->count(),
+            ],
+            'primes' => $this->buildForecastPrimesResponse($primeTransport, $primePresence, $items),
+            'charges_patronales' => [
+                'cnaps' => round($cnapsEmployeur, 2),
+                'ostie' => round($ostieEmployeur, 2),
+                'total' => round($chargesPatronales, 2),
+            ],
+            'cotisations_a_reverser' => [
+                'cnaps' => round($cnapsEmploye + $cnapsEmployeur, 2),
+                'ostie' => round($ostieEmploye + $ostieEmployeur, 2),
+                'irsa' => round($irsa, 2),
+                'total' => round($cnapsEmploye + $cnapsEmployeur + $ostieEmploye + $ostieEmployeur + $irsa, 2),
+            ],
+            'breakdown' => [
+                'primes_recurrentes' => round($this->sumRemunerationItems($items, 'prime', 'recurrent'), 2),
+                'indemnites_recurrentes' => round($this->sumRemunerationItems($items, 'indemnite', 'recurrent'), 2),
+                'primes_ponctuelles' => round($this->sumRemunerationItems($items, 'prime', 'ponctuel'), 2),
+                'indemnites_ponctuelles' => round($this->sumRemunerationItems($items, 'indemnite', 'ponctuel'), 2),
+                'salaire_brut' => round($brut, 2),
+                'charges_salariales' => round($retenues, 2),
+                'net_salaire' => round($netSalaire, 2),
+                'indemnites_a_payer' => round($indemnitesAPayer, 2),
+                'net_a_payer_employe' => round($net, 2),
+                'cotisations_patronales' => round($chargesPatronales, 2),
+                'remboursements_non_imposables' => round($indemnitesAPayer, 2),
+                'cout_reel_entreprise' => round($coutReelEntreprise, 2),
+                'deduction_retards' => round($deductionRetards, 2),
+                'deduction_absences' => round($deductionAbsences, 2),
+                'deduction_presence_partielle' => round($deductionPartiel, 2),
+            ],
+        ];
+    }
+
+    protected function sumRemunerationItems($items, string $nature, string $recurrence): float
+    {
+        return (float) $items
+            ->where('nature', $nature)
+            ->where('recurrence_type', $recurrence)
+            ->sum(fn ($item) => (float) $item->montant);
     }
 
     protected function buildPaiePrimesResponse(Paie $paie): array

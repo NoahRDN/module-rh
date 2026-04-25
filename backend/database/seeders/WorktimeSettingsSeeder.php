@@ -16,6 +16,7 @@ class WorktimeSettingsSeeder extends Seeder
                 'saturday_mode' => config('worktime.saturday_mode'),
                 'start_hour' => config('worktime.start_hour'),
                 'start_minute' => config('worktime.start_minute'),
+                'retard_tolerance_minutes' => config('worktime.retard_tolerance_minutes', 0),
                 'hours_per_day' => config('worktime.hours_per_day'),
                 'weekly_threshold' => config('worktime.weekly_threshold'),
                 'multipliers' => config('worktime.multipliers'),

@@ -247,6 +247,7 @@ class PaieController extends Controller
         $hoursPerDay = (float) ($settings['hours_per_day'] ?? 8);
         $startHour = (int) ($settings['start_hour'] ?? 8);
         $startMinute = (int) ($settings['start_minute'] ?? 0);
+        $retardTolerance = (int) ($settings['retard_tolerance_minutes'] ?? 0);
         $workingDays = $settings['working_days'] ?? ['mon','tue','wed','thu','fri'];
         $saturdayMode = $settings['saturday_mode'] ?? 'normal';
 
@@ -316,7 +317,7 @@ class PaieController extends Controller
         $heureTheorique = (clone $date)->setTime($startHour, $startMinute, 0);
         $retardMinutes = 0;
         if (!$isHoliday && !$isWeekend && $debut->greaterThan($heureTheorique)) {
-            $retardMinutes = $heureTheorique->diffInMinutes($debut);
+            $retardMinutes = max(0, $heureTheorique->diffInMinutes($debut) - $retardTolerance);
         }
 
         $presentPartiel = $heuresTravaillees > 0 && $heuresTravaillees < $hoursPerDay && !$isHoliday && !$isWeekend;
@@ -477,6 +478,7 @@ class PaieController extends Controller
                 'saturday_mode' => $setting->saturday_mode ?: config('worktime.saturday_mode'),
                 'start_hour' => $setting->start_hour ?? config('worktime.start_hour'),
                 'start_minute' => $setting->start_minute ?? config('worktime.start_minute'),
+                'retard_tolerance_minutes' => $setting->retard_tolerance_minutes ?? config('worktime.retard_tolerance_minutes', 0),
                 'hours_per_day' => $setting->hours_per_day ?? config('worktime.hours_per_day'),
                 'weekly_threshold' => $setting->weekly_threshold ?? config('worktime.weekly_threshold'),
                 'multipliers' => $setting->multipliers ?: config('worktime.multipliers'),

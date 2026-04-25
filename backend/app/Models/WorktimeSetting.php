@@ -11,6 +11,7 @@ class WorktimeSetting extends Model
         'saturday_mode',
         'start_hour',
         'start_minute',
+        'retard_tolerance_minutes',
         'hours_per_day',
         'weekly_threshold',
         'multipliers',

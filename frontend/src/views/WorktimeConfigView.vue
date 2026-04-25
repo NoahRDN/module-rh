@@ -110,6 +110,11 @@
             </label>
 
             <label class="rh-field-card">
+              <span class="rh-field-label">Retard tolérable (min)</span>
+              <input class="input" type="number" min="0" step="1" v-model.number="form.retard_tolerance_minutes" />
+            </label>
+
+            <label class="rh-field-card">
               <span class="rh-field-label">Seuil hebdomadaire</span>
               <input class="input" type="number" step="0.1" v-model.number="form.weekly_threshold" />
             </label>
@@ -234,6 +239,7 @@ const form = ref({
   saturday_mode: 'hs',
   start_hour: 8,
   start_minute: 0,
+  retard_tolerance_minutes: 0,
   hours_per_day: 8,
   weekly_threshold: 40,
   multipliers: {
@@ -316,6 +322,12 @@ const metrics = computed(() => {
       label: 'Heures par jour',
       value: `${form.value.hours_per_day || 0} h`,
       caption: 'Base utilisée pour les écarts',
+    },
+    {
+      tag: 'Delay',
+      label: 'Tolérance retard',
+      value: `${form.value.retard_tolerance_minutes || 0} min`,
+      caption: 'Retard compté au-delà de ce seuil',
     },
     {
       tag: 'Weekly',

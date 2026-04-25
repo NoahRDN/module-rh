@@ -185,6 +185,7 @@ class PointageController extends Controller
         $saturdayMode = $settings['saturday_mode'] ?? 'normal';
         $startHour = (int) ($settings['start_hour'] ?? 8);
         $startMinute = (int) ($settings['start_minute'] ?? 0);
+        $retardTolerance = (int) ($settings['retard_tolerance_minutes'] ?? 0);
         $hoursPerDay = (float) ($settings['hours_per_day'] ?? 8);
         $pauseMinutes = (int) ($settings['pause_minutes'] ?? 60);
 
@@ -257,7 +258,7 @@ class PointageController extends Controller
         $heureTheorique = (clone $dateObj)->setTime($startHour, $startMinute, 0);
         $retardMinutes = 0;
         if (!$isHoliday && !$isSunday && !($isSaturday && !$isWorkingDay) && $debut->greaterThan($heureTheorique)) {
-            $retardMinutes = $heureTheorique->diffInMinutes($debut);
+            $retardMinutes = max(0, $heureTheorique->diffInMinutes($debut) - $retardTolerance);
         }
 
         // Présence partielle si heures < heures_per_day
@@ -333,6 +334,7 @@ class PointageController extends Controller
                 'saturday_mode' => $setting->saturday_mode ?: config('worktime.saturday_mode'),
                 'start_hour' => $setting->start_hour ?? config('worktime.start_hour'),
                 'start_minute' => $setting->start_minute ?? config('worktime.start_minute'),
+                'retard_tolerance_minutes' => $setting->retard_tolerance_minutes ?? config('worktime.retard_tolerance_minutes', 0),
                 'hours_per_day' => $setting->hours_per_day ?? config('worktime.hours_per_day'),
                 'weekly_threshold' => $setting->weekly_threshold ?? config('worktime.weekly_threshold'),
                 'multipliers' => $setting->multipliers ?: config('worktime.multipliers'),

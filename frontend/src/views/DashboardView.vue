@@ -223,39 +223,6 @@
           </article>
 
           <section class="detail-grid">
-            <article class="card section-card performers-card">
-              <div class="section-heading">
-                <div>
-                  <p class="section-kicker">Top performers</p>
-                  <h2>Talents mis en avant</h2>
-                </div>
-                <RouterLink to="/performances" class="btn btn-secondary btn-sm">Voir tout</RouterLink>
-              </div>
-
-              <p class="section-copy">
-                Les meilleures évaluations restent visibles dans un bloc séparé, sans surcharger le
-                panneau latéral.
-              </p>
-
-              <div class="performers-list" v-if="topPerformers.length">
-                <div v-for="(perf, index) in topPerformers" :key="perf.employe?.id || index" class="performer-item">
-                  <span class="rank">{{ index + 1 }}</span>
-                  <div class="performer-info">
-                    <span class="name">{{ normalizeEmployeName(perf.employe) }}</span>
-                    <span class="role">{{ normalizePoste(perf.employe) }}</span>
-                  </div>
-                  <div class="score-badge" :class="getScoreClass(perf.score)">
-                    {{ perf.score }}%
-                  </div>
-                </div>
-              </div>
-
-              <div v-else class="empty-state compact">
-                <p>Aucune évaluation disponible</p>
-                <span>Les meilleurs profils apparaîtront ici dès que des scores seront calculés.</span>
-              </div>
-            </article>
-
             <article class="card section-card recent-card">
               <div class="section-heading">
                 <div>
@@ -297,35 +264,6 @@
           </section>
         </div>
 
-        <aside class="card section-card insights-card">
-          <div class="section-heading compact">
-            <div>
-              <p class="section-kicker">Overview</p>
-              <h2>Résumé opérationnel</h2>
-            </div>
-          </div>
-
-          <p class="summary-intro">
-            Lecture synthétique de l’organisation pour prioriser les actions RH, les points d’attention
-            et les zones stables.
-          </p>
-
-          <div class="overview-grid">
-            <article v-for="card in overviewCards" :key="card.label" class="overview-card">
-              <span class="overview-chip">{{ card.tag }}</span>
-              <p class="overview-label">{{ card.label }}</p>
-              <p class="overview-value">{{ card.value }}</p>
-              <p class="overview-copy">{{ card.copy }}</p>
-            </article>
-          </div>
-
-          <div class="notes-card">
-            <h3>Repères rapides</h3>
-            <ul>
-              <li v-for="note in dashboardNotes" :key="note">{{ note }}</li>
-            </ul>
-          </div>
-        </aside>
       </section>
     </template>
   </div>
@@ -343,7 +281,6 @@ const filtre = ref('annee')
 const dateRef = ref(new Date().toISOString().split('T')[0])
 const statsData = ref({})
 const alertes = ref([])
-const topPerformers = ref([])
 const derniersEmployes = ref([])
 const loading = ref(false)
 const loadStatus = ref({ type: '', text: '' })
@@ -365,7 +302,6 @@ const hasAges = computed(() => {
 const alertesCritiques = computed(() => alertes.value.filter((item) => item.level === 'danger').length)
 const activeHeadcount = computed(() => Number(statsData.value.effectifs?.actifs || 0))
 const newEmployees = computed(() => Number(statsData.value.effectifs?.nouveaux || 0))
-const turnover = computed(() => Number(statsData.value.indicateurs?.turnover || 0))
 const absenteisme = computed(() => Number(statsData.value.indicateurs?.absenteisme || 0))
 const performance = computed(() => Number(statsData.value.indicateurs?.performance_moyenne || 0))
 const anciennete = computed(() => Number(statsData.value.indicateurs?.anciennete_moyenne || 0))
@@ -399,12 +335,6 @@ const metricCards = computed(() => [
     value: formatInteger(activeHeadcount.value),
     caption: newEmployees.value > 0 ? `+${formatInteger(newEmployees.value)} nouvelles entrées` : 'Aucune nouvelle entrée',
     tag: 'People',
-  },
-  {
-    label: 'Turnover',
-    value: `${formatDecimal(turnover.value)}%`,
-    caption: turnover.value < 10 ? 'Niveau stable' : 'Point de vigilance',
-    tag: 'Retention',
   },
   {
     label: 'Absentéisme',
@@ -485,9 +415,9 @@ const dashboardNotes = computed(() => [
   topDepartment.value
     ? `${topDepartment.value.label} reste le pôle le plus représenté avec ${formatInteger(topDepartment.value.value)} collaborateurs.`
     : 'La répartition par département est encore indisponible.',
-  turnover.value < 10 && absenteisme.value < 5
-    ? 'Le turnover et l’absentéisme restent dans une zone globalement maîtrisée.'
-    : 'Le turnover ou l’absentéisme mérite une lecture plus attentive.',
+  absenteisme.value < 5
+    ? 'L’absentéisme reste dans une zone globalement maîtrisée.'
+    : 'L’absentéisme mérite une lecture plus attentive.',
 ])
 
 let charts = {}
@@ -516,18 +446,16 @@ const loadData = async () => {
   loadStatus.value = { type: '', text: '' }
 
   try {
-    const [statsRes, alertesRes, perfRes, empRes] = await Promise.all([
+    const [statsRes, alertesRes, empRes] = await Promise.all([
       api.get('/v1/dashboard/statistiques', {
         params: { filtre: filtre.value, date: dateRef.value },
       }),
       api.get('/v1/alertes'),
-      api.get('/v1/dashboard/top-performers', { params: { limite: 5 } }),
       api.get('/v1/employes', { params: { per_page: 5, sort: 'recent' } }),
     ])
 
     statsData.value = statsRes.data || {}
     alertes.value = alertesRes.data.data || []
-    topPerformers.value = perfRes.data.data || []
 
     const empData = empRes.data.data || empRes.data || []
     derniersEmployes.value = Array.isArray(empData) ? empData : []
@@ -550,7 +478,6 @@ const loadData = async () => {
         tendances: [],
       }
       alertes.value = []
-      topPerformers.value = []
       lastRefreshedAt.value = new Date()
     } catch (fallbackError) {
       console.error('Erreur fallback dashboard:', fallbackError)
@@ -561,7 +488,6 @@ const loadData = async () => {
         tendances: [],
       }
       alertes.value = []
-      topPerformers.value = []
       derniersEmployes.value = []
       lastRefreshedAt.value = new Date()
     }
@@ -754,13 +680,6 @@ const observeTheme = () => {
   }
 }
 
-const getScoreClass = (score) => {
-  if (score >= 90) return 'score-excellent'
-  if (score >= 75) return 'score-good'
-  if (score >= 60) return 'score-average'
-  return 'score-low'
-}
-
 const formatAlertType = (type) => {
   const types = {
     fin_contrat: 'Contrat',
@@ -794,13 +713,6 @@ const formatAlertMessage = (message) => {
   })
 }
 
-const normalizeEmployeName = (employe) => {
-  if (!employe) return 'Profil non défini'
-  return `${employe.nom || ''} ${employe.prenom || ''}`.trim() || employe.name || 'Profil non défini'
-}
-
-const normalizePoste = (employe) => employe?.poste?.nom || employe?.poste || 'Poste non défini'
-
 const formatInteger = (value) => new Intl.NumberFormat('fr-FR').format(Number(value || 0))
 const formatDecimal = (value) =>
   new Intl.NumberFormat('fr-FR', {
@@ -828,8 +740,12 @@ onUnmounted(() => {
 
 .summary-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.95fr);
+  grid-template-columns: 1fr;
   gap: 18px;
+}
+
+.content-grid {
+  grid-template-columns: 1fr;
 }
 
 .chart-head {
@@ -1076,6 +992,10 @@ body[data-theme='dark'] .priority-item {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
+}
+
+.recent-card {
+  grid-column: span 2;
 }
 
 .empty-table {

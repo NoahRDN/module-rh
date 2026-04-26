@@ -45,6 +45,21 @@
             </select>
           </label>
 
+          <label class="field-card" v-if="mode === 'mois'">
+            <span class="field-label">Matricule</span>
+            <input class="input" v-model="detailFilters.matricule" placeholder="EMP-001" list="paie-etat-matricules" />
+          </label>
+
+          <label class="field-card" v-if="mode === 'mois'">
+            <span class="field-label">Nom employé</span>
+            <input class="input" v-model="detailFilters.nom" placeholder="Nom ou prénom" list="paie-etat-noms" />
+          </label>
+
+          <label class="field-card" v-if="mode === 'mois'">
+            <span class="field-label">Contrat</span>
+            <input class="input" v-model="detailFilters.contrat" placeholder="Numéro contrat" list="paie-etat-contrats" />
+          </label>
+
           <div class="action-row" v-if="mode === 'mois'">
             <label class="field-card">
               <span class="field-label">Année</span>
@@ -78,6 +93,16 @@
             <span class="status-dot"></span>
             <span>{{ error }}</span>
           </div>
+
+          <datalist id="paie-etat-matricules">
+            <option v-for="matricule in optionsMatricules" :key="matricule" :value="matricule" />
+          </datalist>
+          <datalist id="paie-etat-noms">
+            <option v-for="nom in optionsNoms" :key="nom" :value="nom" />
+          </datalist>
+          <datalist id="paie-etat-contrats">
+            <option v-for="contrat in optionsContrats" :key="contrat" :value="contrat" />
+          </datalist>
         </div>
       </div>
     </section>
@@ -151,7 +176,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="row in details" :key="`${row.employe_id}-${row.contrat_id}`">
+              <tr v-for="row in detailsFiltres" :key="`${row.employe_id}-${row.contrat_id}`">
                 <td class="cell-stack">
                   <div class="type-name">{{ row.employe?.matricule || '—' }}</div>
                   <div class="muted">{{ fullName(row.employe) }}</div>
@@ -218,7 +243,7 @@
                   </div>
                 </td>
               </tr>
-              <tr v-if="!details.length">
+              <tr v-if="!detailsFiltres.length">
                 <td colspan="11" class="muted">Aucun employé ne correspond à la période et au statut.</td>
               </tr>
             </tbody>
@@ -262,6 +287,7 @@ const paymentSummary = ref({})
 const paymentDue = ref({})
 const caisses = ref([])
 const selectedCaisseByPaie = ref({})
+const detailFilters = ref({ matricule: '', nom: '', contrat: '' })
 
 const monthOptions = [
   { value: '01', label: 'Janvier' },
@@ -386,6 +412,32 @@ const allMetrics = computed(() => [
   ...contributionMetrics.value,
   ...paymentMetrics.value,
 ])
+
+const optionsMatricules = computed(() =>
+  [...new Set(details.value.map((item) => item.employe?.matricule).filter(Boolean))],
+)
+
+const optionsNoms = computed(() =>
+  [...new Set(details.value.map((item) => fullName(item.employe)).filter((value) => value && value !== '—'))],
+)
+
+const optionsContrats = computed(() =>
+  [...new Set(details.value.map((item) => item.contrat_numero || (item.contrat_id ? `#${item.contrat_id}` : '')).filter(Boolean))],
+)
+
+const detailsFiltres = computed(() => {
+  const f = detailFilters.value
+  const toStr = (value) => String(value || '').toLowerCase()
+
+  return details.value.filter((item) => {
+    const contratLabel = item.contrat_numero || (item.contrat_id ? `#${item.contrat_id}` : '')
+    return (
+      toStr(item.employe?.matricule).includes(toStr(f.matricule)) &&
+      toStr(fullName(item.employe)).includes(toStr(f.nom)) &&
+      toStr(contratLabel).includes(toStr(f.contrat))
+    )
+  })
+})
 
 const statusClass = (statut) => ({
   'muted-chip': statut === 'non_genere',

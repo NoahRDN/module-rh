@@ -95,36 +95,6 @@
         </form>
       </article>
 
-      <aside class="card rh-section-card rh-side-card">
-        <div class="rh-section-heading compact">
-          <div>
-            <p class="rh-section-kicker">Overview</p>
-            <h2>Résumé de calcul</h2>
-          </div>
-        </div>
-
-        <p class="rh-summary-intro">
-          Contrôlez rapidement l’état de la génération, le collaborateur ciblé et le mois traité.
-        </p>
-
-        <div class="rh-overview-grid">
-          <article v-for="card in overviewCards" :key="card.label" class="rh-overview-card">
-            <span class="rh-overview-chip">{{ card.tag }}</span>
-            <p class="rh-overview-label">{{ card.label }}</p>
-            <p class="rh-overview-value">{{ card.value }}</p>
-            <p class="rh-overview-copy">{{ card.copy }}</p>
-          </article>
-        </div>
-
-        <div class="rh-notes-card">
-          <h3>Repères rapides</h3>
-          <ul>
-            <li>La génération doit être relancée après tout changement de collaborateur ou de mois.</li>
-            <li>Le PDF n’est disponible qu’après calcul réussi d’un bulletin.</li>
-            <li>Le panneau de droite résume l’état courant sans surcharger le formulaire.</li>
-          </ul>
-        </div>
-      </aside>
     </section>
 
     <article class="card rh-section-card" v-if="paie">
@@ -338,6 +308,10 @@ onMounted(fetchEmployes)
 </script>
 
 <style scoped>
+.rh-content-grid {
+  grid-template-columns: 1fr;
+}
+
 .form-grid {
   display: grid;
   gap: 14px;

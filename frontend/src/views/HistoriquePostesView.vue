@@ -90,7 +90,7 @@
 
           <label class="field-card">
             <span class="field-label">Matricule</span>
-            <input class="input" placeholder="EMP-001" v-model="filters.matricule" />
+            <input class="input" placeholder="EMP-001" v-model="filters.matricule" list="historique-postes-matricules" />
           </label>
 
           <label class="field-card">
@@ -100,19 +100,39 @@
 
           <label class="field-card">
             <span class="field-label">Poste</span>
-            <input class="input" placeholder="Fonction" v-model="filters.poste" />
+            <input class="input" placeholder="Fonction" v-model="filters.poste" list="historique-postes-postes" />
           </label>
 
           <label class="field-card">
             <span class="field-label">Département</span>
-            <input class="input" placeholder="Structure" v-model="filters.departement" />
+            <input class="input" placeholder="Structure" v-model="filters.departement" list="historique-postes-departements" />
           </label>
 
           <label class="field-card">
             <span class="field-label">Motif</span>
             <input class="input" placeholder="Changement, promotion..." v-model="filters.motif" />
           </label>
+
+          <label class="field-card">
+            <span class="field-label">Entre (début)</span>
+            <input class="input" type="date" v-model="filters.from" />
+          </label>
+
+          <label class="field-card">
+            <span class="field-label">Et (fin)</span>
+            <input class="input" type="date" v-model="filters.to" />
+          </label>
         </div>
+
+        <datalist id="historique-postes-matricules">
+          <option v-for="m in optionsMatricules" :key="m" :value="m" />
+        </datalist>
+        <datalist id="historique-postes-postes">
+          <option v-for="p in optionsPostes" :key="p" :value="p" />
+        </datalist>
+        <datalist id="historique-postes-departements">
+          <option v-for="d in optionsDepartements" :key="d" :value="d" />
+        </datalist>
       </section>
 
       <section class="content-grid">
@@ -208,35 +228,6 @@
           </div>
         </article>
 
-        <aside class="card section-card insights-card">
-          <div class="section-heading compact">
-            <div>
-              <p class="section-kicker">Overview</p>
-              <h2>Résumé mobilité</h2>
-            </div>
-          </div>
-
-          <p class="summary-intro">
-            Lecture rapide des tendances de mobilité pour suivre les flux internes et les motifs les
-            plus fréquents.
-          </p>
-
-          <div class="overview-grid">
-            <article v-for="card in overviewCards" :key="card.label" class="overview-card">
-              <span class="overview-chip">{{ card.tag }}</span>
-              <p class="overview-label">{{ card.label }}</p>
-              <p class="overview-value">{{ card.value }}</p>
-              <p class="overview-copy">{{ card.copy }}</p>
-            </article>
-          </div>
-
-          <div class="notes-card">
-            <h3>Repères rapides</h3>
-            <ul>
-              <li v-for="note in notes" :key="note">{{ note }}</li>
-            </ul>
-          </div>
-        </aside>
       </section>
     </template>
   </div>
@@ -253,7 +244,7 @@ import { formatDateValue } from '../utils/formatters'
 const historiques = ref([])
 const employes = ref([])
 const filterEmploye = ref('')
-const filters = ref({ matricule: '', nom: '', poste: '', departement: '', motif: '' })
+const filters = ref({ matricule: '', nom: '', poste: '', departement: '', motif: '', from: '', to: '' })
 const loading = ref(false)
 const lastRefreshedAt = ref(null)
 const sortKey = ref('date')
@@ -267,8 +258,24 @@ const hasFilters = computed(() =>
     filters.value.nom ||
     filters.value.poste ||
     filters.value.departement ||
-    filters.value.motif,
+    filters.value.motif ||
+    filters.value.from ||
+    filters.value.to,
   ),
+)
+
+const optionsMatricules = computed(() => {
+  const fromEmployees = employes.value.map((item) => item.matricule)
+  const fromHistorique = historiques.value.map((item) => item.employe?.matricule)
+  return [...new Set([...fromEmployees, ...fromHistorique].filter(Boolean))]
+})
+
+const optionsPostes = computed(() =>
+  [...new Set(historiques.value.map((item) => item.poste?.nom).filter(Boolean))],
+)
+
+const optionsDepartements = computed(() =>
+  [...new Set(historiques.value.map((item) => item.departement?.nom).filter(Boolean))],
 )
 
 const fetchHistorique = async () => {
@@ -298,12 +305,21 @@ const fetchEmployes = async () => {
 const historiquesFiltres = computed(() => {
   const f = filters.value
   const toStr = (v) => String(v || '').toLowerCase()
+  const inDateRange = (value) => {
+    if (!value) return !f.from && !f.to
+    const normalized = String(value).slice(0, 10)
+    if (f.from && normalized < f.from) return false
+    if (f.to && normalized > f.to) return false
+    return true
+  }
+
   let list = historiques.value.filter((h) =>
     toStr(h.employe?.matricule).includes(toStr(f.matricule)) &&
     (`${toStr(h.employe?.nom)} ${toStr(h.employe?.prenom)}`).includes(toStr(f.nom)) &&
     toStr(h.poste?.nom).includes(toStr(f.poste)) &&
     toStr(h.departement?.nom).includes(toStr(f.departement)) &&
-    toStr(h.motif).includes(toStr(f.motif))
+    toStr(h.motif).includes(toStr(f.motif)) &&
+    inDateRange(h.date_changement)
   )
   const key = sortKey.value
   const dir = sortDir.value
@@ -337,7 +353,7 @@ const setSort = (key) => {
 const sortLabel = (key) => (sortKey.value === key ? (sortDir.value === 'asc' ? '▲' : '▼') : '')
 const resetFilters = () => {
   filterEmploye.value = ''
-  filters.value = { matricule: '', nom: '', poste: '', departement: '', motif: '' }
+  filters.value = { matricule: '', nom: '', poste: '', departement: '', motif: '', from: '', to: '' }
   sortKey.value = 'date'
   sortDir.value = 'desc'
 }
@@ -581,7 +597,7 @@ onMounted(async () => {
 
 .content-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.8fr) minmax(320px, 0.9fr);
+  grid-template-columns: 1fr;
   gap: 18px;
   align-items: start;
 }

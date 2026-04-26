@@ -119,51 +119,6 @@
         </div>
       </article>
 
-      <aside class="card rh-section-card rh-side-card">
-        <div class="rh-section-heading compact">
-          <div>
-            <p class="rh-section-kicker">Overview</p>
-            <h2>Aperçu opérationnel</h2>
-          </div>
-        </div>
-
-        <p class="rh-summary-intro">
-          Vérifiez rapidement l’état des règles et l’impact immédiat sur les alertes remontées.
-        </p>
-
-        <div class="rh-overview-grid">
-          <article v-for="card in overviewCards" :key="card.label" class="rh-overview-card">
-            <span class="rh-overview-chip">{{ card.tag }}</span>
-            <p class="rh-overview-label">{{ card.label }}</p>
-            <p class="rh-overview-value">{{ card.value }}</p>
-            <p class="rh-overview-copy">{{ card.copy }}</p>
-          </article>
-        </div>
-
-        <div class="preview-list" v-if="alertes.length">
-          <div v-for="(alerte, index) in alertes.slice(0, 6)" :key="index" class="preview-item" :class="'preview-' + alerte.level">
-            <div class="preview-top">
-              <span class="preview-level" :class="'preview-level-' + alerte.level">{{ alerte.level }}</span>
-              <span class="preview-type">{{ formatType(alerte.type) }}</span>
-            </div>
-            <p class="preview-message">{{ alerte.message }}</p>
-          </div>
-        </div>
-
-        <div v-else class="rh-empty-state compact">
-          <p>Aucune alerte active</p>
-          <span>La configuration actuelle ne remonte aucun signal en cours.</span>
-        </div>
-
-        <div class="rh-notes-card">
-          <h3>Repères rapides</h3>
-          <ul>
-            <li>Les seuils sont appliqués dès la prochaine analyse d’alertes.</li>
-            <li>Le niveau de criticité change immédiatement la priorité visuelle des signaux.</li>
-            <li>Les règles inactives restent visibles mais n’alimentent plus le centre d’alertes.</li>
-          </ul>
-        </div>
-      </aside>
     </section>
   </div>
 </template>
@@ -319,6 +274,9 @@ onMounted(() => {
   border-radius: 22px;
   background: rgba(255, 255, 255, 0.72);
   transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.rh-content-grid {
+  grid-template-columns: 1fr;
 }
 
 body[data-theme='dark'] .setting-card {

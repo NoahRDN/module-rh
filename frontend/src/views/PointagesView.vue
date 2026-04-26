@@ -92,7 +92,7 @@
 
           <label class="rh-field-card">
             <span class="rh-field-label">Matricule</span>
-            <input class="input" placeholder="EMP-001" v-model="filtersLocal.matricule" />
+            <input class="input" placeholder="EMP-001" v-model="filtersLocal.matricule" list="pointages-matricules" />
           </label>
 
           <label class="rh-field-card">
@@ -102,19 +102,24 @@
 
           <label class="rh-field-card">
             <span class="rh-field-label">Type</span>
-            <input class="input" placeholder="Entrée, sortie, retard..." v-model="filtersLocal.type" />
+            <select class="select" v-model="filtersLocal.type">
+              <option value="">Tous</option>
+              <option v-for="type in optionsTypes" :key="type" :value="type">{{ type }}</option>
+            </select>
           </label>
 
           <label class="rh-field-card">
             <span class="rh-field-label">Source</span>
-            <input class="input" placeholder="Badge, manuel..." v-model="filtersLocal.source" />
-          </label>
-
-          <label class="rh-field-card">
-            <span class="rh-field-label">Horodatage</span>
-            <input class="input" placeholder="2026-04" v-model="filtersLocal.date" />
+            <select class="select" v-model="filtersLocal.source">
+              <option value="">Toutes</option>
+              <option v-for="source in optionsSources" :key="source" :value="source">{{ source }}</option>
+            </select>
           </label>
         </div>
+
+        <datalist id="pointages-matricules">
+          <option v-for="matricule in optionsMatricules" :key="matricule" :value="matricule" />
+        </datalist>
 
         <div class="rh-table-shell">
           <table class="table pointage-table">
@@ -199,44 +204,6 @@
         </div>
       </article>
 
-      <aside class="card rh-section-card rh-side-card">
-        <div class="rh-section-heading compact">
-          <div>
-            <p class="rh-section-kicker">Overview</p>
-            <h2>Résumé opérationnel</h2>
-          </div>
-        </div>
-
-        <p class="rh-summary-intro">
-          Quelques repères rapides pour voir si la période contient surtout des retards, des absences
-          justifiées ou des pointages normaux.
-        </p>
-
-        <div class="rh-overview-grid">
-          <article v-for="card in overviewCards" :key="card.label" class="rh-overview-card">
-            <span class="rh-overview-chip">{{ card.tag }}</span>
-            <p class="rh-overview-label">{{ card.label }}</p>
-            <p class="rh-overview-value">{{ card.value }}</p>
-            <p class="rh-overview-copy">{{ card.copy }}</p>
-          </article>
-        </div>
-
-        <div class="source-list" v-if="sourceSummary.length">
-          <div v-for="item in sourceSummary" :key="item.label" class="source-item">
-            <span class="source-name">{{ item.label }}</span>
-            <span class="chip">{{ item.value }}</span>
-          </div>
-        </div>
-
-        <div class="rh-notes-card">
-          <h3>Repères rapides</h3>
-          <ul>
-            <li>Les dates de début et de fin déclenchent un rechargement côté API.</li>
-            <li>Les autres filtres affinent la vue localement sans relancer la requête.</li>
-            <li>La pagination conserve les mêmes critères pour la période chargée.</li>
-          </ul>
-        </div>
-      </aside>
     </section>
   </div>
 </template>
@@ -259,7 +226,7 @@ const filters = ref({
   to: '',
 })
 
-const filtersLocal = ref({ matricule: '', nom: '', type: '', source: '', date: '' })
+const filtersLocal = ref({ matricule: '', nom: '', type: '', source: '' })
 const sortKey = ref('date')
 const sortDir = ref('desc')
 const pagination = ref({ page: 1, last_page: 1, total: 0 })
@@ -299,13 +266,13 @@ const fetchEmployes = async () => {
 const pointagesFiltres = computed(() => {
   const f = filtersLocal.value
   const toStr = (value) => String(value || '').toLowerCase()
+
   let list = pointages.value.filter(
     (item) =>
       toStr(item.employe?.matricule).includes(toStr(f.matricule)) &&
       `${toStr(item.employe?.nom)} ${toStr(item.employe?.prenom)}`.includes(toStr(f.nom)) &&
       toStr(item.type).includes(toStr(f.type)) &&
-      toStr(item.source).includes(toStr(f.source)) &&
-      toStr(item.pointe_a).includes(toStr(f.date)),
+      toStr(item.source).includes(toStr(f.source)),
   )
 
   list = [...list].sort((left, right) => {
@@ -323,6 +290,20 @@ const hasFilters = computed(
   () =>
     Object.values(filters.value).some(Boolean) ||
     Object.values(filtersLocal.value).some((value) => Boolean(String(value || '').trim())),
+)
+
+const optionsMatricules = computed(() => {
+  const fromEmployees = employes.value.map((item) => item.matricule)
+  const fromPointages = pointages.value.map((item) => item.employe?.matricule)
+  return [...new Set([...fromEmployees, ...fromPointages].filter(Boolean))]
+})
+
+const optionsTypes = computed(() =>
+  [...new Set(pointages.value.map((item) => item.type).filter(Boolean))],
+)
+
+const optionsSources = computed(() =>
+  [...new Set(pointages.value.map((item) => item.source).filter(Boolean))],
 )
 
 const withJustified = computed(() => pointages.value.filter((item) => Boolean(item.absence_justifiee)).length)
@@ -433,7 +414,7 @@ const sortLabel = (key) => (sortKey.value === key ? (sortDir.value === 'asc' ? '
 
 const resetFilters = () => {
   filters.value = { employe_id: '', from: '', to: '' }
-  filtersLocal.value = { matricule: '', nom: '', type: '', source: '', date: '' }
+  filtersLocal.value = { matricule: '', nom: '', type: '', source: '' }
   pagination.value.page = 1
   fetchPointages()
 }
@@ -476,6 +457,10 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.rh-content-grid {
+  grid-template-columns: 1fr;
+}
+
 .sort-button {
   display: inline-flex;
   align-items: center;

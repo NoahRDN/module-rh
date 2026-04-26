@@ -200,35 +200,6 @@
           </div>
         </article>
 
-        <aside class="card section-card insights-card">
-          <div class="section-heading compact">
-            <div>
-              <p class="section-kicker">Overview</p>
-              <h2>Résumé fonctions</h2>
-            </div>
-          </div>
-
-          <p class="summary-intro">
-            Lecture synthétique du référentiel des postes pour repérer les zones à enrichir ou
-            harmoniser.
-          </p>
-
-          <div class="overview-grid">
-            <article v-for="card in overviewCards" :key="card.label" class="overview-card">
-              <span class="overview-chip">{{ card.tag }}</span>
-              <p class="overview-label">{{ card.label }}</p>
-              <p class="overview-value">{{ card.value }}</p>
-              <p class="overview-copy">{{ card.copy }}</p>
-            </article>
-          </div>
-
-          <div class="notes-card">
-            <h3>Repères rapides</h3>
-            <ul>
-              <li v-for="note in notes" :key="note">{{ note }}</li>
-            </ul>
-          </div>
-        </aside>
       </section>
     </template>
   </div>
@@ -736,7 +707,7 @@ body[data-theme='dark'] .filters-panel {
 
 .content-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.8fr) minmax(320px, 0.9fr);
+  grid-template-columns: 1fr;
   gap: 18px;
   align-items: start;
 }

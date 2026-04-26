@@ -122,47 +122,6 @@
           </article>
         </section>
       </div>
-
-      <aside class="card rh-section-card rh-side-card">
-        <div class="rh-section-heading compact">
-          <div>
-            <p class="rh-section-kicker">Overview</p>
-            <h2>Résumé surveillance</h2>
-          </div>
-        </div>
-
-        <p class="rh-summary-intro">
-          Vue rapide des volumes et des alertes prioritaires avant d’entrer dans le détail.
-        </p>
-
-        <div class="rh-overview-grid">
-          <article v-for="card in overviewCards" :key="card.label" class="rh-overview-card">
-            <span class="rh-overview-chip">{{ card.tag }}</span>
-            <p class="rh-overview-label">{{ card.label }}</p>
-            <p class="rh-overview-value">{{ card.value }}</p>
-            <p class="rh-overview-copy">{{ card.copy }}</p>
-          </article>
-        </div>
-
-        <div class="priority-list" v-if="priorityAlerts.length">
-          <div v-for="(item, index) in priorityAlerts" :key="index" class="priority-item" :class="levelClass(item.level)">
-            <div class="priority-top">
-              <span class="priority-pill" :class="levelClass(item.level)">{{ item.level || 'warning' }}</span>
-              <span class="priority-type">{{ formatType(item.type) }}</span>
-            </div>
-            <p class="priority-message">{{ item.message }}</p>
-          </div>
-        </div>
-
-        <div class="rh-notes-card">
-          <h3>Repères rapides</h3>
-          <ul>
-            <li>Les alertes critiques doivent être traitées avant les alertes informatives.</li>
-            <li>Le centre d’alertes et la page de configuration sont maintenant cohérents visuellement.</li>
-            <li>Les liens rapides renvoient directement vers les écrans métier utiles.</li>
-          </ul>
-        </div>
-      </aside>
     </section>
   </div>
 </template>
@@ -234,15 +193,6 @@ const alertSections = computed(() => [
 
 const activeSections = computed(() => alertSections.value.filter((section) => section.items.length).length)
 
-const priorityAlerts = computed(() =>
-  [...alertes.value]
-    .sort((left, right) => {
-      const score = { danger: 0, warning: 1, info: 2 }
-      return (score[left.level] ?? 3) - (score[right.level] ?? 3)
-    })
-    .slice(0, 4),
-)
-
 const metricCards = computed(() => [
   {
     label: 'Alertes totales',
@@ -267,33 +217,6 @@ const metricCards = computed(() => [
     value: stats.value.critiques,
     caption: 'Alertes de niveau danger',
     tag: 'Priority',
-  },
-])
-
-const overviewCards = computed(() => [
-  {
-    label: 'Contrats proches',
-    value: stats.value.contrats,
-    copy: 'Échéances contractuelles à surveiller.',
-    tag: 'Contracts',
-  },
-  {
-    label: 'Soldes à traiter',
-    value: stats.value.soldes,
-    copy: 'Congés non pris signalés par le moteur.',
-    tag: 'Balances',
-  },
-  {
-    label: 'Sections actives',
-    value: activeSections.value,
-    copy: 'Catégories qui contiennent actuellement des alertes.',
-    tag: 'Sections',
-  },
-  {
-    label: 'Signaux calendrier',
-    value: stats.value.calendrier,
-    copy: 'Fériés proches et événements RH à venir.',
-    tag: 'Calendar',
   },
 ])
 
@@ -329,6 +252,10 @@ onMounted(fetchAlertes)
 </script>
 
 <style scoped>
+.alertes-page .rh-content-grid {
+  grid-template-columns: 1fr;
+}
+
 .main-column {
   min-width: 0;
 }

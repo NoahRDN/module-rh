@@ -139,8 +139,10 @@
               <tr>
                 <th>Employé</th>
                 <th>Contrat</th>
-                <th>Coût prévisionnel</th>
-                <th>Net fiche</th>
+                <th>Total brut</th>
+                <th>Retenues</th>
+                <th>Net retenu</th>
+                <th>Origine</th>
                 <th>Statut</th>
                 <th>Demande validation</th>
                 <th>Validation paie</th>
@@ -159,10 +161,16 @@
                   <div class="muted">{{ formatDate(row.contrat_debut) || '—' }} → {{ formatDate(row.contrat_fin) || '—' }}</div>
                 </td>
                 <td class="cell-stack">
-                  <div>{{ formatMoney(row.salaire_previsionnel) }}</div>
-                  <div class="muted">Net employé: {{ formatMoney(row.net_a_payer_previsionnel || row.salaire_previsionnel) }}</div>
+                  <div>{{ formatMoney(row.total_brut) }}</div>
+                  <div class="muted">{{ row.source_montants_description || (row.est_prevision ? 'Hypothèse présence' : 'Montant réel') }}</div>
                 </td>
-                <td class="accent">{{ row.paie_id ? formatMoney(row.net_a_payer) : '—' }}</td>
+                <td>{{ formatMoney(row.total_retenues) }}</td>
+                <td class="accent">{{ formatMoney(row.net_a_payer) }}</td>
+                <td>
+                  <span class="chip source-chip" :class="sourceClass(row.source_montants)">
+                    {{ row.source_montants_label || sourceLabel(row.source_montants) }}
+                  </span>
+                </td>
                 <td class="status-col">
                   <div class="status-chip-scroll">
                     <span class="chip status-chip" :class="statusClass(row.statut)">{{ row.statut_label }}</span>
@@ -211,7 +219,7 @@
                 </td>
               </tr>
               <tr v-if="!details.length">
-                <td colspan="9" class="muted">Aucun employé ne correspond à la période et au statut.</td>
+                <td colspan="11" class="muted">Aucun employé ne correspond à la période et au statut.</td>
               </tr>
             </tbody>
           </table>
@@ -303,9 +311,9 @@ const metrics = computed(() => [
   },
   {
     tag: 'Forecast',
-    label: isSummaryMode.value ? 'Total brut' : 'Prévision salaires',
+    label: isSummaryMode.value ? 'Total brut' : 'Montants retenus',
     value: formatMoney(isSummaryMode.value ? totaux.value.total_brut : totaux.value.prevision_salaire_base),
-    caption: isSummaryMode.value ? 'Somme des fiches générées' : 'Somme des salaires de base des contrats actifs',
+    caption: isSummaryMode.value ? 'Réel validé sinon prévision' : 'Réel validé sinon prévision supposé présent',
   },
   {
     tag: 'Payment',
@@ -381,6 +389,18 @@ const statusClass = (statut) => ({
   danger: statut === 'non_paye',
   success: statut === 'paye',
 })
+
+const sourceClass = (source) => ({
+  warning: source === 'prevision' || source === 'mixte',
+  success: source === 'reel' || source === 'reel_calcule',
+})
+
+const sourceLabel = (source) => {
+  if (source === 'reel') return 'Réel validé'
+  if (source === 'reel_calcule') return 'Réel calculé'
+  if (source === 'mixte') return 'Réel + prévision'
+  return 'Prévision présence'
+}
 
 const loadCaisses = async () => {
   try {
@@ -558,6 +578,10 @@ onMounted(() => {
   align-items: center;
   flex-wrap: nowrap;
   min-width: max-content;
+  white-space: nowrap;
+}
+
+.source-chip {
   white-space: nowrap;
 }
 

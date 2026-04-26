@@ -69,20 +69,24 @@
 
       <div class="controls-grid">
         <label class="field-card">
-          <span class="field-label">Recherche</span>
-          <input class="input" placeholder="Rechercher un type" v-model="search" @input="fetchTypes" />
-        </label>
-        <label class="field-card">
           <span class="field-label">Nom</span>
           <input class="input" placeholder="Nom" v-model="filters.nom" />
         </label>
         <label class="field-card">
           <span class="field-label">Payant</span>
-          <input class="input" placeholder="oui / non" v-model="filters.payant" />
+          <select class="select" v-model="filters.payant">
+            <option value="">Tous</option>
+            <option value="oui">Oui</option>
+            <option value="non">Non</option>
+          </select>
         </label>
         <label class="field-card">
-          <span class="field-label">Jours annuels</span>
-          <input class="input" placeholder="Nombre de jours" v-model="filters.jours" />
+          <span class="field-label">Jours min</span>
+          <input class="input" type="number" min="0" placeholder="Minimum" v-model="filters.jours_min" />
+        </label>
+        <label class="field-card">
+          <span class="field-label">Jours max</span>
+          <input class="input" type="number" min="0" placeholder="Maximum" v-model="filters.jours_max" />
         </label>
       </div>
     </section>
@@ -187,20 +191,21 @@ import api from '../services/api'
 import AppIcon from '../components/ui/AppIcon.vue'
 
 const types = ref([])
-const search = ref('')
-const filters = ref({ nom: '', payant: '', jours: '' })
+const filters = ref({ nom: '', payant: '', jours_min: '', jours_max: '' })
 const loading = ref(false)
 const lastRefreshedAt = ref(null)
 const sortKey = ref('libelle')
 const sortDir = ref('asc')
 const pagination = ref({ page: 1, last_page: 1, total: 0 })
 
-const hasFilters = computed(() => Boolean(search.value || filters.value.nom || filters.value.payant || filters.value.jours))
+const hasFilters = computed(() =>
+  Boolean(filters.value.nom || filters.value.payant || filters.value.jours_min || filters.value.jours_max),
+)
 
 const fetchTypes = async () => {
   loading.value = true
   try {
-    const { data } = await api.get('/v1/types-conges', { params: { search: search.value, page: pagination.value.page }, paramsSerializer: { indexes: null } })
+    const { data } = await api.get('/v1/types-conges', { params: { page: pagination.value.page }, paramsSerializer: { indexes: null } })
     types.value = data.data || []
     if (data.meta) {
       pagination.value = { page: data.meta.current_page, last_page: data.meta.last_page, total: data.meta.total }
@@ -220,10 +225,14 @@ onMounted(async () => {
 const typesFiltres = computed(() => {
   const f = filters.value
   const toStr = (v) => String(v || '').toLowerCase()
+  const min = f.jours_min === '' ? null : Number(f.jours_min)
+  const max = f.jours_max === '' ? null : Number(f.jours_max)
+
   let list = types.value.filter((t) =>
     toStr(t.libelle).includes(toStr(f.nom)) &&
-    (toStr(t.paye ? 'oui' : 'non').includes(toStr(f.payant))) &&
-    (toStr(t.jours_forfait).includes(toStr(f.jours)) || toStr(frequence(t)).includes(toStr(f.jours)))
+    (!f.payant || (f.payant === 'oui' ? Boolean(t.paye) : !t.paye)) &&
+    (min === null || Number(t.jours_forfait || 0) >= min) &&
+    (max === null || Number(t.jours_forfait || 0) <= max)
   )
   const key = sortKey.value
   const dir = sortDir.value
@@ -253,7 +262,7 @@ const setSort = (key) => {
   else { sortKey.value = key; sortDir.value = 'asc' }
 }
 const sortLabel = (key) => (sortKey.value === key ? (sortDir.value === 'asc' ? '▲' : '▼') : '')
-const resetFilters = () => { filters.value = { nom: '', payant: '', jours: '' } }
+const resetFilters = () => { filters.value = { nom: '', payant: '', jours_min: '', jours_max: '' } }
 
 const formatInteger = (value) =>
   new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(Number(value) || 0)

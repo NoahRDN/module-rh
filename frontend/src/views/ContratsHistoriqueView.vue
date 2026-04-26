@@ -42,16 +42,6 @@
           </div>
         </div>
 
-        <div class="status-banner" :class="latestHistory ? 'success' : 'info'">
-          <span class="status-dot"></span>
-          <span>
-            {{
-              latestHistory
-                ? `Dernière version enregistrée le ${formatDisplayDate(latestHistory.created_at)}`
-                : 'Aucune version récente chargée pour le moment.'
-            }}
-          </span>
-        </div>
       </div>
     </section>
 
@@ -180,7 +170,7 @@
 
           <label class="field-card">
             <span class="field-label">Matricule</span>
-            <input v-model="filters.matricule" class="input" placeholder="Matricule employé" />
+            <input v-model="filters.matricule" class="input" placeholder="Matricule employé" list="contrats-historique-matricules" />
           </label>
 
           <label class="field-card">
@@ -190,19 +180,42 @@
 
           <label class="field-card">
             <span class="field-label">Type</span>
-            <input v-model="filters.type" class="input" placeholder="CDD, CDI, ..." />
+            <input v-model="filters.type" class="input" placeholder="CDD, CDI, ..." list="contrats-historique-types" />
           </label>
 
           <label class="field-card">
             <span class="field-label">Département</span>
-            <input v-model="filters.departement" class="input" placeholder="Structure" />
+            <input v-model="filters.departement" class="input" placeholder="Structure" list="contrats-historique-departements" />
           </label>
 
           <label class="field-card">
             <span class="field-label">Poste</span>
-            <input v-model="filters.poste" class="input" placeholder="Fonction" />
+            <input v-model="filters.poste" class="input" placeholder="Fonction" list="contrats-historique-postes" />
+          </label>
+
+          <label class="field-card">
+            <span class="field-label">Entre (début)</span>
+            <input v-model="filters.from" class="input" type="date" />
+          </label>
+
+          <label class="field-card">
+            <span class="field-label">Et (fin)</span>
+            <input v-model="filters.to" class="input" type="date" />
           </label>
         </div>
+
+        <datalist id="contrats-historique-matricules">
+          <option v-for="matricule in optionsMatricules" :key="matricule" :value="matricule" />
+        </datalist>
+        <datalist id="contrats-historique-types">
+          <option v-for="type in optionsTypes" :key="type" :value="type" />
+        </datalist>
+        <datalist id="contrats-historique-departements">
+          <option v-for="departement in optionsDepartements" :key="departement" :value="departement" />
+        </datalist>
+        <datalist id="contrats-historique-postes">
+          <option v-for="poste in optionsPostes" :key="poste" :value="poste" />
+        </datalist>
       </section>
 
       <section>
@@ -362,6 +375,8 @@ const filters = ref({
   type: '',
   departement: '',
   poste: '',
+  from: '',
+  to: '',
 })
 
 const sortKey = ref('created_at')
@@ -372,9 +387,42 @@ const hasFilters = computed(() =>
   Object.values(filters.value).some((value) => Boolean(String(value || '').trim())),
 )
 
+const optionsMatricules = computed(() =>
+  [...new Set(historiques.value.map((item) => item.employe?.matricule).filter(Boolean))],
+)
+
+const optionsTypes = computed(() =>
+  [...new Set(historiques.value.map((item) => item.type_contrat).filter(Boolean))],
+)
+
+const optionsDepartements = computed(() =>
+  [...new Set(historiques.value.map((item) => item.employe?.departement?.nom).filter(Boolean))],
+)
+
+const optionsPostes = computed(() =>
+  [...new Set(historiques.value.map((item) => item.employe?.poste?.nom).filter(Boolean))],
+)
+
 const historiquesFiltres = computed(() => {
   const f = filters.value
   const toStr = (value) => String(value || '').toLowerCase()
+  const inPeriodRange = (startValue, endValue) => {
+    if (!f.from && !f.to) return true
+
+    const start = startValue ? String(startValue).slice(0, 10) : ''
+    const end = endValue ? String(endValue).slice(0, 10) : ''
+
+    if (!start && !end) return false
+
+    const periodStart = start || end
+    const periodEnd = end || start || '9999-12-31'
+    const filterStart = f.from || '0000-01-01'
+    const filterEnd = f.to || '9999-12-31'
+
+    if (periodEnd < filterStart) return false
+    if (periodStart > filterEnd) return false
+    return true
+  }
 
   let list = historiques.value.filter((item) => (
     toStr(item.numero).includes(toStr(f.numero)) &&
@@ -382,7 +430,8 @@ const historiquesFiltres = computed(() => {
     `${toStr(item.employe?.nom)} ${toStr(item.employe?.prenom)}`.includes(toStr(f.nom)) &&
     toStr(item.type_contrat).includes(toStr(f.type)) &&
     toStr(item.employe?.departement?.nom).includes(toStr(f.departement)) &&
-    toStr(item.employe?.poste?.nom).includes(toStr(f.poste))
+    toStr(item.employe?.poste?.nom).includes(toStr(f.poste)) &&
+    inPeriodRange(item.date_debut, item.date_fin)
   ))
 
   list = [...list].sort((left, right) => {
@@ -640,7 +689,7 @@ const setSort = (key) => {
 const sortLabel = (key) => (sortKey.value === key ? (sortDir.value === 'asc' ? '▲' : '▼') : '')
 
 const resetFilters = () => {
-  filters.value = { numero: '', matricule: '', nom: '', type: '', departement: '', poste: '' }
+  filters.value = { numero: '', matricule: '', nom: '', type: '', departement: '', poste: '', from: '', to: '' }
 }
 
 const nextPage = () => {
@@ -709,8 +758,8 @@ onMounted(fetchHistoriques)
   width: 46px;
   height: 46px;
   border-radius: 16px;
-  background: linear-gradient(135deg, rgba(79, 70, 229, 0.16), rgba(20, 184, 166, 0.18));
-  color: var(--brand-700);
+  background: var(--brand-500);
+  color: #ffffff;
   font-size: 0.92rem;
   font-weight: 800;
 }
@@ -789,19 +838,22 @@ body[data-theme='dark'] .spotlight-cell {
 
 .signal-card.signal-brand {
   background:
-    linear-gradient(135deg, rgba(79, 70, 229, 0.1), rgba(79, 70, 229, 0.02)),
+    linear-gradient(135deg, rgba(79, 70, 229, 0.12), rgba(20, 184, 166, 0.03)),
+    var(--hero-band-bg),
     var(--panel);
 }
 
 .signal-card.signal-neutral {
   background:
-    linear-gradient(135deg, rgba(148, 163, 184, 0.12), rgba(255, 255, 255, 0.02)),
+    linear-gradient(135deg, rgba(148, 163, 184, 0.14), rgba(255, 255, 255, 0.03)),
+    var(--hero-band-bg),
     var(--panel);
 }
 
 .signal-card.signal-warm {
   background:
-    linear-gradient(135deg, rgba(245, 158, 11, 0.14), rgba(255, 255, 255, 0.02)),
+    linear-gradient(135deg, rgba(245, 158, 11, 0.16), rgba(255, 255, 255, 0.03)),
+    var(--hero-band-bg),
     var(--panel);
 }
 

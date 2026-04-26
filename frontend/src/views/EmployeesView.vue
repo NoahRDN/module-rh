@@ -242,7 +242,8 @@
                 <tr v-for="emp in filteredEmployes" :key="emp.id">
                   <td>
                     <div class="employee-cell">
-                      <img :src="photoUrl(emp)" alt="photo" class="employee-avatar" />
+                      <img v-if="emp.photo" :src="emp.photo" alt="photo" class="employee-avatar employee-photo" />
+                      <div v-else class="employee-avatar employee-avatar-fallback">{{ initials(emp) }}</div>
                       <div class="employee-main">
                         <p class="employee-name">{{ emp.nom }} {{ emp.prenom }}</p>
                         <span class="employee-sub">{{ emp.email || 'Email non renseigné' }}</span>
@@ -301,35 +302,6 @@
           </div>
         </article>
 
-        <aside class="card section-card insights-card">
-          <div class="section-heading compact">
-            <div>
-              <p class="section-kicker">Overview</p>
-              <h2>Résumé annuaire</h2>
-            </div>
-          </div>
-
-          <p class="summary-intro">
-            Vue synthétique de la page courante pour comprendre rapidement la couverture, la structure
-            et l’intensité du filtrage actif.
-          </p>
-
-          <div class="overview-grid">
-            <article v-for="card in overviewCards" :key="card.label" class="overview-card">
-              <span class="overview-chip">{{ card.tag }}</span>
-              <p class="overview-label">{{ card.label }}</p>
-              <p class="overview-value">{{ card.value }}</p>
-              <p class="overview-copy">{{ card.copy }}</p>
-            </article>
-          </div>
-
-          <div class="notes-card">
-            <h3>Repères rapides</h3>
-            <ul>
-              <li v-for="note in employeeNotes" :key="note">{{ note }}</li>
-            </ul>
-          </div>
-        </aside>
       </section>
     </template>
   </div>
@@ -549,11 +521,6 @@ const applySuggestion = async (emp) => {
   searchFocus.value = false
   pagination.value.page = 1
   await fetchEmployes()
-}
-
-const photoUrl = (emp) => {
-  if (emp?.photo) return emp.photo
-  return `https://ui-avatars.com/api/?background=0f766e&color=ffffff&name=${encodeURIComponent(initials(emp))}`
 }
 
 const initials = (emp) => `${emp?.nom?.[0] || ''}${emp?.prenom?.[0] || ''}`.trim() || 'RH'
@@ -951,7 +918,7 @@ body[data-theme='dark'] .search-suggestions {
   height: 38px;
   flex: none;
   border-radius: 12px;
-  background: linear-gradient(135deg, #0f766e, #14b8a6);
+  background: var(--brand-500);
   color: #ffffff;
   font-size: 0.82rem;
   font-weight: 800;
@@ -974,7 +941,7 @@ body[data-theme='dark'] .search-suggestions {
 
 .content-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.8fr) minmax(320px, 0.9fr);
+  grid-template-columns: 1fr;
   gap: 18px;
   align-items: start;
 }
@@ -1009,13 +976,30 @@ body[data-theme='dark'] .search-suggestions {
 }
 
 .employee-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 46px;
   height: 46px;
   flex: none;
-  border-radius: 14px;
-  object-fit: cover;
+  border-radius: 16px;
   border: 1px solid var(--border);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.employee-photo {
+  object-fit: cover;
+}
+
+.employee-avatar-fallback {
+  background: var(--brand-500);
+  color: #ffffff;
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+body[data-theme='dark'] .employee-avatar-fallback {
+  background: var(--brand-500);
+  color: #ffffff;
 }
 
 .employee-main {

@@ -104,37 +104,6 @@
         </div>
       </article>
 
-      <aside class="card rh-section-card rh-side-card">
-        <div class="rh-section-heading compact">
-          <div>
-            <p class="rh-section-kicker">Overview</p>
-            <h2>Résumé calendrier</h2>
-          </div>
-        </div>
-
-        <p class="rh-summary-intro">
-          Quelques repères rapides pour vérifier si le référentiel est prêt pour les modules
-          opérationnels.
-        </p>
-
-        <div class="rh-overview-grid">
-          <article v-for="card in overviewCards" :key="card.label" class="rh-overview-card">
-            <span class="rh-overview-chip">{{ card.tag }}</span>
-            <p class="rh-overview-label">{{ card.label }}</p>
-            <p class="rh-overview-value">{{ card.value }}</p>
-            <p class="rh-overview-copy">{{ card.copy }}</p>
-          </article>
-        </div>
-
-        <div class="rh-notes-card">
-          <h3>Repères rapides</h3>
-          <ul>
-            <li>Les jours récurrents évitent la recréation manuelle chaque année.</li>
-            <li>Le calendrier alimente directement les règles temps et paie.</li>
-            <li>Supprimez uniquement les dates réellement obsolètes du référentiel.</li>
-          </ul>
-        </div>
-      </aside>
     </section>
   </div>
 </template>
@@ -254,6 +223,10 @@ const formatDate = (value) => {
 </script>
 
 <style scoped>
+.rh-content-grid {
+  grid-template-columns: 1fr;
+}
+
 .actions-col {
   width: 110px;
 }

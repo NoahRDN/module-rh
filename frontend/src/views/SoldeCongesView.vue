@@ -68,7 +68,7 @@
         </label>
         <label class="field-card">
           <span class="field-label">Matricule</span>
-          <input class="input" placeholder="Matricule" v-model="filters.matricule" />
+          <input class="input" placeholder="Matricule" v-model="filters.matricule" list="solde-matricules" />
         </label>
         <label class="field-card">
           <span class="field-label">Nom</span>
@@ -76,17 +76,27 @@
         </label>
         <label class="field-card">
           <span class="field-label">Type</span>
-          <input class="input" placeholder="Type" v-model="filters.type" />
+          <input class="input" placeholder="Type" v-model="filters.type" list="solde-types" />
         </label>
         <label class="field-card">
           <span class="field-label">Département</span>
-          <input class="input" placeholder="Département" v-model="filters.departement" />
+          <input class="input" placeholder="Département" v-model="filters.departement" list="solde-departements" />
         </label>
         <label class="field-card">
           <span class="field-label">Simulation date actuelle</span>
           <input class="input" type="date" v-model="filters.simulation_date" />
         </label>
       </div>
+
+      <datalist id="solde-matricules">
+        <option v-for="matricule in optionsMatricules" :key="matricule" :value="matricule" />
+      </datalist>
+      <datalist id="solde-types">
+        <option v-for="type in optionsTypes" :key="type" :value="type" />
+      </datalist>
+      <datalist id="solde-departements">
+        <option v-for="departement in optionsDepartements" :key="departement" :value="departement" />
+      </datalist>
 
       <p v-if="message" class="error-inline">{{ message }}</p>
     </section>
@@ -196,6 +206,22 @@ const hasFilters = computed(() =>
     filters.value.departement ||
     filters.value.simulation_date,
   ),
+)
+
+const optionsMatricules = computed(() => {
+  const fromEmployees = employes.value.map((item) => item.matricule)
+  const fromSoldes = soldes.value.map((item) => item.employe?.matricule || item.employe_matricule)
+  return [...new Set([...fromEmployees, ...fromSoldes].filter(Boolean))]
+})
+
+const optionsTypes = computed(() => {
+  const fromRefs = types.value.map((item) => item.libelle)
+  const fromSoldes = soldes.value.map((item) => item.type_conge?.libelle || item.type_conge_libelle)
+  return [...new Set([...fromRefs, ...fromSoldes].filter(Boolean))]
+})
+
+const optionsDepartements = computed(() =>
+  [...new Set(soldes.value.map((item) => item.employe?.departement?.nom).filter(Boolean))],
 )
 
 const form = ref({

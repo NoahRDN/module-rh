@@ -66,44 +66,6 @@
           <article class="card section-card">
             <div class="section-heading">
               <div>
-                <p class="section-kicker">Overview</p>
-                <h2>Aperçu</h2>
-              </div>
-              <span class="section-chip">{{ contrat.type_contrat || 'Contrat' }}</span>
-            </div>
-
-            <p class="section-copy">Informations opérationnelles principales (employé, rémunération, périodes).</p>
-
-            <div class="overview-grid">
-              <div class="overview-card">
-                <p class="overview-label">Employé</p>
-                <p class="overview-value overview-value--wrap">{{ employeLabel }}</p>
-                <p class="overview-copy overview-value--wrap">{{ employeOrganisationLabel }}</p>
-              </div>
-
-              <div class="overview-card">
-                <p class="overview-label">Salaire de base</p>
-                <p class="overview-value">{{ formatSalaire(contrat.salaire_base) }}</p>
-                <p class="overview-copy">Montant brut de référence</p>
-              </div>
-
-              <div class="overview-card">
-                <p class="overview-label">Durée du contrat</p>
-                <p class="overview-value">{{ dureeContrat }}</p>
-                <p class="overview-copy overview-value--wrap">{{ periodeContratLabel }}</p>
-              </div>
-
-              <div class="overview-card">
-                <p class="overview-label">Période d'essai</p>
-                <p class="overview-value overview-value--wrap">{{ periodeEssai }}</p>
-                <p class="overview-copy overview-value--wrap">{{ periodeEssaiLabel }}</p>
-              </div>
-            </div>
-          </article>
-
-          <article class="card section-card">
-            <div class="section-heading">
-              <div>
                 <p class="section-kicker">Details</p>
                 <h2>Informations contractuelles</h2>
               </div>

@@ -77,12 +77,16 @@
 
         <label class="rh-field-card">
           <span class="rh-field-label">Employé</span>
-          <select class="select" v-model="employeId">
-            <option value="">Sélectionner</option>
-            <option v-for="e in employes" :key="e.id" :value="e.id">
-              {{ e.matricule }} - {{ e.nom }} {{ e.prenom }}
-            </option>
-          </select>
+          <input
+            class="input"
+            list="releve-employes-list"
+            v-model="employeSearch"
+            placeholder="Matricule ou nom employé"
+            @input="syncEmployeFromSearch"
+          />
+          <datalist id="releve-employes-list">
+            <option v-for="e in employes" :key="e.id" :value="employeOptionLabel(e)" />
+          </datalist>
         </label>
 
         <label v-if="mode === 'day'" class="rh-field-card">
@@ -388,6 +392,7 @@ import AppIcon from '../components/ui/AppIcon.vue'
 
 const employes = ref([])
 const employeId = ref('')
+const employeSearch = ref('')
 const mois = ref(new Date().toISOString().slice(0, 7))
 const dateJour = ref(new Date().toISOString().slice(0, 10))
 const mode = ref('month')
@@ -415,6 +420,25 @@ const selectedEmployeLabel = computed(() => {
   return `${selectedEmploye.value.matricule || 'EMP'} - ${selectedEmploye.value.nom || ''}`
 }
 )
+
+const employeOptionLabel = (employe) =>
+  `${employe.matricule || 'EMP'} - ${employe.nom || ''} ${employe.prenom || ''}`.trim()
+
+const syncEmployeFromSearch = () => {
+  const query = String(employeSearch.value || '').trim().toLowerCase()
+  if (!query) {
+    employeId.value = ''
+    return
+  }
+
+  const found = employes.value.find((item) => {
+    const label = employeOptionLabel(item).toLowerCase()
+    const matricule = String(item.matricule || '').toLowerCase()
+    return label === query || matricule === query
+  })
+
+  employeId.value = found ? String(found.id) : ''
+}
 
 const modeLabel = computed(() => {
   if (mode.value === 'day') return 'Journalier'
@@ -519,6 +543,11 @@ const chips = (row = {}) => {
 const fetchEmployes = async () => {
   const { data } = await api.get('/v1/employes', { params: { all: 1 } })
   employes.value = data.data || data || []
+
+  if (employeId.value) {
+    const selected = employes.value.find((item) => String(item.id) === String(employeId.value))
+    if (selected) employeSearch.value = employeOptionLabel(selected)
+  }
 }
 
 const fetchReleve = async () => {

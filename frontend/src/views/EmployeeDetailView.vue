@@ -3,7 +3,8 @@
     <section class="hero hero-band hero-shared hero-compact">
       <div class="hero-copy">
         <div class="employee-title">
-          <img class="employee-avatar" :src="photoUrl(employe)" alt="Employé" />
+          <img v-if="employe.photo" class="employee-avatar employee-photo" :src="employe.photo" alt="Employé" />
+          <div v-else class="employee-avatar employee-avatar-fallback">{{ initials(employe) }}</div>
           <div>
             <p class="hero-kicker">Fiche employé</p>
             <h1>{{ fullName }}</h1>
@@ -41,49 +42,6 @@
 
     <section class="content-grid">
       <div class="main-column">
-        <article class="card section-card">
-          <div class="section-heading">
-            <div>
-              <p class="section-kicker">Overview</p>
-              <h2>Informations personnelles</h2>
-            </div>
-            <span class="section-chip">{{ fullName }}</span>
-          </div>
-
-          <div class="overview-grid">
-            <div class="overview-card">
-              <p class="overview-label">Email</p>
-              <p class="overview-value overview-value--wrap">{{ employe.email || '—' }}</p>
-              <p class="overview-copy">Contact principal</p>
-            </div>
-            <div class="overview-card">
-              <p class="overview-label">Téléphone</p>
-              <p class="overview-value">{{ employe.telephone || '—' }}</p>
-              <p class="overview-copy">Numéro de contact</p>
-            </div>
-            <div class="overview-card">
-              <p class="overview-label">Adresse</p>
-              <p class="overview-value overview-value--wrap">{{ employe.adresse || '—' }}</p>
-              <p class="overview-copy">Coordonnées</p>
-            </div>
-            <div class="overview-card">
-              <p class="overview-label">Date de naissance</p>
-              <p class="overview-value">{{ formatDate(employe.date_naissance) || '—' }}</p>
-              <p class="overview-copy">Identité</p>
-            </div>
-            <div class="overview-card">
-              <p class="overview-label">Date d'embauche</p>
-              <p class="overview-value">{{ formatDate(employe.date_embauche) || '—' }}</p>
-              <p class="overview-copy">Entrée dans l’entreprise</p>
-            </div>
-            <div class="overview-card">
-              <p class="overview-label">Catégorie</p>
-              <p class="overview-value">{{ categorieLabel }}</p>
-              <p class="overview-copy">Référentiel poste</p>
-            </div>
-          </div>
-        </article>
-
         <article class="card section-card">
           <div class="section-heading">
             <div>
@@ -727,33 +685,7 @@ const weekLabel = (date) => {
   return `${fmt(monday)} → ${fmt(end)}`
 }
 
-const photoUrl = (emp) => {
-  if (emp?.photo) {
-    return emp.photo
-  }
-  const initials = `${emp?.nom?.[0] || ''}${emp?.prenom?.[0] || ''}` || 'EMP'
-  return generateAvatar(initials)
-}
-
-function generateAvatar(initials) {
-  const bg = '#0f172a'
-  const fg = '#ffffff'
-  const svg = `
-  <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128">
-    <rect width="100%" height="100%" fill="${bg}"/>
-    <text x="50%" y="50%"
-          dominant-baseline="middle"
-          text-anchor="middle"
-          font-size="48"
-          font-family="Arial, sans-serif"
-          fill="${fg}">
-      ${initials}
-    </text>
-  </svg>
-  `
-
-  return `data:image/svg+xml;base64,${btoa(svg)}`
-}
+const initials = (emp) => `${emp?.nom?.[0] || ''}${emp?.prenom?.[0] || ''}`.trim() || 'RH'
 
 const formatDate = (d) => formatDateValue(d)
 const formatMoney = (value) => formatMoneyAmount(value)
@@ -1128,14 +1060,27 @@ onMounted(async () => {
 }
 
 .employee-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 74px;
   height: 74px;
   border-radius: 22px;
-  overflow: hidden;
   border: 1px solid var(--border);
   flex-shrink: 0;
   background: rgba(255, 255, 255, 0.76);
+}
+
+.employee-photo {
+  overflow: hidden;
   object-fit: cover;
+}
+
+.employee-avatar-fallback {
+  background: var(--brand-500);
+  color: #ffffff;
+  font-size: 1.45rem;
+  font-weight: 800;
 }
 
 .overview-value--wrap,

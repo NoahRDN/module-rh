@@ -72,7 +72,7 @@
         </label>
         <label class="field-card">
           <span class="field-label">Matricule</span>
-          <input class="input" placeholder="EMP-001" v-model="filters.matricule" />
+          <input class="input" placeholder="EMP-001" v-model="filters.matricule" list="demandes-matricules" />
         </label>
         <label class="field-card">
           <span class="field-label">Nom</span>
@@ -80,11 +80,11 @@
         </label>
         <label class="field-card">
           <span class="field-label">Type</span>
-          <input class="input" placeholder="Type de congé" v-model="filters.type" />
+          <input class="input" placeholder="Type de congé" v-model="filters.type" list="demandes-types" />
         </label>
         <label class="field-card">
           <span class="field-label">Statut</span>
-          <input class="input" placeholder="en_attente, rh_valide..." v-model="filters.statut" />
+          <input class="input" placeholder="en_attente, rh_valide..." v-model="filters.statut" list="demandes-statuts" />
         </label>
         <label class="field-card">
           <span class="field-label">Date début</span>
@@ -95,6 +95,16 @@
           <input class="input" placeholder="YYYY-MM-DD" v-model="filters.date_fin" />
         </label>
       </div>
+
+      <datalist id="demandes-matricules">
+        <option v-for="matricule in optionsMatricules" :key="matricule" :value="matricule" />
+      </datalist>
+      <datalist id="demandes-types">
+        <option v-for="type in optionsTypes" :key="type" :value="type" />
+      </datalist>
+      <datalist id="demandes-statuts">
+        <option v-for="statut in optionsStatuts" :key="statut" :value="statut" />
+      </datalist>
     </section>
 
     <section class="card section-card table-card">
@@ -208,6 +218,20 @@ const hasFilters = computed(() =>
     filters.value.date_debut ||
     filters.value.date_fin,
   ),
+)
+
+const optionsMatricules = computed(() => {
+  const fromEmployees = employes.value.map((item) => item.matricule)
+  const fromDemandes = demandes.value.map((item) => item.employe?.matricule)
+  return [...new Set([...fromEmployees, ...fromDemandes].filter(Boolean))]
+})
+
+const optionsTypes = computed(() =>
+  [...new Set(demandes.value.map((item) => item.type_conge?.libelle || item.type?.nom).filter(Boolean))],
+)
+
+const optionsStatuts = computed(() =>
+  [...new Set(demandes.value.map((item) => item.statut).filter(Boolean))],
 )
 
 const badgeClass = (statut) => {

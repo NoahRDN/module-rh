@@ -99,12 +99,12 @@
         <div class="controls-grid">
           <label class="field-card">
             <span class="field-label">Numéro</span>
-            <input class="input" placeholder="CTR-2026-001" v-model="filters.numero" />
+            <input class="input" placeholder="CTR-2026-001" v-model="filters.numero" list="contrats-numeros" />
           </label>
 
           <label class="field-card">
             <span class="field-label">Matricule</span>
-            <input class="input" placeholder="EMP-001" v-model="filters.matricule" />
+            <input class="input" placeholder="EMP-001" v-model="filters.matricule" list="contrats-matricules" />
           </label>
 
           <label class="field-card">
@@ -114,7 +114,7 @@
 
           <label class="field-card">
             <span class="field-label">Type</span>
-            <input class="input" placeholder="CDI, CDD..." v-model="filters.type" />
+            <input class="input" placeholder="CDI, CDD..." v-model="filters.type" list="contrats-types" />
           </label>
 
           <label class="field-card">
@@ -130,14 +130,30 @@
 
           <label class="field-card">
             <span class="field-label">Département</span>
-            <input class="input" placeholder="Structure" v-model="filters.departement" />
+            <input class="input" placeholder="Structure" v-model="filters.departement" list="contrats-departements" />
           </label>
 
           <label class="field-card">
             <span class="field-label">Poste</span>
-            <input class="input" placeholder="Fonction" v-model="filters.poste" />
+            <input class="input" placeholder="Fonction" v-model="filters.poste" list="contrats-postes" />
           </label>
         </div>
+
+        <datalist id="contrats-numeros">
+          <option v-for="numero in optionsNumeros" :key="numero" :value="numero" />
+        </datalist>
+        <datalist id="contrats-matricules">
+          <option v-for="matricule in optionsMatricules" :key="matricule" :value="matricule" />
+        </datalist>
+        <datalist id="contrats-types">
+          <option v-for="type in optionsTypes" :key="type" :value="type" />
+        </datalist>
+        <datalist id="contrats-departements">
+          <option v-for="departement in optionsDepartements" :key="departement" :value="departement" />
+        </datalist>
+        <datalist id="contrats-postes">
+          <option v-for="poste in optionsPostes" :key="poste" :value="poste" />
+        </datalist>
       </section>
 
       <section class="content-grid">
@@ -349,34 +365,6 @@
           </div>
         </article>
 
-        <aside class="card section-card insights-card">
-          <div class="section-heading compact">
-            <div>
-              <p class="section-kicker">Overview</p>
-              <h2>Résumé contrats</h2>
-            </div>
-          </div>
-
-          <p class="summary-intro">
-            Lecture synthétique pour suivre la santé contractuelle et anticiper les actions à venir.
-          </p>
-
-          <div class="overview-grid">
-            <article v-for="card in overviewCards" :key="card.label" class="overview-card">
-              <span class="overview-chip">{{ card.tag }}</span>
-              <p class="overview-label">{{ card.label }}</p>
-              <p class="overview-value">{{ card.value }}</p>
-              <p class="overview-copy">{{ card.copy }}</p>
-            </article>
-          </div>
-
-          <div class="notes-card">
-            <h3>Repères rapides</h3>
-            <ul>
-              <li v-for="note in notes" :key="note">{{ note }}</li>
-            </ul>
-          </div>
-        </aside>
       </section>
     </template>
   </div>
@@ -425,6 +413,29 @@ const hasFilters = computed(() =>
     filters.value.departement ||
     filters.value.poste,
   ),
+)
+
+const optionsNumeros = computed(() =>
+  [...new Set(contrats.value.map((item) => item.numero).filter(Boolean))],
+)
+
+const optionsMatricules = computed(() => {
+  const fromEmployees = employes.value.map((item) => item.matricule)
+  const fromContracts = contrats.value.map((item) => item.employe?.matricule)
+  return [...new Set([...fromEmployees, ...fromContracts].filter(Boolean))]
+})
+
+const optionsTypes = computed(() => {
+  const fromContracts = contrats.value.map((item) => item.type_contrat)
+  return [...new Set([...typeOptions, ...fromContracts].filter(Boolean))]
+})
+
+const optionsDepartements = computed(() =>
+  [...new Set(contrats.value.map((item) => item.employe?.departement?.nom).filter(Boolean))],
+)
+
+const optionsPostes = computed(() =>
+  [...new Set(contrats.value.map((item) => item.employe?.poste?.nom).filter(Boolean))],
 )
 
 const formatDate = (d) => {
@@ -922,7 +933,7 @@ onMounted(async () => {
 
 .content-grid {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(320px, 0.9fr);
+  grid-template-columns: 1fr;
   gap: 18px;
   align-items: start;
 }

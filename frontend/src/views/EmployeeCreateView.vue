@@ -247,35 +247,6 @@
           </form>
         </article>
 
-        <aside class="card section-card insights-card">
-          <div class="section-heading compact">
-            <div>
-              <p class="section-kicker">Overview</p>
-              <h2>Résumé création</h2>
-            </div>
-          </div>
-
-          <p class="summary-intro">
-            Vérifiez rapidement l’état du formulaire avant enregistrement et contrôlez les informations
-            clés de la future fiche employé.
-          </p>
-
-          <div class="overview-grid">
-            <article v-for="card in overviewCards" :key="card.label" class="overview-card">
-              <span class="overview-chip">{{ card.tag }}</span>
-              <p class="overview-label">{{ card.label }}</p>
-              <p class="overview-value overview-value--wrap">{{ card.value }}</p>
-              <p class="overview-copy overview-value--wrap">{{ card.copy }}</p>
-            </article>
-          </div>
-
-          <div class="notes-card">
-            <h3>Repères rapides</h3>
-            <ul>
-              <li v-for="note in notes" :key="note">{{ note }}</li>
-            </ul>
-          </div>
-        </aside>
       </section>
     </template>
   </div>
@@ -665,6 +636,10 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.content-grid {
+  grid-template-columns: 1fr;
+}
+
 .field-group-head h3 {
   margin: 8px 0 0;
   font-weight: 800;

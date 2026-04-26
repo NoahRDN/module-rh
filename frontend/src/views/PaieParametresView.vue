@@ -99,37 +99,6 @@
           </div>
         </article>
 
-        <aside class="card section-card insights-card">
-          <div class="section-heading compact">
-            <div>
-              <p class="section-kicker">Overview</p>
-              <h2>Résumé opérationnel</h2>
-            </div>
-          </div>
-
-          <p class="summary-intro">
-            Vue synthétique des paramètres actifs pour valider rapidement l’équilibre salarié,
-            employeur et fiscal.
-          </p>
-
-          <div class="overview-grid">
-            <article v-for="card in overviewCards" :key="card.label" class="overview-card">
-              <span class="overview-chip">{{ card.tag }}</span>
-              <p class="overview-label">{{ card.label }}</p>
-              <p class="overview-value">{{ card.value }}</p>
-              <p class="overview-copy">{{ card.copy }}</p>
-            </article>
-          </div>
-
-          <div class="notes-card">
-            <h3>Contrôle rapide</h3>
-            <ul>
-              <li>Laissez le plafond max vide pour une tranche IRSA illimitée.</li>
-              <li>Le bouton principal centralise l’enregistrement des taux et des tranches.</li>
-              <li>Les suppressions de tranches sont appliquées à la prochaine sauvegarde.</li>
-            </ul>
-          </div>
-        </aside>
       </section>
 
       <section class="card section-card table-card">
@@ -799,7 +768,7 @@ body[data-theme='dark'] .status-banner {
 
 .content-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.8fr) minmax(320px, 0.9fr);
+  grid-template-columns: 1fr;
   gap: 18px;
   align-items: start;
 }

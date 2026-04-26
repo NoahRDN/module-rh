@@ -196,37 +196,6 @@
         </article>
       </div>
 
-      <aside class="card rh-section-card rh-side-card">
-        <div class="rh-section-heading compact">
-          <div>
-            <p class="rh-section-kicker">Overview</p>
-            <h2>Résumé configuration</h2>
-          </div>
-        </div>
-
-        <p class="rh-summary-intro">
-          Vérifiez rapidement la cadence hebdomadaire, les majorations clés et les politiques de
-          prélèvement configurées.
-        </p>
-
-        <div class="rh-overview-grid">
-          <article v-for="card in overviewCards" :key="card.label" class="rh-overview-card">
-            <span class="rh-overview-chip">{{ card.tag }}</span>
-            <p class="rh-overview-label">{{ card.label }}</p>
-            <p class="rh-overview-value">{{ card.value }}</p>
-            <p class="rh-overview-copy">{{ card.copy }}</p>
-          </article>
-        </div>
-
-        <div class="rh-notes-card">
-          <h3>Repères rapides</h3>
-          <ul>
-            <li>Le nombre de jours travaillés influence directement le calcul de présence et de paie.</li>
-            <li>Le mode samedi pilote l’interprétation des heures supplémentaires sur ce jour.</li>
-            <li>Les politiques de prélèvement déterminent l’impact des absences sur le salaire.</li>
-          </ul>
-        </div>
-      </aside>
     </section>
   </div>
 </template>
@@ -381,6 +350,10 @@ onMounted(loadConfig)
 </script>
 
 <style scoped>
+.rh-content-grid {
+  grid-template-columns: 1fr;
+}
+
 .main-column {
   display: grid;
   gap: 18px;

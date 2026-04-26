@@ -104,7 +104,7 @@ const groups = [
     items: [
       { to: '/absences-types', label: 'Types de congé', hint: 'Congés et absences', icon: 'tag' },
       { to: '/soldes-conges', label: 'Soldes congés', hint: 'Suivi des droits', icon: 'wallet' },
-      { to: '/demandes-conges', label: 'Demandes', hint: 'Workflow', icon: 'calendar' },
+      { to: '/demandes-conges', label: 'Demandes congés', hint: 'Workflow', icon: 'calendar' },
       { to: '/calendrier', label: 'Calendrier', hint: 'Vue globale', icon: 'calendar' },
       { to: '/alertes', label: 'Alertes', hint: 'Seuils et surveillance', icon: 'bell' },
       { to: '/alerte-settings', label: 'Paramètres alertes', hint: 'Configuration', icon: 'settings' },

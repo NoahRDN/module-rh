@@ -102,12 +102,12 @@
               <div class="overview-card">
                 <p class="overview-label">Taux horaire</p>
                 <p class="overview-value">{{ formatMoney(tauxHoraire) }}</p>
-                <p class="overview-copy">Référence 173,33 h/mois</p>
+                <p class="overview-copy">Sur {{ formatNumber(heuresMensuellesRequises) }} h imposées</p>
               </div>
               <div class="overview-card">
                 <p class="overview-label">Taux journalier</p>
                 <p class="overview-value">{{ formatMoney(tauxJournalier) }}</p>
-                <p class="overview-copy">Référence 30 jours/mois</p>
+                <p class="overview-copy">Sur {{ formatNumber(joursOuvres) }} jours ouvrés</p>
               </div>
               <div class="overview-card">
                 <p class="overview-label">Heures supp.</p>
@@ -407,8 +407,10 @@ const hasEmployerCharges = computed(() => Number(chargesPatronales.value?.total 
 const hasCotisations = computed(() => Number(cotisationsAReverser.value?.total || 0) > 0)
 const coutReelEntreprise = computed(() => Number(previsionBreakdown.value?.cout_reel_entreprise || 0))
 const hasPrevisionBreakdown = computed(() => coutReelEntreprise.value > 0)
-const tauxHoraire = computed(() => paie.value?.taux_horaire ?? (Number(paie.value?.salaire_base || 0) / 173.33))
-const tauxJournalier = computed(() => paie.value?.taux_journalier ?? (Number(paie.value?.salaire_base || 0) / 30))
+const joursOuvres = computed(() => Number(paie.value?.jours_ouvres || 0))
+const heuresMensuellesRequises = computed(() => Number(paie.value?.heures_mensuelles_requises || 0))
+const tauxHoraire = computed(() => Number(paie.value?.taux_horaire || 0))
+const tauxJournalier = computed(() => Number(paie.value?.taux_journalier || 0))
 const statusPillClass = computed(() => ({
   'pill-green': statutCode.value === 'paye',
   'pill-red': statutCode.value === 'non_paye',
@@ -443,6 +445,7 @@ const metrics = computed(() => [
 ])
 
 const formatInteger = (value) => new Intl.NumberFormat('fr-FR').format(Number(value || 0))
+const formatNumber = (value) => new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(Number(value || 0))
 const formatMoney = (amount) => formatMoneyAmount(amount)
 const formatHours = (value) => `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(Number(value || 0))} h`
 

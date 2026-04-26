@@ -8,6 +8,7 @@ use App\Models\PaieParametre;
 use App\Models\IrsaTranche;
 use App\Models\WorktimeSetting;
 use App\Models\JourFerie;
+use App\Services\PayrollRateService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
@@ -29,9 +30,9 @@ class PaiePdfController extends Controller
 
             // Calculer les données nécessaires
             $anciennete = $this->calculerAnciennete($employe->date_embauche);
-            // Référence paie : 30 jours/mois et 173,33 heures/mois
-            $taux_journalier = round($paie->salaire_base / 30, 0);
-            $taux_horaire = round($paie->salaire_base / 173.33, 0);
+            $payrollRates = app(PayrollRateService::class)->ratesForMonth((float) $paie->salaire_base, $paie->mois);
+            $taux_journalier = $payrollRates['taux_journalier_affiche'];
+            $taux_horaire = $payrollRates['taux_horaire_affiche'];
 
             // Calculer les détails des revenus (heures supplémentaires, primes, etc.)
             $hs_breakdown = $this->calculerRepartitionHeuresSup($paie, $taux_horaire);

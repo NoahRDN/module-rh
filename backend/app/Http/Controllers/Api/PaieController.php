@@ -16,6 +16,7 @@ use App\Models\IrsaTranche;
 use App\Models\DemandeConge;
 use App\Models\JourFerie;
 use App\Services\CongeService;
+use App\Services\PayrollRateService;
 use App\Services\RemunerationItemService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use DateInterval;
@@ -29,11 +30,17 @@ class PaieController extends Controller
 {
     protected CongeService $congeService;
     protected RemunerationItemService $remunerationItemService;
+    protected PayrollRateService $payrollRateService;
 
-    public function __construct(CongeService $congeService, RemunerationItemService $remunerationItemService)
+    public function __construct(
+        CongeService $congeService,
+        RemunerationItemService $remunerationItemService,
+        PayrollRateService $payrollRateService
+    )
     {
         $this->congeService = $congeService;
         $this->remunerationItemService = $remunerationItemService;
+        $this->payrollRateService = $payrollRateService;
     }
 
     public function genererPaie(Request $request)
@@ -54,7 +61,9 @@ class PaieController extends Controller
             }
 
             $salaireBase = $this->recupererSalaireBase($employe->id);
-            $tauxHoraire = $salaireBase > 0 ? $salaireBase / 173.33 : 0;
+            $payrollRates = $this->payrollRateService->ratesForMonth($salaireBase, $mois);
+            $tauxHoraire = $payrollRates['taux_horaire'];
+            $tauxJournalier = $payrollRates['taux_journalier'];
             [$heuresTrav, $details, $absences, $retardsTotal, $heuresManquantes] = $this->calculerHeuresMois($employe->id, $mois);
             [$heuresSup, $montantHs, $heuresNuit, $montantNuit] = $this->calculerHsHebdo($details, $tauxHoraire);
             $workSettings = $this->loadWorktimeSettings();
@@ -69,7 +78,7 @@ class PaieController extends Controller
                 ->sum(fn ($item) => (float) ($item->montant_applique ?? $item->montant));
 
             $deductionRetards = ($retardsTotal / 60) * $tauxHoraire;
-            $deductionAbsences = $absences * ($salaireBase / 30);
+            $deductionAbsences = $absences * $tauxJournalier;
             $deductionPartiel = $heuresManquantes * $tauxHoraire;
             $settings = $workSettings;
             $appliquerSalaire = (bool) ($settings['deduct_from_salary'] ?? true);
@@ -1018,8 +1027,10 @@ class PaieController extends Controller
                     'mois' => $validated['mois'],
                     'employe' => $contrat->employe,
                     'salaire_base' => $forecast['salaire_base'],
-                    'taux_horaire' => $forecast['taux_horaire'],
-                    'taux_journalier' => $forecast['taux_journalier'],
+                    'taux_horaire' => $forecast['taux_horaire_affiche'],
+                    'taux_journalier' => $forecast['taux_journalier_affiche'],
+                    'jours_ouvres' => $forecast['jours_ouvres'],
+                    'heures_mensuelles_requises' => $forecast['heures_mensuelles_requises'],
                     'heures_travaillees' => $forecast['heures_travaillees'],
                     'heures_supplementaires' => $forecast['heures_supplementaires'],
                     'montant_hs' => $forecast['montant_hs'],
@@ -1192,7 +1203,9 @@ class PaieController extends Controller
         $param = $param ?: PaieParametre::first();
         $employe = $contrat->employe;
         $salaireBase = (float) $contrat->salaire_base;
-        $tauxHoraire = $salaireBase > 0 ? $salaireBase / 173.33 : 0;
+        $payrollRates = $this->payrollRateService->ratesForMonth($salaireBase, $mois);
+        $tauxHoraire = $payrollRates['taux_horaire'];
+        $tauxJournalier = $payrollRates['taux_journalier'];
         [$heuresTrav, $details, $absences, $retardsTotal, $heuresManquantes] = $this->calculerHeuresMois($employe->id, $mois);
         [$heuresSup, $montantHs, $heuresNuit, $montantNuit] = $this->calculerHsHebdo($details, $tauxHoraire);
         $settings = $this->loadWorktimeSettings();
@@ -1213,7 +1226,7 @@ class PaieController extends Controller
             ->sum(fn ($item) => (float) ($item->montant_applique ?? $item->montant));
 
         $deductionRetards = ($retardsTotal / 60) * $tauxHoraire;
-        $deductionAbsences = $absences * ($salaireBase / 30);
+        $deductionAbsences = $absences * $tauxJournalier;
         $deductionPartiel = $heuresManquantes * $tauxHoraire;
         $deductionsPresence = (bool) ($settings['deduct_from_salary'] ?? true)
             ? $deductionRetards + $deductionAbsences + $deductionPartiel
@@ -1239,8 +1252,12 @@ class PaieController extends Controller
 
         return [
             'salaire_base' => round($salaireBase, 2),
-            'taux_horaire' => round($tauxHoraire, 2),
-            'taux_journalier' => round($salaireBase / 30, 2),
+            'taux_horaire' => $payrollRates['taux_horaire_affiche'],
+            'taux_journalier' => $payrollRates['taux_journalier_affiche'],
+            'taux_horaire_affiche' => $payrollRates['taux_horaire_affiche'],
+            'taux_journalier_affiche' => $payrollRates['taux_journalier_affiche'],
+            'jours_ouvres' => $payrollRates['jours_ouvres'],
+            'heures_mensuelles_requises' => $payrollRates['heures_mensuelles_requises'],
             'heures_travaillees' => round((float) $heuresTrav, 2),
             'heures_supplementaires' => round((float) $heuresSup, 2),
             'montant_hs' => round((float) $montantHs, 2),

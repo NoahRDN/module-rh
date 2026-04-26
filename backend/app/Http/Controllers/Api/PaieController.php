@@ -896,6 +896,91 @@ class PaieController extends Controller
         ];
     }
 
+    public function suivi(Request $request)
+    {
+        $validated = $request->validate([
+            'annee' => 'nullable|digits:4',
+            'debut' => 'nullable|date_format:Y-m',
+            'fin' => 'nullable|date_format:Y-m|after_or_equal:debut',
+        ]);
+
+        $annee = $validated['annee'] ?? now()->format('Y');
+        $debut = $validated['debut'] ?? "{$annee}-01";
+        $fin = $validated['fin'] ?? "{$annee}-12";
+        $months = $this->listEtatMonths($debut, $fin);
+
+        $rows = collect($months)->map(function (string $month) {
+            $monthRows = $this->buildEtatPaieRows($month);
+            $total = $monthRows->count();
+            $origine = $this->sourceMontantsForForecastMonth($month);
+            $aGenerer = $monthRows->where('statut', 'non_genere')->count();
+            $attenteValidationGenerer = $monthRows->where('statut', 'en_attente_validation')->count();
+            $nonPaye = $monthRows->where('statut', 'non_paye')->count();
+            $attenteValidationPaye = $monthRows->where('statut', 'paiement_en_validation')->count();
+            $paye = $monthRows->where('statut', 'paye')->count();
+
+            return [
+                'mois' => $month,
+                'annee' => (int) substr($month, 0, 4),
+                'mois_numero' => (int) substr($month, 5, 2),
+                'origine_code' => $origine['code'],
+                'origine_label' => $origine['label'],
+                'origine_description' => $origine['description'],
+                'employes' => $total,
+                'a_generer' => $aGenerer,
+                'attente_validation_generer' => $attenteValidationGenerer,
+                'non_paye' => $nonPaye,
+                'attente_validation_paye' => $attenteValidationPaye,
+                'paye' => $paye,
+                'pourcentage_a_generer' => $this->percentage($aGenerer, $total),
+                'pourcentage_attente_validation_generer' => $this->percentage($attenteValidationGenerer, $total),
+                'pourcentage_non_paye' => $this->percentage($nonPaye, $total),
+                'pourcentage_attente_validation_paye' => $this->percentage($attenteValidationPaye, $total),
+                'pourcentage_paye' => $this->percentage($paye, $total),
+                'net_total' => round($monthRows->sum('net_a_payer'), 2),
+                'net_paye' => round($monthRows->where('statut', 'paye')->sum('net_a_payer'), 2),
+                'net_restant' => round($monthRows
+                    ->filter(fn ($row) => $row['statut'] !== 'paye')
+                    ->sum('net_a_payer'), 2),
+                'brut_total' => round($monthRows->sum('total_brut'), 2),
+            ];
+        })->values();
+
+        $totalEmployesMois = max(0, (int) $rows->sum('employes'));
+        $totaux = [
+            'mois' => $rows->count(),
+            'employes_mois' => $totalEmployesMois,
+            'a_generer' => (int) $rows->sum('a_generer'),
+            'attente_validation_generer' => (int) $rows->sum('attente_validation_generer'),
+            'non_paye' => (int) $rows->sum('non_paye'),
+            'attente_validation_paye' => (int) $rows->sum('attente_validation_paye'),
+            'paye' => (int) $rows->sum('paye'),
+            'net_total' => round($rows->sum('net_total'), 2),
+            'net_paye' => round($rows->sum('net_paye'), 2),
+            'net_restant' => round($rows->sum('net_restant'), 2),
+        ];
+        $totaux['pourcentage_a_generer'] = $this->percentage($totaux['a_generer'], $totalEmployesMois);
+        $totaux['pourcentage_attente_validation_generer'] = $this->percentage($totaux['attente_validation_generer'], $totalEmployesMois);
+        $totaux['pourcentage_non_paye'] = $this->percentage($totaux['non_paye'], $totalEmployesMois);
+        $totaux['pourcentage_attente_validation_paye'] = $this->percentage($totaux['attente_validation_paye'], $totalEmployesMois);
+        $totaux['pourcentage_paye'] = $this->percentage($totaux['paye'], $totalEmployesMois);
+
+        return response()->json([
+            'periode' => [
+                'annee' => $validated['annee'] ?? null,
+                'debut' => $debut,
+                'fin' => $fin,
+            ],
+            'totaux' => $totaux,
+            'mois' => $rows,
+        ]);
+    }
+
+    protected function percentage(int|float $value, int|float $total): float
+    {
+        return $total > 0 ? round(((float) $value / (float) $total) * 100, 2) : 0;
+    }
+
     public function payer(Request $request, $id)
     {
         $data = $request->validate([

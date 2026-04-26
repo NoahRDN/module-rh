@@ -232,19 +232,23 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import api from '../services/api'
 import AppIcon from '../components/ui/AppIcon.vue'
 import { formatDateValue, formatMoneyAmount } from '../utils/formatters'
 
 const loading = ref(false)
 const error = ref('')
+const route = useRoute()
 const mode = ref('mois')
 const statusFilter = ref('tous')
 
 const now = new Date()
-const year = ref(now.getFullYear())
-const month = ref(String(now.getMonth() + 1).padStart(2, '0'))
+const initialMonth = typeof route.query.mois === 'string' && /^\d{4}-\d{2}$/.test(route.query.mois)
+  ? route.query.mois
+  : `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+const year = ref(Number(initialMonth.slice(0, 4)))
+const month = ref(initialMonth.slice(5, 7))
 const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 const periodStart = ref(`${now.getFullYear()}-01`)
 const periodEnd = ref(currentMonth)

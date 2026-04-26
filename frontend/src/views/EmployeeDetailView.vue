@@ -127,6 +127,16 @@
               <p class="overview-value">{{ formatMoney(contratActuel.salaire_base) }}</p>
               <p class="overview-copy">Salaire de base</p>
             </div>
+            <div class="overview-card">
+              <p class="overview-label">Taux horaire</p>
+              <p class="overview-value">{{ formatMoney(tauxHoraireContrat) }}</p>
+              <p class="overview-copy">Sur {{ formatNumber(heuresMensuellesContrat) }} h imposées</p>
+            </div>
+            <div class="overview-card">
+              <p class="overview-label">Taux journalier</p>
+              <p class="overview-value">{{ formatMoney(tauxJournalierContrat) }}</p>
+              <p class="overview-copy">Sur {{ formatNumber(joursOuvresContrat) }} jours ouvrés</p>
+            </div>
           </div>
 
           <div v-else class="empty-state">
@@ -596,6 +606,10 @@ const documentsEmploye = computed(() =>
   [...(employe.value?.documents || [])].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)),
 )
 const selectedDocument = computed(() => previewDocuments.value[previewIndex.value] || null)
+const joursOuvresContrat = computed(() => Number(contratActuel.value?.jours_ouvres || 0))
+const heuresMensuellesContrat = computed(() => Number(contratActuel.value?.heures_mensuelles_requises || 0))
+const tauxHoraireContrat = computed(() => Number(contratActuel.value?.taux_horaire || 0))
+const tauxJournalierContrat = computed(() => Number(contratActuel.value?.taux_journalier || 0))
 
 const fetchEmploye = async () => {
   const { data } = await api.get(`/v1/employes/${route.params.id}`)
@@ -743,6 +757,7 @@ function generateAvatar(initials) {
 
 const formatDate = (d) => formatDateValue(d)
 const formatMoney = (value) => formatMoneyAmount(value)
+const formatNumber = (value) => new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(Number(value || 0))
 
 const revokePreviewObjectUrl = () => {
   if (previewObjectUrl.value) {

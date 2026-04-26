@@ -6,6 +6,7 @@ use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use App\Models\ContratHistorique;
+use App\Services\PayrollRateService;
 
 class Contrat extends Model
 {
@@ -34,6 +35,33 @@ class Contrat extends Model
         'renouvelable'         => 'boolean',
         'salaire_base'         => 'decimal:2'
     ];
+
+    protected $appends = [
+        'taux_horaire',
+        'taux_journalier',
+        'jours_ouvres',
+        'heures_mensuelles_requises',
+    ];
+
+    public function getTauxHoraireAttribute(): float
+    {
+        return app(PayrollRateService::class)->ratesForMonth((float) $this->salaire_base)['taux_horaire_affiche'];
+    }
+
+    public function getTauxJournalierAttribute(): float
+    {
+        return app(PayrollRateService::class)->ratesForMonth((float) $this->salaire_base)['taux_journalier_affiche'];
+    }
+
+    public function getJoursOuvresAttribute(): int
+    {
+        return app(PayrollRateService::class)->ratesForMonth((float) $this->salaire_base)['jours_ouvres'];
+    }
+
+    public function getHeuresMensuellesRequisesAttribute(): float
+    {
+        return app(PayrollRateService::class)->ratesForMonth((float) $this->salaire_base)['heures_mensuelles_requises'];
+    }
 
     protected static function booted(): void
     {

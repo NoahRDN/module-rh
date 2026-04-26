@@ -203,6 +203,7 @@ Route::prefix('v1')->group(function () {
     Route::get('pointages/releve-paie', [PointageController::class, 'relevePaie']);
     Route::post('paies/generer', [PaieController::class, 'genererPaie']);
     Route::get('paies/etat', [PaieController::class, 'etat']);
+    Route::get('paies/suivi', [PaieController::class, 'suivi']);
     Route::get('paies/prevision', [PaieController::class, 'prevision']);
     Route::post('paies/{id}/annuler', [PaieController::class, 'annuler']);
     Route::post('paies/{id}/valider', [PaieController::class, 'valider']);

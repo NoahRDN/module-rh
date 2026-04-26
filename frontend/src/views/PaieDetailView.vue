@@ -11,6 +11,7 @@
         <div class="hero-pills">
           <span class="pill">{{ employeeName }}</span>
           <span class="pill" :class="statusPillClass">{{ statutLabel }}</span>
+          <span class="pill" :class="sourcePillClass">{{ sourceMontants.label }}</span>
           <span class="pill">{{ formatMoney(paie?.net_a_payer) }}</span>
           <span v-if="coutReelEntreprise" class="pill">{{ formatMoney(coutReelEntreprise) }} coût entreprise</span>
         </div>
@@ -100,6 +101,16 @@
                 <p class="overview-copy">Base contractuelle utilisée</p>
               </div>
               <div class="overview-card">
+                <p class="overview-label">Taux horaire</p>
+                <p class="overview-value">{{ formatMoney(tauxHoraire) }}</p>
+                <p class="overview-copy">Sur {{ formatNumber(heuresMensuellesRequises) }} h imposées</p>
+              </div>
+              <div class="overview-card">
+                <p class="overview-label">Taux journalier</p>
+                <p class="overview-value">{{ formatMoney(tauxJournalier) }}</p>
+                <p class="overview-copy">Sur {{ formatNumber(joursOuvres) }} jours ouvrés</p>
+              </div>
+              <div class="overview-card">
                 <p class="overview-label">Heures supp.</p>
                 <p class="overview-value">{{ formatHours(paie.heures_supplementaires) }}</p>
                 <p class="overview-copy">Montant : {{ formatMoney(paie.montant_hs) }}</p>
@@ -134,17 +145,17 @@
               <div class="overview-card">
                 <p class="overview-label">Heures travaillées</p>
                 <p class="overview-value">{{ formatHours(resume.heures_travaillees) }}</p>
-                <p class="overview-copy">Total mensuel pointé</p>
+                <p class="overview-copy">{{ isPrevision ? 'Réel passé + futur supposé présent' : 'Total mensuel pointé' }}</p>
               </div>
               <div class="overview-card">
                 <p class="overview-label">Absences</p>
                 <p class="overview-value">{{ formatInteger(resume.absences) }}</p>
-                <p class="overview-copy">{{ formatInteger(resume.absences_justifiees) }} justifiée(s)</p>
+                <p class="overview-copy">{{ formatInteger(resume.absences_justifiees) }} justifiée(s){{ isPrevision ? ', futur non absent' : '' }}</p>
               </div>
               <div class="overview-card">
                 <p class="overview-label">Retards</p>
                 <p class="overview-value">{{ formatInteger(resume.retard_minutes) }} min</p>
-                <p class="overview-copy">Retards cumulés du mois</p>
+                <p class="overview-copy">{{ isPrevision ? 'Retards confirmés jusqu’à aujourd’hui' : 'Retards cumulés du mois' }}</p>
               </div>
               <div class="overview-card">
                 <p class="overview-label">Jours non travaillés</p>
@@ -171,20 +182,26 @@
                     <th>HS</th>
                     <th>Retard</th>
                     <th>Absence</th>
+                    <th>Origine</th>
                     <th>Info</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="detail in details" :key="detail.id">
+                  <tr v-for="detail in details" :key="detail.id || detail.jour">
                     <td>{{ formatDate(detail.jour) }}</td>
                     <td>{{ formatHours(detail.heures_travaillees) }}</td>
                     <td>{{ formatHours(detail.heures_supplementaires) }}</td>
                     <td>{{ formatInteger(detail.retard_minutes) }} min</td>
                     <td>{{ detail.absent ? 'Oui' : 'Non' }}</td>
+                    <td>
+                      <span class="chip source-chip" :class="detailSourceClass(detail)">
+                        {{ detailSourceLabel(detail) }}
+                      </span>
+                    </td>
                     <td>{{ dayInfo(detail) }}</td>
                   </tr>
                   <tr v-if="!details.length">
-                    <td colspan="6" class="muted">Aucun détail journalier enregistré.</td>
+                    <td colspan="7" class="muted">Aucun détail journalier enregistré.</td>
                   </tr>
                 </tbody>
               </table>
@@ -216,6 +233,25 @@
                 <p class="overview-label">Contrat</p>
                 <p class="overview-value overview-value--wrap">{{ contrat?.numero || '—' }}</p>
                 <p class="overview-copy">{{ formatDate(contrat?.date_debut) || '—' }} → {{ formatDate(contrat?.date_fin) || '—' }}</p>
+              </div>
+            </div>
+          </article>
+
+          <article class="card section-card side-card">
+            <div class="section-heading compact">
+              <div>
+                <p class="section-kicker">Origine</p>
+                <h2>Données utilisées</h2>
+              </div>
+            </div>
+
+            <div class="amount-list">
+              <div class="amount-row">
+                <span>{{ sourceMontants.label }}</span>
+                <strong>{{ isPrevision ? 'Prévision' : 'Réel' }}</strong>
+              </div>
+              <div class="amount-row">
+                <span>{{ sourceMontants.description }}</span>
               </div>
             </div>
           </article>
@@ -384,6 +420,7 @@ const mouvementPaiement = ref(null)
 const chargesPatronales = ref({})
 const cotisationsAReverser = ref({})
 const previsionBreakdown = ref({})
+const sourceMontantsData = ref(null)
 
 const details = computed(() => paie.value?.details || [])
 const employeeName = computed(() => {
@@ -397,10 +434,26 @@ const hasEmployerCharges = computed(() => Number(chargesPatronales.value?.total 
 const hasCotisations = computed(() => Number(cotisationsAReverser.value?.total || 0) > 0)
 const coutReelEntreprise = computed(() => Number(previsionBreakdown.value?.cout_reel_entreprise || 0))
 const hasPrevisionBreakdown = computed(() => coutReelEntreprise.value > 0)
+const sourceMontants = computed(() => sourceMontantsData.value || {
+  code: route.name === 'paie-prevision' ? 'prevision' : 'reel',
+  label: route.name === 'paie-prevision' ? 'Prévision présence' : 'Réel enregistré',
+  description: route.name === 'paie-prevision'
+    ? 'Réel jusqu’à aujourd’hui, jours futurs ouvrés supposés présents.'
+    : 'Fiche de paie générée depuis les données enregistrées.',
+})
+const isPrevision = computed(() => ['prevision', 'mixte'].includes(sourceMontants.value.code))
+const joursOuvres = computed(() => Number(paie.value?.jours_ouvres || 0))
+const heuresMensuellesRequises = computed(() => Number(paie.value?.heures_mensuelles_requises || 0))
+const tauxHoraire = computed(() => Number(paie.value?.taux_horaire || 0))
+const tauxJournalier = computed(() => Number(paie.value?.taux_journalier || 0))
 const statusPillClass = computed(() => ({
   'pill-green': statutCode.value === 'paye',
   'pill-red': statutCode.value === 'non_paye',
   'pill-yellow': ['en_attente_validation', 'paiement_en_validation'].includes(statutCode.value),
+}))
+const sourcePillClass = computed(() => ({
+  'pill-yellow': isPrevision.value,
+  'pill-green': !isPrevision.value,
 }))
 
 const metrics = computed(() => [
@@ -431,6 +484,7 @@ const metrics = computed(() => [
 ])
 
 const formatInteger = (value) => new Intl.NumberFormat('fr-FR').format(Number(value || 0))
+const formatNumber = (value) => new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(Number(value || 0))
 const formatMoney = (amount) => formatMoneyAmount(amount)
 const formatHours = (value) => `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(Number(value || 0))} h`
 
@@ -443,12 +497,19 @@ const formatDateTime = (value) => {
 
 const dayInfo = (detail) => {
   const labels = []
+  if (detail.suppose_present) labels.push('Présence supposée')
   if (detail.absence_justifiee) labels.push('Absence justifiée')
   if (detail.ferie) labels.push('Férié')
   if (detail.weekend) labels.push('Weekend')
   if (detail.present_partiel) labels.push('Présence partielle')
   return labels.join(' · ') || '—'
 }
+
+const detailSourceLabel = (detail) => detail.source_montants_label || (isPrevision.value ? 'Réel' : 'Réel')
+const detailSourceClass = (detail) => ({
+  warning: detail.source_montants === 'prevision',
+  success: detail.source_montants !== 'prevision',
+})
 
 const fetchDetail = async () => {
   loading.value = true
@@ -468,6 +529,7 @@ const fetchDetail = async () => {
     chargesPatronales.value = data.charges_patronales || {}
     cotisationsAReverser.value = data.cotisations_a_reverser || {}
     previsionBreakdown.value = data.prevision_breakdown || {}
+    sourceMontantsData.value = data.source_montants || null
   } catch (e) {
     error.value = e.response?.data?.message || e.message || 'Erreur chargement fiche de paie'
   } finally {
@@ -539,6 +601,26 @@ onMounted(fetchDetail)
   border-color: rgba(245, 158, 11, 0.22);
   background: rgba(245, 158, 11, 0.12);
   color: var(--warning-500);
+}
+
+.pill-green {
+  border-color: rgba(16, 185, 129, 0.22);
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--success-500);
+}
+
+.source-chip {
+  white-space: nowrap;
+}
+
+.chip.warning {
+  background: var(--warning-100);
+  color: var(--warning-500);
+}
+
+.chip.success {
+  background: var(--success-100);
+  color: var(--success-500);
 }
 
 .side-grid {

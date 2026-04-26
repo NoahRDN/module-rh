@@ -119,6 +119,7 @@ const groups = [
     items: [
       { to: '/paie-parametres', label: 'Paramètres paie', hint: 'CNAPS, OSTIE, IRSA', icon: 'settings' },
       { to: '/remuneration-items', label: 'Indemnités & primes', hint: 'Éléments variables', icon: 'wallet' },
+      { to: '/paie-suivi', label: 'Suivi paie', hint: 'Avancement mensuel', icon: 'clipboard' },
       { to: '/paie-etat', label: 'État de paie', hint: 'Mensuel & annuel', icon: 'clipboard' },
       { to: '/caisses', label: 'État caisse', hint: 'Solde et historique', icon: 'wallet' },
       { to: '/caisses/types', label: 'Types caisse', hint: 'Activer / désactiver', icon: 'settings' },

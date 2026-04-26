@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Services\PayrollRateService;
 
 class Paie extends Model
 {
@@ -35,6 +36,38 @@ class Paie extends Model
         'paye_le' => 'date',
         'valide_le' => 'datetime',
     ];
+
+    protected $appends = [
+        'taux_horaire',
+        'taux_journalier',
+        'jours_ouvres',
+        'heures_mensuelles_requises',
+    ];
+
+    public function getTauxHoraireAttribute(): float
+    {
+        return $this->payrollRates()['taux_horaire_affiche'];
+    }
+
+    public function getTauxJournalierAttribute(): float
+    {
+        return $this->payrollRates()['taux_journalier_affiche'];
+    }
+
+    public function getJoursOuvresAttribute(): int
+    {
+        return $this->payrollRates()['jours_ouvres'];
+    }
+
+    public function getHeuresMensuellesRequisesAttribute(): float
+    {
+        return $this->payrollRates()['heures_mensuelles_requises'];
+    }
+
+    protected function payrollRates(): array
+    {
+        return app(PayrollRateService::class)->ratesForMonth((float) $this->salaire_base, $this->mois);
+    }
 
     public function employe()
     {

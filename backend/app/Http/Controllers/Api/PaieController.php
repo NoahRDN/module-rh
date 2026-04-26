@@ -71,26 +71,29 @@ class PaieController extends Controller
             $deductionRetards = ($retardsTotal / 60) * $tauxHoraire;
             $deductionAbsences = $absences * ($salaireBase / 30);
             $deductionPartiel = $heuresManquantes * $tauxHoraire;
+            $settings = $workSettings;
+            $appliquerSalaire = (bool) ($settings['deduct_from_salary'] ?? true);
+            $appliquerSolde = (bool) ($settings['deduct_from_leave_balance'] ?? false);
 
-            $brut = $salaireBase
+            $deductionsPresence = $appliquerSalaire
+                ? $deductionRetards + $deductionAbsences + $deductionPartiel
+                : 0;
+
+            $brutAvantDeductionsPresence = $salaireBase
                 + $param->prime_transport
                 + $param->prime_presence
                 + $remunerationItemsTotal
                 + $montantHs
                 + $montantNuit;
 
+            $brut = max(0, $brutAvantDeductionsPresence - $deductionsPresence);
+
             $baseCnaps = min($brut, $param->cnaps_plafond ?? $brut);
             $cnaps = $baseCnaps * (($param->cnaps_taux_employe ?? $param->cnaps) / 100);
             $ostie = $brut * (($param->ostie_taux_employe ?? $param->ostie) / 100);
             $revenuImposable = max(0, ($brut - $nonTaxableRemunerationTotal) - $cnaps - $ostie);
             $irsa  = $this->calculerIrsaProgressif($revenuImposable);
-            $settings = $workSettings;
-            $appliquerSalaire = (bool) ($settings['deduct_from_salary'] ?? true);
-            $appliquerSolde = (bool) ($settings['deduct_from_leave_balance'] ?? false);
             $retenues = $cnaps + $ostie + $irsa;
-            if ($appliquerSalaire) {
-                $retenues += $deductionRetards + $deductionAbsences + $deductionPartiel;
-            }
 
             // Consommer le solde congé pour absences/retards si activé
             if ($appliquerSolde) {
@@ -1015,6 +1018,8 @@ class PaieController extends Controller
                     'mois' => $validated['mois'],
                     'employe' => $contrat->employe,
                     'salaire_base' => $forecast['salaire_base'],
+                    'taux_horaire' => $forecast['taux_horaire'],
+                    'taux_journalier' => $forecast['taux_journalier'],
                     'heures_travaillees' => $forecast['heures_travaillees'],
                     'heures_supplementaires' => $forecast['heures_supplementaires'],
                     'montant_hs' => $forecast['montant_hs'],
@@ -1207,7 +1212,15 @@ class PaieController extends Controller
             ->where('nature', 'indemnite')
             ->sum(fn ($item) => (float) ($item->montant_applique ?? $item->montant));
 
-        $brut = $salaireBase + $montantHs + $montantNuit + $primePresence + $primesBrut;
+        $deductionRetards = ($retardsTotal / 60) * $tauxHoraire;
+        $deductionAbsences = $absences * ($salaireBase / 30);
+        $deductionPartiel = $heuresManquantes * $tauxHoraire;
+        $deductionsPresence = (bool) ($settings['deduct_from_salary'] ?? true)
+            ? $deductionRetards + $deductionAbsences + $deductionPartiel
+            : 0;
+
+        $brutAvantDeductionsPresence = $salaireBase + $montantHs + $montantNuit + $primePresence + $primesBrut;
+        $brut = max(0, $brutAvantDeductionsPresence - $deductionsPresence);
 
         $baseCnaps = min($brut, (float) ($param?->cnaps_plafond ?? $brut));
         $cnapsEmploye = $baseCnaps * ((float) ($param?->cnaps_taux_employe ?? $param?->cnaps ?? 0) / 100);
@@ -1217,14 +1230,7 @@ class PaieController extends Controller
         $revenuImposable = max(0, $brut - $cnapsEmploye - $ostieEmploye);
         $irsa = $this->calculerIrsaProgressif($revenuImposable);
 
-        $deductionRetards = ($retardsTotal / 60) * $tauxHoraire;
-        $deductionAbsences = $absences * ($salaireBase / 30);
-        $deductionPartiel = $heuresManquantes * $tauxHoraire;
-        $deductionsPresence = (bool) ($settings['deduct_from_salary'] ?? true)
-            ? $deductionRetards + $deductionAbsences + $deductionPartiel
-            : 0;
-
-        $retenues = $cnapsEmploye + $ostieEmploye + $irsa + $deductionsPresence;
+        $retenues = $cnapsEmploye + $ostieEmploye + $irsa;
         $netSalaire = $brut - $retenues;
         $indemnitesAPayer = $primeTransport + $indemnitesNettes;
         $net = $netSalaire + $indemnitesAPayer;
@@ -1233,6 +1239,8 @@ class PaieController extends Controller
 
         return [
             'salaire_base' => round($salaireBase, 2),
+            'taux_horaire' => round($tauxHoraire, 2),
+            'taux_journalier' => round($salaireBase / 30, 2),
             'heures_travaillees' => round((float) $heuresTrav, 2),
             'heures_supplementaires' => round((float) $heuresSup, 2),
             'montant_hs' => round((float) $montantHs, 2),

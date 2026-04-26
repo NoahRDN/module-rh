@@ -127,6 +127,16 @@
               <p class="overview-value">{{ formatMoney(contratActuel.salaire_base) }}</p>
               <p class="overview-copy">Salaire de base</p>
             </div>
+            <div class="overview-card">
+              <p class="overview-label">Taux horaire</p>
+              <p class="overview-value">{{ formatMoney(tauxHoraireContrat) }}</p>
+              <p class="overview-copy">Référence 173,33 h/mois</p>
+            </div>
+            <div class="overview-card">
+              <p class="overview-label">Taux journalier</p>
+              <p class="overview-value">{{ formatMoney(tauxJournalierContrat) }}</p>
+              <p class="overview-copy">Référence 30 jours/mois</p>
+            </div>
           </div>
 
           <div v-else class="empty-state">
@@ -596,6 +606,12 @@ const documentsEmploye = computed(() =>
   [...(employe.value?.documents || [])].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)),
 )
 const selectedDocument = computed(() => previewDocuments.value[previewIndex.value] || null)
+const tauxHoraireContrat = computed(() =>
+  contratActuel.value?.taux_horaire ?? (Number(contratActuel.value?.salaire_base || 0) / 173.33),
+)
+const tauxJournalierContrat = computed(() =>
+  contratActuel.value?.taux_journalier ?? (Number(contratActuel.value?.salaire_base || 0) / 30),
+)
 
 const fetchEmploye = async () => {
   const { data } = await api.get(`/v1/employes/${route.params.id}`)

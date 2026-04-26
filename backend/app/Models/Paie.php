@@ -36,6 +36,21 @@ class Paie extends Model
         'valide_le' => 'datetime',
     ];
 
+    protected $appends = [
+        'taux_horaire',
+        'taux_journalier',
+    ];
+
+    public function getTauxHoraireAttribute(): float
+    {
+        return round(((float) $this->salaire_base) / 173.33, 2);
+    }
+
+    public function getTauxJournalierAttribute(): float
+    {
+        return round(((float) $this->salaire_base) / 30, 2);
+    }
+
     public function employe()
     {
         return $this->belongsTo(Employe::class);

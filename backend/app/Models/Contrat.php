@@ -35,6 +35,21 @@ class Contrat extends Model
         'salaire_base'         => 'decimal:2'
     ];
 
+    protected $appends = [
+        'taux_horaire',
+        'taux_journalier',
+    ];
+
+    public function getTauxHoraireAttribute(): float
+    {
+        return round(((float) $this->salaire_base) / 173.33, 2);
+    }
+
+    public function getTauxJournalierAttribute(): float
+    {
+        return round(((float) $this->salaire_base) / 30, 2);
+    }
+
     protected static function booted(): void
     {
         static::created(function (Contrat $contrat) {

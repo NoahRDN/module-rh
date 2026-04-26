@@ -100,6 +100,16 @@
                 <p class="overview-copy">Base contractuelle utilisée</p>
               </div>
               <div class="overview-card">
+                <p class="overview-label">Taux horaire</p>
+                <p class="overview-value">{{ formatMoney(tauxHoraire) }}</p>
+                <p class="overview-copy">Référence 173,33 h/mois</p>
+              </div>
+              <div class="overview-card">
+                <p class="overview-label">Taux journalier</p>
+                <p class="overview-value">{{ formatMoney(tauxJournalier) }}</p>
+                <p class="overview-copy">Référence 30 jours/mois</p>
+              </div>
+              <div class="overview-card">
                 <p class="overview-label">Heures supp.</p>
                 <p class="overview-value">{{ formatHours(paie.heures_supplementaires) }}</p>
                 <p class="overview-copy">Montant : {{ formatMoney(paie.montant_hs) }}</p>
@@ -397,6 +407,8 @@ const hasEmployerCharges = computed(() => Number(chargesPatronales.value?.total 
 const hasCotisations = computed(() => Number(cotisationsAReverser.value?.total || 0) > 0)
 const coutReelEntreprise = computed(() => Number(previsionBreakdown.value?.cout_reel_entreprise || 0))
 const hasPrevisionBreakdown = computed(() => coutReelEntreprise.value > 0)
+const tauxHoraire = computed(() => paie.value?.taux_horaire ?? (Number(paie.value?.salaire_base || 0) / 173.33))
+const tauxJournalier = computed(() => paie.value?.taux_journalier ?? (Number(paie.value?.salaire_base || 0) / 30))
 const statusPillClass = computed(() => ({
   'pill-green': statutCode.value === 'paye',
   'pill-red': statutCode.value === 'non_paye',

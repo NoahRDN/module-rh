@@ -199,49 +199,6 @@
           </div>
         </article>
       </article>
-
-      <aside class="card rh-section-card rh-side-card">
-        <div class="rh-section-heading compact">
-          <div>
-            <p class="rh-section-kicker">Overview</p>
-            <h2>Résumé période</h2>
-          </div>
-        </div>
-
-        <p class="rh-summary-intro">
-          Contrôlez rapidement la densité des événements, le type dominant et les prochains éléments à
-          venir.
-        </p>
-
-        <div class="rh-overview-grid">
-          <article v-for="card in overviewCards" :key="card.label" class="rh-overview-card">
-            <span class="rh-overview-chip">{{ card.tag }}</span>
-            <p class="rh-overview-label">{{ card.label }}</p>
-            <p class="rh-overview-value">{{ card.value }}</p>
-            <p class="rh-overview-copy">{{ card.copy }}</p>
-          </article>
-        </div>
-
-        <div class="upcoming-list" v-if="upcomingEvents.length">
-          <div v-for="evt in upcomingEvents" :key="eventKey(evt)" class="upcoming-item">
-            <div class="upcoming-top">
-              <span class="day-badge" :class="badgeClass(evt.type)">{{ formatType(evt.type) }}</span>
-              <span class="upcoming-date">{{ formatDisplayDate(evt.date_debut) }}</span>
-            </div>
-            <p>{{ evt.description || evt.meta?.type_conge_libelle || 'Événement RH' }}</p>
-            <span>{{ evt.employe?.matricule || 'Global' }}</span>
-          </div>
-        </div>
-
-        <div class="rh-notes-card">
-          <h3>Repères rapides</h3>
-          <ul>
-            <li>La vue mois sert à repérer les charges de période et les collisions.</li>
-            <li>La vue semaine accélère le suivi opérationnel d’une période courte.</li>
-            <li>Les filtres identifiant et nom s’appliquent directement aux événements récupérés.</li>
-          </ul>
-        </div>
-      </aside>
     </section>
 
     <div v-if="selectedDate" class="event-modal-backdrop" @click.self="closeEventDetails">
@@ -554,46 +511,6 @@ const metricCards = computed(() => [
   },
 ])
 
-const upcomingEvents = computed(() =>
-  [...events.value]
-    .filter((event) => String(event.date_fin || '') >= formatDate(new Date()))
-    .sort((left, right) => String(left.date_debut || '').localeCompare(String(right.date_debut || '')))
-    .slice(0, 5),
-)
-
-const overviewCards = computed(() => [
-  {
-    label: 'Type dominant',
-    value:
-      [
-        { label: 'Congés', value: eventCounts.value.conge },
-        { label: 'Absences', value: eventCounts.value.absence },
-        { label: 'Fériés', value: eventCounts.value.ferie },
-        { label: 'RH', value: eventCounts.value.rh },
-      ].sort((left, right) => right.value - left.value)[0]?.label || 'Aucun',
-    copy: 'Catégorie la plus visible dans la période chargée.',
-    tag: 'Focus',
-  },
-  {
-    label: 'Éléments à venir',
-    value: upcomingEvents.value.length,
-    copy: 'Prochains événements encore à traiter ou surveiller.',
-    tag: 'Next',
-  },
-  {
-    label: 'Vue active',
-    value: viewLabel.value.replace('Vue ', ''),
-    copy: 'Mode de lecture actuellement sélectionné.',
-    tag: 'Mode',
-  },
-  {
-    label: 'Filtres actifs',
-    value: [filter.value.type, filter.value.matricule, filter.value.nom].filter(Boolean).length,
-    copy: 'Nombre de filtres actuellement appliqués.',
-    tag: 'Filters',
-  },
-])
-
 const isDateBetween = (date, start, end) => {
   const d = normalizeDate(date)
   const s = normalizeDate(start)
@@ -883,6 +800,10 @@ onMounted(fetchEvents)
 .danger-action:hover {
   border-color: rgba(239, 68, 68, 0.28);
   background: rgba(239, 68, 68, 0.08);
+}
+
+.calendrier-page .rh-content-grid {
+  grid-template-columns: 1fr;
 }
 
 .filters-grid {

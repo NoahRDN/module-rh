@@ -1,0 +1,4 @@
+frontend/src/views/AlertesView.vue:64:                <p class="rh-section-kicker">{{ section.kicker }}</p>
+frontend/src/views/CalendrierEvenementsView.vue:77:            <p class="rh-section-kicker">Calendar view</p>
+frontend/src/views/CalendrierEvenementsView.vue:208:            <p class="rh-section-kicker">Day details</p>
+frontend/src/views/CalendrierEvenementsView.vue:259:            <p class="rh-section-kicker">Create event</p>

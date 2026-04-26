@@ -35,6 +35,7 @@ import RelevePresenceView from '../views/RelevePresenceView.vue'
 import MainLayout from '../components/layout/MainLayout.vue'
 import WorktimeConfigView from '../views/WorktimeConfigView.vue'
 import EntrepriseSettingsView from '../views/EntrepriseSettingsView.vue'
+import DevisesView from '../views/DevisesView.vue'
 import PerformancesView from '../views/PerformancesView.vue'
 import EvaluationCreateView from '../views/EvaluationCreateView.vue'
 import AlerteSettingsView from '../views/AlerteSettingsView.vue'
@@ -141,6 +142,7 @@ const routes = [
       { path: 'releve-presence', name: 'releve-presence', component: RelevePresenceView, meta: { subtitle: 'Présence' } },
       { path: 'worktime-config', name: 'worktime-config', component: WorktimeConfigView, meta: { subtitle: 'Horaires' } },
       { path: 'entreprise-settings', name: 'entreprise-settings', component: EntrepriseSettingsView, meta: { subtitle: 'Entreprise' } },
+      { path: 'devises', name: 'devises', component: DevisesView, meta: { subtitle: 'Devises' } },
       { path: 'paie-parametres', name: 'paie-parametres', component: PaieParametresView, meta: { subtitle: 'Paie' } },
       { path: 'remuneration-items', name: 'remuneration-items', component: RemunerationItemsView, meta: { subtitle: 'Indemnités et primes' } },
       { path: 'remuneration-items/nouveau', name: 'remuneration-item-create', component: RemunerationItemFormView, meta: { subtitle: 'Nouvel élément de rémunération' } },

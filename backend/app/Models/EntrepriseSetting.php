@@ -7,6 +7,7 @@ class EntrepriseSetting extends Model
 {
     protected $fillable = [
         'nom',
+        'devise',
         'logo_path',
     ];
 

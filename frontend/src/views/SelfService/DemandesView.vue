@@ -170,7 +170,7 @@
 
           <!-- Champs spécifiques selon le type -->
           <div v-if="selectedType?.necessite_montant" class="form-group">
-            <label>Montant (Ar)</label>
+            <label>Montant ({{ currencyUnit }})</label>
             <input type="number" v-model.number="newDemandeForm.montant" min="0" />
           </div>
 
@@ -297,9 +297,11 @@ import { ref, computed, onMounted } from 'vue'
 import selfServiceService from '../../services/selfServiceService'
 import demandeRHService from '../../services/demandeRHService'
 import { formatMoneyAmount } from '../../utils/formatters'
+import { getStoredCurrency } from '../../utils/currency'
 
 const loading = ref(false)
 const saving = ref(false)
+const currencyUnit = getStoredCurrency()
 const demandes = ref([])
 const typesDemandes = ref([])
 const filtreType = ref('')
@@ -351,7 +353,7 @@ const demandesRejetees = computed(() =>
 // Helpers
 const formatDate = (date) => new Date(date).toLocaleDateString('fr-FR')
 const formatDateTime = (date) => new Date(date).toLocaleString('fr-FR')
-const formatMontant = (m) => formatMoneyAmount(m, { unit: 'Ar' })
+const formatMontant = (m) => formatMoneyAmount(m)
 
 const getStatutLabel = (statut) => {
   const labels = {

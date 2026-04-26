@@ -126,6 +126,7 @@ const groups = [
       { to: '/caisses/validations', label: 'Validation caisse', hint: 'Appliquer au solde', icon: 'shield' },
       { to: '/worktime-config', label: 'Horaires', hint: 'Temps de travail', icon: 'clock' },
       { to: '/entreprise-settings', label: 'Entreprise', hint: 'Nom et logo', icon: 'building' },
+      { to: '/devises', label: 'Devises', hint: 'CRUD des monnaies', icon: 'wallet' },
     ],
   },
 ]

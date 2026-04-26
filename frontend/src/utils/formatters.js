@@ -1,4 +1,4 @@
-import { getStoredCurrency } from './currency'
+import { getCurrencyDisplayUnit, getStoredCurrency } from './currency'
 
 const normalizeMoneyValue = (value) => {
   if (value === null || value === undefined || value === '') return null
@@ -9,7 +9,7 @@ const normalizeMoneyValue = (value) => {
 
 export const formatMoneyAmount = (value, options = {}) => {
   const {
-    unit = getStoredCurrency(),
+    unit = getCurrencyDisplayUnit(getStoredCurrency()),
     empty = '—',
     minimumFractionDigits,
     maximumFractionDigits = 2,

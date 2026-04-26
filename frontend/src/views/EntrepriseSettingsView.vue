@@ -76,8 +76,8 @@
           <label class="rh-field-card">
             <span class="rh-field-label">Devise de l'application</span>
             <select class="select" v-model="form.devise">
-              <option v-for="currency in currencyOptions" :key="currency" :value="currency">
-                {{ currency }}
+              <option v-for="currency in currencyOptions" :key="currency.code" :value="currency.code">
+                {{ currency.code }} · {{ currency.libelle }} · {{ currency.symbole || currency.code }}
               </option>
             </select>
             <span class="muted">Utilisée par défaut pour les montants affichés dans l'application.</span>
@@ -132,7 +132,7 @@
 import { computed, onMounted, ref } from 'vue'
 import api, { resolveBackendAssetUrl } from '../services/api'
 import AppIcon from '../components/ui/AppIcon.vue'
-import { getCurrencyOptions, setStoredCurrency } from '../utils/currency'
+import { getCurrencyOptions, setCurrencyCatalog, setStoredCurrency } from '../utils/currency'
 
 const loading = ref(false)
 const loaded = ref(false)
@@ -146,7 +146,7 @@ const form = ref({
   nom: '',
   devise: 'MGA',
 })
-const currencyOptions = getCurrencyOptions()
+const currencyOptions = ref(getCurrencyOptions())
 
 const logoPreview = computed(() => localLogoPreview.value || existingLogoUrl.value)
 
@@ -158,6 +158,12 @@ const loadSettings = async () => {
     const { data } = await api.get('/v1/entreprise-settings')
     form.value.nom = data.nom || ''
     form.value.devise = data.devise || 'MGA'
+    if (!currencyOptions.value.some((item) => item.code === form.value.devise)) {
+      currencyOptions.value = [
+        ...currencyOptions.value,
+        { code: form.value.devise, libelle: form.value.devise, symbole: form.value.devise, active: true },
+      ]
+    }
     setStoredCurrency(form.value.devise)
     existingLogoUrl.value = resolveBackendAssetUrl(data.logo_url || '')
     logoFile.value = null
@@ -168,6 +174,16 @@ const loadSettings = async () => {
     error.value = e.response?.data?.message || 'Erreur de chargement des paramètres entreprise'
   } finally {
     loading.value = false
+  }
+}
+
+const loadDevises = async () => {
+  try {
+    const { data } = await api.get('/v1/devises?active=1')
+    const options = Array.isArray(data) ? data : []
+    currencyOptions.value = setCurrencyCatalog(options)
+  } catch (error) {
+    currencyOptions.value = getCurrencyOptions()
   }
 }
 
@@ -231,7 +247,10 @@ const save = async () => {
   }
 }
 
-onMounted(loadSettings)
+onMounted(async () => {
+  await loadDevises()
+  await loadSettings()
+})
 </script>
 
 <style scoped>

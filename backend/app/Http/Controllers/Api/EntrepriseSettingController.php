@@ -19,14 +19,14 @@ class EntrepriseSettingController extends Controller
     {
         $data = $request->validate([
             'nom' => ['required', 'string', 'max:255'],
-            'devise' => ['required', Rule::in(['MGA', 'EUR', 'USD'])],
+            'devise' => ['required', 'string', 'max:10', Rule::exists('devises', 'code')->where('active', true)],
             'logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,svg', 'max:2048'],
             'remove_logo' => ['nullable', Rule::in(['1', 'true', true, 1])],
         ]);
 
         $setting = $this->setting();
         $setting->nom = $data['nom'];
-        $setting->devise = $data['devise'];
+        $setting->devise = strtoupper($data['devise']);
 
         if ($request->boolean('remove_logo') && $setting->logo_path) {
             Storage::disk('public')->delete($setting->logo_path);
@@ -48,12 +48,19 @@ class EntrepriseSettingController extends Controller
 
     private function setting(): EntrepriseSetting
     {
-        return EntrepriseSetting::firstOrCreate(
+        $setting = EntrepriseSetting::firstOrCreate(
             [],
             [
                 'nom' => config('app.name', 'Module RH'),
                 'devise' => 'MGA',
             ]
         );
+
+        if (!$setting->devise) {
+            $setting->devise = 'MGA';
+            $setting->save();
+        }
+
+        return $setting;
     }
 }

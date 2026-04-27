@@ -980,6 +980,11 @@ class PaieController extends Controller
         ];
     }
 
+    protected function percentage(int|float $value, int|float $total): float
+    {
+        return $total > 0 ? round(((float) $value / (float) $total) * 100, 2) : 0;
+    }
+
     public function suivi(Request $request)
     {
         $validated = $request->validate([
@@ -1058,11 +1063,6 @@ class PaieController extends Controller
             'totaux' => $totaux,
             'mois' => $rows,
         ]);
-    }
-
-    protected function percentage(int|float $value, int|float $total): float
-    {
-        return $total > 0 ? round(((float) $value / (float) $total) * 100, 2) : 0;
     }
 
     public function payer(Request $request, $id)
@@ -1201,13 +1201,38 @@ class PaieController extends Controller
                 ->orderByDesc('created_at')
                 ->first();
 
+            $statutCode = $this->statutPaie($paie);
+            
+            // Determine source_montants based on payroll type and month period
+            // A forecast (prevision) cannot directly become "Réel validé" - it must go through the period logic
+            $forecastSource = $this->sourceMontantsForForecastMonth($paie->mois);
+            
+            // If the period is still in forecast mode (future or current month with mixte),
+            // always show the forecast label regardless of validation status
+            if (in_array($forecastSource['code'], ['prevision', 'mixte'], true)) {
+                $sourceMontants = $forecastSource;
+            } elseif (in_array($statutCode, ['non_paye', 'paiement_en_validation', 'paye'], true)) {
+                // Only for past periods (réel calculé) that are validated, show "Réel validé"
+                $sourceMontants = [
+                    'code' => 'reel',
+                    'label' => 'Réel validé',
+                    'description' => 'Fiche de paie validée ou en paiement.',
+                ];
+            } else {
+                $sourceMontants = [
+                    'code' => 'reel',
+                    'label' => 'Réel enregistré',
+                    'description' => 'Fiche de paie générée depuis les données enregistrées.',
+                ];
+            }
+
             return response()->json([
                 'paie' => $paie,
                 'contrat' => $contrat,
                 'mouvement_paiement' => $mouvementPaiement,
                 'statut' => [
-                    'code' => $this->statutPaie($paie),
-                    'label' => $this->statutPaieLabel($this->statutPaie($paie)),
+                    'code' => $statutCode,
+                    'label' => $this->statutPaieLabel($statutCode),
                 ],
                 'resume' => $this->resumePaie($paie),
                 'retenues' => [
@@ -1216,11 +1241,7 @@ class PaieController extends Controller
                     ['label' => 'IRSA', 'montant' => (float) $paie->retenue_irsa],
                 ],
                 'primes' => $this->buildPaiePrimesResponse($paie),
-                'source_montants' => [
-                    'code' => 'reel',
-                    'label' => 'Réel enregistré',
-                    'description' => 'Fiche de paie générée depuis les données enregistrées.',
-                ],
+                'source_montants' => $sourceMontants,
             ]);
         } catch (\Throwable $e) {
             Log::error('Erreur détail paie', ['id' => $id, 'error' => $e->getMessage()]);
@@ -1441,11 +1462,11 @@ class PaieController extends Controller
                 'cnaps_employeur' => $displayEmployerCharges['cnaps'],
                 'ostie_employeur' => $displayEmployerCharges['ostie'],
                 'paye_le' => $paie?->paye_le?->toDateString(),
-                'demande_validation_le' => $paie?->demande_validation_le?->toDateTimeString() ?? $paie?->created_at?->toDateTimeString(),
-                'valide_le' => $paie?->valide_le?->toDateTimeString(),
+                'demande_validation_le' => $paie?->demande_validation_le?->toIso8601String() ?? $paie?->created_at?->toIso8601String(),
+                'valide_le' => $paie?->valide_le?->toIso8601String(),
                 'paiement_mouvement_id' => $mouvementPaiement?->id,
-                'paiement_demande_le' => $mouvementPaiement?->demande_validation_le?->toDateTimeString(),
-                'paiement_valide_le' => $mouvementPaiement?->valide_le?->toDateTimeString(),
+                'paiement_demande_le' => $mouvementPaiement?->demande_validation_le?->toIso8601String(),
+                'paiement_valide_le' => $mouvementPaiement?->valide_le?->toIso8601String(),
                 'caisse_nom' => $mouvementPaiement?->caisse?->nom,
                 'details_paie' => $this->resumePaie($paie),
             ];

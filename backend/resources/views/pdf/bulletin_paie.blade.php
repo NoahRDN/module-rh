@@ -69,14 +69,15 @@
         text-transform: uppercase;
         white-space: nowrap;
         z-index: 1;
+        pointer-events: none;
     }
 </style>
 </head>
 
 <body>
 
-@if(!empty($isPrevisionPdf))
-<div class="watermark-prevision">Prevision</div>
+@if(!empty($watermarkText))
+<div class="watermark-prevision">{{ $watermarkText }}</div>
 @endif
 
 <div class="page-content">

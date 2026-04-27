@@ -8,18 +8,23 @@ use App\Models\PaieParametre;
 use App\Models\IrsaTranche;
 use App\Models\WorktimeSetting;
 use App\Models\JourFerie;
+use App\Models\Contrat;
+use App\Models\EntrepriseSetting;
 use App\Services\PayrollRateService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Http\Request;
 use Carbon\Carbon;
 
 class PaiePdfController extends Controller
 {
-    public function telecharger($id)
+    public function telecharger($id, Request $request)
     {
         try {
             $paie = Paie::with(['employe', 'employe.poste', 'employe.historiquePostes', 'details', 'primes'])->findOrFail($id);
             $employe = $paie->employe;
+            $monthStart = Carbon::createFromFormat('Y-m', $paie->mois)->startOfMonth();
+            $monthEnd = $monthStart->copy()->endOfMonth();
             $posteActif = $employe->posteActifPourDate($paie->mois);
             if ($posteActif) {
                 // aligne la relation poste avec le poste effectif pour la période
@@ -27,20 +32,36 @@ class PaiePdfController extends Controller
             }
 
             $param = PaieParametre::first();
+            $contratPeriode = Contrat::where('employe_id', $paie->employe_id)
+                ->whereDate('date_debut', '<=', $monthEnd->toDateString())
+                ->where(function ($query) use ($monthStart) {
+                    $query->whereNull('date_fin')->orWhereDate('date_fin', '>=', $monthStart->toDateString());
+                })
+                ->orderByDesc('date_debut')
+                ->first();
+            $contrat = $contratPeriode ?: Contrat::where('employe_id', $paie->employe_id)
+                ->orderByDesc('date_debut')
+                ->first();
+            $salaireBaseReference = round((float) ($contrat?->salaire_base ?? $paie->salaire_base ?? 0), 2);
 
-            // Calculer les données nécessaires
             $anciennete = $this->calculerAnciennete($employe->date_embauche);
-            $payrollRates = app(PayrollRateService::class)->ratesForMonth((float) $paie->salaire_base, $paie->mois);
+            $payrollRates = app(PayrollRateService::class)->ratesForMonth($salaireBaseReference, $paie->mois);
             $taux_journalier = $payrollRates['taux_journalier_affiche'];
             $taux_horaire = $payrollRates['taux_horaire_affiche'];
+            $retardsMinutes = (int) $paie->details->sum('retard_minutes');
+            $absencesNonJustifiees = (int) $paie->details
+                ->filter(fn ($detail) => (bool) ($detail->absent ?? false) && !(bool) ($detail->absence_justifiee ?? false))
+                ->count();
+            $deductionRetards = round(($retardsMinutes / 60) * (float) $taux_horaire, 2);
+            $deductionAbsences = round($absencesNonJustifiees * (float) $taux_journalier, 2);
 
             // Calculer les détails des revenus (heures supplémentaires, primes, etc.)
             $hs_breakdown = $this->calculerRepartitionHeuresSup($paie, $taux_horaire);
             $details_revenus = $this->extraireDetailsRevelus($paie, $taux_horaire, $hs_breakdown);
 
             $nonTaxableRemunerationTotal = (float) $paie->primes
-                ->where('is_taxable', false)
-                ->sum(fn ($prime) => (float) $prime->montant);
+                ->filter(fn ($prime) => !(bool) $prime->is_taxable)
+                ->reduce(fn (float $carry, $prime) => $carry + (float) $prime->montant, 0.0);
 
             // Calculer les détails IRSA (progressif via tranches)
             [$details_irsa, $irsa_brut, $reduction_irsa] = $this->calculerDetailIRSAProgressif(
@@ -55,6 +76,31 @@ class PaiePdfController extends Controller
             // Autres données
             $revenu_imposable = ($paie->total_brut - $nonTaxableRemunerationTotal) - $paie->retenue_cnaps - $paie->retenue_ostie;
             $enfants_charge = $employe->enfants_a_charge ?? 0;
+            $sourceMontants = $this->sourceMontantsForMonth($paie->mois);
+            $forcePrevision = $request->boolean('prevision');
+            $isPrevisionPdf = $forcePrevision || $paie->type === 'mixte' || $paie->type === 'prevision';
+            
+            // Determine watermark text based on payroll type
+            // Only show watermark for forecast types (prevision and mixte), not for validated actual
+            $watermarkText = null;
+            if ($paie->type === 'prevision') {
+                $watermarkText = 'PRÉVISION';
+            } elseif ($paie->type === 'mixte') {
+                $watermarkText = 'PRÉVISION + RÉEL';
+            }
+            // No watermark for validated actual payrolls
+            $entreprise = EntrepriseSetting::firstOrCreate(
+                [],
+                ['nom' => config('app.name', 'Module RH')]
+            );
+            $entrepriseLogoPath = null;
+            if (!empty($entreprise->logo_path)) {
+                $candidateLogoPath = storage_path('app/public/' . ltrim((string) $entreprise->logo_path, '/'));
+                if (is_file($candidateLogoPath)) {
+                    $entrepriseLogoPath = $candidateLogoPath;
+                }
+            }
+
             Log::info("Generating PDF for Paie ID: {$paie->id}");
             Log::info("Employe ID: {$employe->id}, mois: {$paie->mois} ,Annee: {$paie->annee}");
             $pdf = Pdf::loadView('pdf.bulletin_paie', [
@@ -62,9 +108,14 @@ class PaiePdfController extends Controller
                 'employe' => $employe,
                 'posteActif' => $posteActif,
                 'param' => $param,
+                'salaire_base_reference' => $salaireBaseReference,
                 'anciennete' => $anciennete,
                 'taux_journalier' => $taux_journalier,
                 'taux_horaire' => $taux_horaire,
+                'retards_minutes' => $retardsMinutes,
+                'absences_non_justifiees' => $absencesNonJustifiees,
+                'deduction_retards' => $deductionRetards,
+                'deduction_absences' => $deductionAbsences,
                 'details_revenus' => $details_revenus,
                 'details_irsa' => $details_irsa,
                 'irsa_brut' => $irsa_brut,
@@ -74,6 +125,10 @@ class PaiePdfController extends Controller
                 'total_retenues_affiche' => $total_retenues_affiche,
                 'revenu_imposable' => $revenu_imposable,
                 'enfants_charge' => $enfants_charge,
+                'isPrevisionPdf' => $isPrevisionPdf,
+                'watermarkText' => $watermarkText,
+                'entreprise_nom' => $entreprise->nom ?: config('app.name', 'Module RH'),
+                'entreprise_logo_path' => $entrepriseLogoPath,
             ]);
 
             return $pdf->download("bulletin_paie_{$employe->id}_{$paie->mois}.pdf");
@@ -104,6 +159,32 @@ class PaiePdfController extends Controller
         $days = $diff->d;
 
         return "{$years} an(s) {$months} mois et {$days} jour(s)";
+    }
+
+    private function sourceMontantsForMonth(string $mois): array
+    {
+        $start = Carbon::createFromFormat('Y-m', $mois)->startOfMonth();
+        $end = $start->copy()->endOfMonth();
+        $today = now()->startOfDay();
+
+        if ($end->lt($today)) {
+            return [
+                'code' => 'reel_calcule',
+                'label' => 'Réel calculé',
+            ];
+        }
+
+        if ($start->gt($today)) {
+            return [
+                'code' => 'prevision',
+                'label' => 'Prévision présence',
+            ];
+        }   
+
+        return [
+            'code' => 'mixte',
+            'label' => 'Réel + prévision',
+        ];
     }
 
     /**

@@ -15,6 +15,7 @@ use App\Models\Employe;
 use App\Models\IrsaTranche;
 use App\Models\DemandeConge;
 use App\Models\JourFerie;
+use App\Models\EntrepriseSetting;
 use App\Services\CongeService;
 use App\Services\PayrollRateService;
 use App\Services\RemunerationItemService;
@@ -67,10 +68,17 @@ class PaieController extends Controller
             [$heuresTrav, $details, $absences, $retardsTotal, $heuresManquantes] = $this->calculerHeuresMois($employe->id, $mois);
             [$heuresSup, $montantHs, $heuresNuit, $montantNuit] = $this->calculerHsHebdo($details, $tauxHoraire);
             $workSettings = $this->loadWorktimeSettings();
+            $hoursPerDay = (float) ($workSettings['hours_per_day'] ?? 8);
+            $heuresPayables = $this->calculerHeuresPayables($details, $hoursPerDay);
+            $salaireBasePointage = $this->calculerSalaireBaseProportionnel(
+                $salaireBase,
+                $heuresPayables,
+                (float) ($payrollRates['heures_mensuelles_requises'] ?? 0)
+            );
             $appliedRemunerationItems = $this->remunerationItemService->resolveForEmploye($employe, $mois, [
                 'details' => $details,
                 'heures_travaillees' => $heuresTrav,
-                'hours_per_day' => (float) ($workSettings['hours_per_day'] ?? 8),
+                'hours_per_day' => $hoursPerDay,
             ]);
             $remunerationItemsTotal = (float) $appliedRemunerationItems->sum(fn ($item) => (float) ($item->montant_applique ?? $item->montant));
             $nonTaxableRemunerationTotal = (float) $appliedRemunerationItems
@@ -78,8 +86,8 @@ class PaieController extends Controller
                 ->sum(fn ($item) => (float) ($item->montant_applique ?? $item->montant));
 
             $deductionRetards = ($retardsTotal / 60) * $tauxHoraire;
-            $deductionAbsences = $absences * $tauxJournalier;
-            $deductionPartiel = $heuresManquantes * $tauxHoraire;
+            $deductionAbsences = 0;
+            $deductionPartiel = 0;
             $settings = $workSettings;
             $appliquerSalaire = (bool) ($settings['deduct_from_salary'] ?? true);
             $appliquerSolde = (bool) ($settings['deduct_from_leave_balance'] ?? false);
@@ -88,14 +96,15 @@ class PaieController extends Controller
                 ? $deductionRetards + $deductionAbsences + $deductionPartiel
                 : 0;
 
-            $brutAvantDeductionsPresence = $salaireBase
+            $salaireProportionnel = $salaireBasePointage;
+
+            $brutAvantDeductionsPresence = $salaireProportionnel
                 + $param->prime_transport
                 + $param->prime_presence
                 + $remunerationItemsTotal
                 + $montantHs
                 + $montantNuit;
-
-            $brut = max(0, $brutAvantDeductionsPresence - $deductionsPresence);
+            $brut = max(0, $brutAvantDeductionsPresence - (!$appliquerSalaire ? $deductionsPresence : 0));
 
             $baseCnaps = min($brut, $param->cnaps_plafond ?? $brut);
             $cnaps = $baseCnaps * (($param->cnaps_taux_employe ?? $param->cnaps) / 100);
@@ -103,8 +112,6 @@ class PaieController extends Controller
             $revenuImposable = max(0, ($brut - $nonTaxableRemunerationTotal) - $cnaps - $ostie);
             $irsa  = $this->calculerIrsaProgressif($revenuImposable);
             $retenues = $cnaps + $ostie + $irsa;
-
-            // Consommer le solde congé pour absences/retards si activé
             if ($appliquerSolde) {
                 $hoursPerDay = (float) ($settings['hours_per_day'] ?? 8);
                 $joursRetards = ($retardsTotal > 0 && $hoursPerDay > 0) ? ($retardsTotal / 60) / $hoursPerDay : 0;
@@ -125,7 +132,7 @@ class PaieController extends Controller
                 'mois'                  => $mois,
                 'statut'                => 'en_attente_validation',
                 'demande_validation_le' => now(),
-                'salaire_base'          => $salaireBase,
+                'salaire_base'          => $salaireProportionnel,
                 'heures_travaillees'    => $heuresTrav,
                 'heures_supplementaires'=> $heuresSup,
                 'montant_hs'            => $montantHs,
@@ -211,17 +218,55 @@ class PaieController extends Controller
         return $contrat?->salaire_base ?? 0;
     }
 
+    protected function calculerHeuresPayables(array $details, float $hoursPerDay): float
+    {
+        if ($hoursPerDay <= 0) {
+            return 0;
+        }
+
+        $heuresPayables = 0;
+        foreach ($details as $detail) {
+            if (($detail['ferie'] ?? false) || ($detail['weekend'] ?? false)) {
+                continue;
+            }
+
+            if ($detail['absence_justifiee'] ?? false) {
+                $heuresPayables += $hoursPerDay;
+                continue;
+            }
+
+            if ($detail['absent'] ?? false) {
+                continue;
+            }
+
+            $heuresJour = (float) ($detail['heures_travaillees'] ?? 0);
+            $heuresPayables += min($hoursPerDay, max(0, $heuresJour));
+        }
+
+        return round($heuresPayables, 2);
+    }
+
+    protected function calculerSalaireBaseProportionnel(float $salaireBase, float $heuresPayables, float $heuresMensuellesRequises): float
+    {
+        if ($salaireBase <= 0 || $heuresMensuellesRequises <= 0) {
+            return 0;
+        }
+
+        $ratioPresence = min(1, max(0, $heuresPayables / $heuresMensuellesRequises));
+
+        return round($salaireBase * $ratioPresence, 2);
+    }
+
     protected function calculerHeuresMois(int $employeId, string $mois, bool $futureDaysAssumedPresent = false): array
     {
         $start = Carbon::createFromFormat('Y-m', $mois)->startOfMonth();
         $end   = (clone $start)->endOfMonth();
         $settings = $this->loadWorktimeSettings();
-
-        $pointages = Pointage::forEmploye($employeId)
+        $allPointages = Pointage::forEmploye($employeId)
             ->between($start->toDateString(), $end->toDateString())
             ->orderBy('pointe_a')
-            ->get()
-            ->groupBy(fn($p) => $p->pointe_a->toDateString());
+            ->get();
+        $pointages = $this->grouperPointagesParJour($allPointages, $start, $end);
 
         $totalHeures = 0;
         $totalRetards = 0;
@@ -349,15 +394,8 @@ class PaieController extends Controller
         $minutesBrut = $debut->diffInMinutes($fin);
         $pauses = $this->calculerDureePauses($pointages);
         $minutesTravail = max(0, $minutesBrut - $pauses);
-        $minutesNormales = max(0, ($hoursPerDay * 60) - ($settings['pause_minutes'] ?? 60));
-
         $heuresTravaillees = round($minutesTravail / 60, 2);
-        $heuresSupp = max(0, round(($minutesTravail - $minutesNormales) / 60, 2));
-
-        if ($isHoliday || $isWeekend) {
-            $heuresSupp = $heuresTravaillees;
-            $heuresTravaillees = 0;
-        }
+        $heuresSupp = 0;
 
         $heureTheorique = (clone $date)->setTime($startHour, $startMinute, 0);
         $retardMinutes = 0;
@@ -435,6 +473,54 @@ class PaieController extends Controller
         return $total;
     }
 
+    
+    protected function grouperPointagesParJour($allPointages, Carbon $start, Carbon $end): array
+    {
+        $groupes = [];
+        $pointages = $allPointages->sortBy('pointe_a')->values();
+        $i = 0;
+        while ($i < $pointages->count()) {
+            $pointage = $pointages[$i];
+            $datePointage = $pointage->pointe_a->toDateString();
+
+            if ($pointage->type === 'entree') {
+                $sortie = null;
+                $pauses = [];
+                $j = $i + 1;
+
+                while ($j < $pointages->count()) {
+                    $nextPointage = $pointages[$j];
+                    if ($nextPointage->type === 'sortie') {
+                        $sortie = $nextPointage;
+                        $j++;
+                        break;
+                    }
+                    if (in_array($nextPointage->type, ['pause_debut', 'pause_fin'])) {
+                        $pauses[] = $nextPointage;
+                    }
+
+                    $j++;
+                }
+                $pointagesPrestation = collect([$pointage]);
+                foreach ($pauses as $pause) {
+                    $pointagesPrestation->push($pause);
+                }
+                if ($sortie) {
+                    $pointagesPrestation->push($sortie);
+                }
+                if (!isset($groupes[$datePointage])) {
+                    $groupes[$datePointage] = collect();
+                }
+                $groupes[$datePointage] = $groupes[$datePointage]->merge($pointagesPrestation);
+                $i = $j;
+            } else {
+                $i++;
+            }
+        }
+
+        return $groupes;
+    }
+
     protected function isCongeValide(int $employeId, string $jour): bool
     {
         return DemandeConge::where('employe_id', $employeId)
@@ -458,15 +544,12 @@ class PaieController extends Controller
             ->exists();
     }
 
-    /**
-     * Calcul des HS hebdomadaires en fonction de la config worktime.
-     */
+    
     protected function calculerHsHebdo(array $details, float $tauxHoraire): array
     {
         $config = $this->loadWorktimeSettings();
         $threshold = (float) ($config['weekly_threshold'] ?? 40);
         $mult = $config['multipliers'] ?? [];
-        $weekdays = $config['working_days'] ?? ['mon','tue','wed','thu','fri'];
         $saturdayMode = $config['saturday_mode'] ?? 'normal';
         $nightStart = $config['night_start'] ?? '22:00';
         $nightEnd = $config['night_end'] ?? '05:00';
@@ -481,9 +564,24 @@ class PaieController extends Controller
             $date = Carbon::parse($d['jour']);
             $weekKey = $date->isoWeekYear() . '-' . $date->isoWeek();
             if (!isset($weeks[$weekKey])) {
-                $weeks[$weekKey] = ['weekday_hours' => 0, 'saturday_hours' => 0, 'sunday_hours' => 0, 'night_hours' => 0];
+                $weeks[$weekKey] = [
+                    'weekday_hours' => 0,
+                    'saturday_hours' => 0,
+                    'sunday_hours' => 0,
+                    'holiday_hours' => 0,
+                    'night_hours' => 0,
+                ];
             }
-            $hours = $d['heures_travaillees'] ?? 0;
+            $hours = (float) ($d['heures_travaillees'] ?? 0);
+            if ($hours <= 0) {
+                continue;
+            }
+
+            if (($d['ferie'] ?? false) === true) {
+                $weeks[$weekKey]['holiday_hours'] += $hours;
+                continue;
+            }
+
             $dayCode = strtolower(substr($date->format('D'), 0, 3));
             if ($date->isSunday()) {
                 $weeks[$weekKey]['sunday_hours'] += $hours;
@@ -492,10 +590,7 @@ class PaieController extends Controller
             } else {
                 $weeks[$weekKey]['weekday_hours'] += $hours;
             }
-
-            // Calcul heures de nuit (approche simple : si début de nuit dans la journée, on ajoute l'intégralité des heures de la journée comme de nuit si pointage de nuit indiqué dans détail)
             if (!empty($d['heures_supplementaires']) || !empty($d['heures_travaillees'])) {
-                // approximation : si la journée est marquée comme nuit (heures_nuit dans détail si présent) sinon 0
                 $weeks[$weekKey]['night_hours'] += $d['heures_nuit'] ?? 0;
             }
         }
@@ -509,13 +604,11 @@ class PaieController extends Controller
             $weekdayHours = $week['weekday_hours'];
             $saturdayHours = $week['saturday_hours'];
             $sundayHours = $week['sunday_hours'];
-
-            // Si samedi "normal", il compte dans les heures ouvrées pour le seuil
+            $holidayHours = $week['holiday_hours'];
             if ($saturdayMode === 'normal') {
                 $weekdayHours += $saturdayHours;
                 $saturdayHsHours = 0;
             } else {
-                // samedi traité comme HS à taux spécifique
                 $saturdayHsHours = $saturdayHours;
             }
 
@@ -524,7 +617,8 @@ class PaieController extends Controller
             $next12 = min(12, max(0, $overtime - $first8));
             $beyond = max(0, $overtime - $first8 - $next12);
 
-            $hsWeekHours = $overtime + $sundayHours + $saturdayHsHours;
+            $hsWeekHours = $overtime + $sundayHours + $saturdayHsHours + $holidayHours;
+            $holidayPercent = $this->normalizePercent($mult['holiday'] ?? ($mult['sunday'] ?? 40));
 
             $amount = 0;
             $amount += $first8 * $tauxHoraire * $this->toMultiplier($this->normalizePercent($mult['weekday_first8'] ?? 30));
@@ -532,11 +626,10 @@ class PaieController extends Controller
             $amount += $beyond * $tauxHoraire * $this->toMultiplier($this->normalizePercent($mult['weekday_beyond'] ?? 50));
             $amount += $sundayHours * $tauxHoraire * $this->toMultiplier($this->normalizePercent($mult['sunday'] ?? 40));
             $amount += $saturdayHsHours * $tauxHoraire * $this->toMultiplier($this->normalizePercent($mult['saturday'] ?? 40));
+            $amount += $holidayHours * $tauxHoraire * $this->toMultiplier($holidayPercent);
 
             $totalHsHours += $hsWeekHours;
             $totalHsAmount += $amount;
-
-            // Bonus nuit en plus (sur les heures de nuit de la semaine)
             $totalNightHours += $week['night_hours'];
             $totalNightAmount += $week['night_hours'] * $tauxHoraire * $nightRateFactor;
         }
@@ -544,9 +637,7 @@ class PaieController extends Controller
         return [round($totalHsHours, 2), round($totalHsAmount, 2), round($totalNightHours, 2), round($totalNightAmount, 2)];
     }
 
-    /**
-     * Charge les paramètres depuis la table, ou fallback sur config/worktime.php.
-     */
+    
     protected function loadWorktimeSettings(): array
     {
         $setting = \App\Models\WorktimeSetting::first();
@@ -578,12 +669,12 @@ class PaieController extends Controller
         }
         $v = (float) $value;
         if ($v < 1) {
-            return $v * 100; // ex: 0.2 -> 20%
+            return $v * 100;
         }
         if ($v <= 3) {
-            return max(0, ($v - 1) * 100); // ex: 1.3 -> 30%
+            return max(0, ($v - 1) * 100);
         }
-        return $v; // déjà en pourcentage
+        return $v;
     }
 
     private function toMultiplier(float $percent): float
@@ -591,9 +682,7 @@ class PaieController extends Controller
         return 1 + ($percent / 100);
     }
 
-    /**
-     * Calcul IRSA avec tranches progressives si configurées, sinon fallback paramètre unique.
-     */
+    
     protected function calculerIrsaProgressif(float $brut): float
     {
         $tranches = IrsaTranche::orderBy('min_base')->get();
@@ -604,7 +693,7 @@ class PaieController extends Controller
 
         $irsa = 0;
         foreach ($tranches as $t) {
-            $borne_inf = $t->min_base > 0 ? $t->min_base - 1 : 0; // bornes inclusives
+            $borne_inf = $t->min_base > 0 ? $t->min_base - 1 : 0;
             $max = $t->max_base ?? $brut;
             if ($brut <= $borne_inf) {
                 continue;
@@ -620,12 +709,7 @@ class PaieController extends Controller
         return $irsa;
     }
 
-    /**
-     * État de paie pour un mois (YYYY-MM), une année (YYYY) ou une période.
-     * - mois=YYYY-MM -> détails par employé + totaux mois
-     * - annee=YYYY -> totaux annuels + totaux par mois
-     * - debut=YYYY-MM&fin=YYYY-MM -> totaux période + totaux par mois
-     */
+    
     public function etat(Request $request)
     {
         $validated = $request->validate([
@@ -896,6 +980,11 @@ class PaieController extends Controller
         ];
     }
 
+    protected function percentage(int|float $value, int|float $total): float
+    {
+        return $total > 0 ? round(((float) $value / (float) $total) * 100, 2) : 0;
+    }
+
     public function suivi(Request $request)
     {
         $validated = $request->validate([
@@ -976,11 +1065,6 @@ class PaieController extends Controller
         ]);
     }
 
-    protected function percentage(int|float $value, int|float $total): float
-    {
-        return $total > 0 ? round(((float) $value / (float) $total) * 100, 2) : 0;
-    }
-
     public function payer(Request $request, $id)
     {
         $data = $request->validate([
@@ -993,6 +1077,11 @@ class PaieController extends Controller
 
                 if ($this->statutPaie($paie) !== 'non_paye') {
                     abort(422, 'Seule une fiche validée et non payée peut être envoyée au paiement');
+                }
+
+                $sourceMontants = $this->sourceMontantsForForecastMonth($paie->mois);
+                if (in_array($sourceMontants['code'], ['prevision', 'mixte'], true)) {
+                    abort(422, 'Paiement impossible pour une fiche basée sur des montants prévisionnels.');
                 }
 
                 if (!Caisse::where('id', $data['caisse_id'])->where('active', true)->exists()) {
@@ -1112,13 +1201,38 @@ class PaieController extends Controller
                 ->orderByDesc('created_at')
                 ->first();
 
+            $statutCode = $this->statutPaie($paie);
+            
+            // Determine source_montants based on payroll type and month period
+            // A forecast (prevision) cannot directly become "Réel validé" - it must go through the period logic
+            $forecastSource = $this->sourceMontantsForForecastMonth($paie->mois);
+            
+            // If the period is still in forecast mode (future or current month with mixte),
+            // always show the forecast label regardless of validation status
+            if (in_array($forecastSource['code'], ['prevision', 'mixte'], true)) {
+                $sourceMontants = $forecastSource;
+            } elseif (in_array($statutCode, ['non_paye', 'paiement_en_validation', 'paye'], true)) {
+                // Only for past periods (réel calculé) that are validated, show "Réel validé"
+                $sourceMontants = [
+                    'code' => 'reel',
+                    'label' => 'Réel validé',
+                    'description' => 'Fiche de paie validée ou en paiement.',
+                ];
+            } else {
+                $sourceMontants = [
+                    'code' => 'reel',
+                    'label' => 'Réel enregistré',
+                    'description' => 'Fiche de paie générée depuis les données enregistrées.',
+                ];
+            }
+
             return response()->json([
                 'paie' => $paie,
                 'contrat' => $contrat,
                 'mouvement_paiement' => $mouvementPaiement,
                 'statut' => [
-                    'code' => $this->statutPaie($paie),
-                    'label' => $this->statutPaieLabel($this->statutPaie($paie)),
+                    'code' => $statutCode,
+                    'label' => $this->statutPaieLabel($statutCode),
                 ],
                 'resume' => $this->resumePaie($paie),
                 'retenues' => [
@@ -1127,11 +1241,7 @@ class PaieController extends Controller
                     ['label' => 'IRSA', 'montant' => (float) $paie->retenue_irsa],
                 ],
                 'primes' => $this->buildPaiePrimesResponse($paie),
-                'source_montants' => [
-                    'code' => 'reel',
-                    'label' => 'Réel enregistré',
-                    'description' => 'Fiche de paie générée depuis les données enregistrées.',
-                ],
+                'source_montants' => $sourceMontants,
             ]);
         } catch (\Throwable $e) {
             Log::error('Erreur détail paie', ['id' => $id, 'error' => $e->getMessage()]);
@@ -1226,6 +1336,18 @@ class PaieController extends Controller
     {
         try {
             $paie = Paie::with(['employe.poste'])->findOrFail($id);
+            $entreprise = EntrepriseSetting::firstOrCreate(
+                [],
+                ['nom' => config('app.name', 'Module RH')]
+            );
+            $entrepriseLogoPath = null;
+            if (!empty($entreprise->logo_path)) {
+                $candidateLogoPath = storage_path('app/public/' . ltrim((string) $entreprise->logo_path, '/'));
+                if (is_file($candidateLogoPath)) {
+                    $entrepriseLogoPath = $candidateLogoPath;
+                }
+            }
+
             $mouvement = CaisseMouvement::with('caisse')
                 ->where('paie_id', $paie->id)
                 ->where('type', 'sortie')
@@ -1242,6 +1364,8 @@ class PaieController extends Controller
                 'mouvement' => $mouvement,
                 'employe' => $paie->employe,
                 'caisse' => $mouvement->caisse,
+                'entreprise_nom' => $entreprise->nom ?: config('app.name', 'Module RH'),
+                'entreprise_logo_path' => $entrepriseLogoPath,
             ]);
 
             return $pdf->download("recu_paiement_{$paie->employe_id}_{$paie->mois}.pdf");
@@ -1290,14 +1414,16 @@ class PaieController extends Controller
             $statut = $this->statutPaie($paie);
             $mouvementPaiement = $paie ? $paiementMouvements->get($paie->id) : null;
             $forecast = $this->buildPaieForecast($contrat, $mois, null, false, true);
-            $usesValidatedPayroll = $this->usesValidatedPayrollForEtat($statut);
+            $forecastSourceMontants = $this->sourceMontantsForForecastMonth($mois);
+            $isMixedCurrentPeriod = $forecastSourceMontants['code'] === 'mixte';
+            $usesValidatedPayroll = $this->usesValidatedPayrollForEtat($statut) && !$isMixedCurrentPeriod;
             $sourceMontants = $usesValidatedPayroll
                 ? [
                     'code' => 'reel',
                     'label' => 'Réel validé',
                     'description' => 'Fiche de paie validée ou en paiement.',
                 ]
-                : $this->sourceMontantsForForecastMonth($mois);
+                : $forecastSourceMontants;
             $employerCharges = $paie
                 ? $this->estimateEmployerChargesForPaie($paie)
                 : $forecast['charges_patronales'];
@@ -1315,7 +1441,7 @@ class PaieController extends Controller
                 'source_montants' => $sourceMontants['code'],
                 'source_montants_label' => $sourceMontants['label'],
                 'source_montants_description' => $sourceMontants['description'],
-                'est_prevision' => $sourceMontants['code'] === 'prevision',
+                'est_prevision' => in_array($sourceMontants['code'], ['prevision', 'mixte'], true),
                 'salaire_previsionnel' => $forecast['cout_reel_entreprise'],
                 'net_a_payer_previsionnel' => $forecast['net_a_payer'],
                 'brut_previsionnel' => $forecast['total_brut'],
@@ -1336,11 +1462,11 @@ class PaieController extends Controller
                 'cnaps_employeur' => $displayEmployerCharges['cnaps'],
                 'ostie_employeur' => $displayEmployerCharges['ostie'],
                 'paye_le' => $paie?->paye_le?->toDateString(),
-                'demande_validation_le' => $paie?->demande_validation_le?->toDateTimeString() ?? $paie?->created_at?->toDateTimeString(),
-                'valide_le' => $paie?->valide_le?->toDateTimeString(),
+                'demande_validation_le' => $paie?->demande_validation_le?->toIso8601String() ?? $paie?->created_at?->toIso8601String(),
+                'valide_le' => $paie?->valide_le?->toIso8601String(),
                 'paiement_mouvement_id' => $mouvementPaiement?->id,
-                'paiement_demande_le' => $mouvementPaiement?->demande_validation_le?->toDateTimeString(),
-                'paiement_valide_le' => $mouvementPaiement?->valide_le?->toDateTimeString(),
+                'paiement_demande_le' => $mouvementPaiement?->demande_validation_le?->toIso8601String(),
+                'paiement_valide_le' => $mouvementPaiement?->valide_le?->toIso8601String(),
                 'caisse_nom' => $mouvementPaiement?->caisse?->nom,
                 'details_paie' => $this->resumePaie($paie),
             ];
@@ -1362,7 +1488,7 @@ class PaieController extends Controller
             return [
                 'code' => 'reel_calcule',
                 'label' => 'Réel calculé',
-                'description' => 'Période passée calculée depuis les pointages, sans fiche validée.',
+                'description' => 'Période passée calculée depuis les pointages.',
             ];
         }
 
@@ -1413,10 +1539,17 @@ class PaieController extends Controller
         [$heuresTrav, $details, $absences, $retardsTotal, $heuresManquantes] = $this->calculerHeuresMois($employe->id, $mois, $futureDaysAssumedPresent);
         [$heuresSup, $montantHs, $heuresNuit, $montantNuit] = $this->calculerHsHebdo($details, $tauxHoraire);
         $settings = $this->loadWorktimeSettings();
+        $hoursPerDay = (float) ($settings['hours_per_day'] ?? 8);
+        $heuresPayables = $this->calculerHeuresPayables($details, $hoursPerDay);
+        $salaireBasePointage = $this->calculerSalaireBaseProportionnel(
+            $salaireBase,
+            $heuresPayables,
+            (float) ($payrollRates['heures_mensuelles_requises'] ?? 0)
+        );
         $items = $this->remunerationItemService->resolveForEmploye($employe, $mois, [
             'details' => $details,
             'heures_travaillees' => $heuresTrav,
-            'hours_per_day' => (float) ($settings['hours_per_day'] ?? 8),
+            'hours_per_day' => $hoursPerDay,
         ]);
 
         $primeTransport = (float) ($param?->prime_transport ?? 0);
@@ -1430,13 +1563,13 @@ class PaieController extends Controller
             ->sum(fn ($item) => (float) ($item->montant_applique ?? $item->montant));
 
         $deductionRetards = ($retardsTotal / 60) * $tauxHoraire;
-        $deductionAbsences = $absences * $tauxJournalier;
-        $deductionPartiel = $heuresManquantes * $tauxHoraire;
+        $deductionAbsences = 0;
+        $deductionPartiel = 0;
         $deductionsPresence = (bool) ($settings['deduct_from_salary'] ?? true)
             ? $deductionRetards + $deductionAbsences + $deductionPartiel
             : 0;
 
-        $brutAvantDeductionsPresence = $salaireBase + $montantHs + $montantNuit + $primePresence + $primesBrut;
+        $brutAvantDeductionsPresence = $salaireBasePointage + $montantHs + $montantNuit + $primePresence + $primesBrut;
         $brut = max(0, $brutAvantDeductionsPresence - $deductionsPresence);
 
         $baseCnaps = min($brut, (float) ($param?->cnaps_plafond ?? $brut));
@@ -1455,7 +1588,7 @@ class PaieController extends Controller
         $coutReelEntreprise = $brut + $chargesPatronales + $indemnitesAPayer;
 
         return [
-            'salaire_base' => round($salaireBase, 2),
+            'salaire_base' => round($salaireBasePointage, 2),
             'taux_horaire' => $payrollRates['taux_horaire_affiche'],
             'taux_journalier' => $payrollRates['taux_journalier_affiche'],
             'taux_horaire_affiche' => $payrollRates['taux_horaire_affiche'],

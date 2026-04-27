@@ -69,6 +69,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Application Local Timezone
+    |--------------------------------------------------------------------------
+    |
+    | This timezone is used when parsing user-entered datetimes that do not
+    | include an explicit timezone (e.g. HTML datetime-local inputs).
+    |
+    */
+
+    'local_timezone' => env('APP_LOCAL_TIMEZONE', 'Indian/Antananarivo'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------
     |

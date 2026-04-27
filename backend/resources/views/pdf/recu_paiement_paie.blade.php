@@ -5,151 +5,130 @@
     <title>Reçu de paiement</title>
     <style>
         body {
-            font-family: DejaVu Sans, sans-serif;
-            color: #111827;
+            font-family: Arial, Helvetica, sans-serif;
             font-size: 12px;
-            line-height: 1.45;
-        }
-
-        .header {
-            border-bottom: 2px solid #4f46e5;
-            padding-bottom: 14px;
-            margin-bottom: 22px;
-        }
-
-        .kicker {
-            color: #4f46e5;
-            font-weight: 700;
-            letter-spacing: 1.5px;
-            text-transform: uppercase;
-            margin: 0 0 6px;
-        }
-
-        h1 {
-            font-size: 24px;
             margin: 0;
+            padding: 30px;
+            color: #000;
         }
-
-        .meta {
-            color: #64748b;
-            margin-top: 6px;
-        }
-
-        .grid {
-            display: table;
-            width: 100%;
-            margin-bottom: 18px;
-        }
-
-        .col {
-            display: table-cell;
-            width: 50%;
-            vertical-align: top;
-            padding-right: 12px;
-        }
-
-        .box {
-            border: 1px solid #e2e8f0;
-            border-radius: 10px;
-            padding: 14px;
-        }
-
-        .label {
-            color: #64748b;
-            font-size: 10px;
-            font-weight: 700;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-            margin: 0 0 4px;
-        }
-
-        .value {
-            font-size: 16px;
-            font-weight: 700;
-            margin: 0 0 10px;
-        }
-
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 10px;
         }
-
-        th,
-        td {
-            border-bottom: 1px solid #e2e8f0;
-            padding: 10px 8px;
-            text-align: left;
+        td, th {
+            border: 1px solid #000;
+            padding: 6px 8px;
         }
-
-        th {
-            background: #f8fafc;
-            color: #475569;
-            font-size: 10px;
-            letter-spacing: 1px;
+        .no-border td { border: none; }
+        .center { text-align: center; }
+        .right { text-align: right; }
+        .bold { font-weight: bold; }
+        .title { font-size: 16px; font-weight: bold; text-align: center; }
+        .subtitle { text-align: center; font-weight: bold; }
+        .section-title {
+            background: #f2f2f2;
+            font-weight: bold;
             text-transform: uppercase;
         }
-
-        .total {
-            font-size: 18px;
-            font-weight: 800;
-            color: #4f46e5;
-        }
-
-        .footer {
-            margin-top: 34px;
-            color: #64748b;
+        .highlight { background: #e6f3ff; font-weight: bold; }
+        .muted {
+            color: #555;
             font-size: 11px;
+        }
+        .company-brand {
+            display: table;
+            width: 100%;
+        }
+        .company-brand-cell {
+            display: table-cell;
+            vertical-align: middle;
+        }
+        .company-brand-cell.logo {
+            width: 74px;
+        }
+        .company-brand-name {
+            font-size: 18px;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+        .company-logo {
+            max-height: 52px;
+            max-width: 62px;
+            display: block;
+            margin-right: 10px;
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <p class="kicker">Reçu de paiement</p>
-        <h1>Fiche de paie {{ $paie->mois }}</h1>
-        <p class="meta">Reçu généré le {{ now()->format('d/m/Y H:i') }}</p>
-    </div>
 
-    <div class="grid">
-        <div class="col">
-            <div class="box">
-                <p class="label">Collaborateur</p>
-                <p class="value">{{ trim(($employe->nom ?? '') . ' ' . ($employe->prenom ?? '')) ?: '—' }}</p>
-                <p>Matricule : {{ $employe->matricule ?? '—' }}</p>
-                <p>Poste : {{ $employe->poste->nom ?? '—' }}</p>
+<table class="no-border">
+    <tr>
+        <td width="30%">
+            <div class="company-brand">
+                @if(!empty($entreprise_logo_path))
+                    <div class="company-brand-cell logo">
+                        <img src="{{ $entreprise_logo_path }}" alt="Logo entreprise" class="company-logo">
+                    </div>
+                @endif
+                <div class="company-brand-cell">
+                    <div class="company-brand-name">{{ $entreprise_nom ?? config('app.name', 'Module RH') }}</div>
+                </div>
             </div>
-        </div>
-        <div class="col">
-            <div class="box">
-                <p class="label">Paiement</p>
-                <p class="value">{{ number_format((float) $mouvement->montant, 0, ',', ' ') }} MGA</p>
-                <p>Caisse : {{ $caisse->nom ?? '—' }}</p>
-                <p>Validé le : {{ optional($mouvement->valide_le)->format('d/m/Y H:i') }}</p>
-            </div>
-        </div>
-    </div>
+        </td>
+        <td width="40%" class="center">
+            <div class="title">REÇU DE PAIEMENT</div>
+            <div class="subtitle">Fiche de paie {{ $paie->mois }}</div>
+        </td>
+        <td width="30%" class="right muted">
+            Généré le {{ now()->format('d/m/Y H:i') }}
+        </td>
+    </tr>
+</table>
 
-    <table>
-        <thead>
-            <tr>
-                <th>Référence</th>
-                <th>Source</th>
-                <th>Statut</th>
-                <th>Montant</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td>#{{ $mouvement->id }}</td>
-                <td>{{ $mouvement->source }}</td>
-                <td>Validé</td>
-                <td class="total">{{ number_format((float) $mouvement->montant, 0, ',', ' ') }} MGA</td>
-            </tr>
-        </tbody>
-    </table>
+<br>
 
-    <div class="footer">
-        Ce reçu confirme la validation du paiement de la fiche de paie et la sortie correspondante de la caisse.
-    </div>
+<table>
+    <tr class="section-title">
+        <th colspan="4">Détails du paiement</th>
+    </tr>
+    <tr>
+        <td class="bold">Référence</td>
+        <td>#{{ $mouvement->id }}</td>
+        <td class="bold">Source</td>
+        <td>{{ $mouvement->source ?? '—' }}</td>
+    </tr>
+    <tr>
+        <td class="bold">Caisse</td>
+        <td>{{ $caisse->nom ?? '—' }}</td>
+        <td class="bold">Validé le</td>
+        <td>{{ optional($mouvement->valide_le)->format('d/m/Y H:i') ?? '—' }}</td>
+    </tr>
+    <tr>
+        <td class="bold">Montant</td>
+        <td colspan="3" class="highlight right">{{ number_format((float) $mouvement->montant, 0, ',', ' ') }} MGA</td>
+    </tr>
+</table>
+
+<br>
+
+<table>
+    <tr class="section-title">
+        <th>Matricule</th>
+        <th>Employé</th>
+        <th>Poste</th>
+        <th>Statut</th>
+    </tr>
+    <tr>
+        <td>{{ $employe->matricule ?? '—' }}</td>
+        <td>{{ trim(($employe->nom ?? '') . ' ' . ($employe->prenom ?? '')) ?: '—' }}</td>
+        <td>{{ $employe->poste->nom ?? '—' }}</td>
+        <td>Validé</td>
+    </tr>
+</table>
+
+<p class="muted" style="margin-top: 18px;">
+    Ce reçu confirme la validation du paiement de la fiche de paie et la sortie correspondante de la caisse.
+</p>
+
 </body>
 </html>

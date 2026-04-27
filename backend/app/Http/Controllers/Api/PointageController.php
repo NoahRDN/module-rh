@@ -61,7 +61,6 @@ class PointageController extends Controller
         $period = new DatePeriod($start, new DateInterval('P1D'), $end->copy()->addDay());
 
         $totalHeures = 0;
-        $totalHs = 0;
         $totalRetards = 0;
         $absences = 0;
         $details = [];
@@ -78,7 +77,6 @@ class PointageController extends Controller
             }
 
             $totalHeures += $resume['heures_travaillees'];
-            $totalHs += $resume['heures_supplementaires'];
             $totalRetards += $resume['retard_minutes'];
             if ($resume['absent']) {
                 $absences++;
@@ -86,6 +84,8 @@ class PointageController extends Controller
 
             $details[] = array_merge(['jour' => $jourStr], $resume);
         }
+
+        $totalHs = $this->calculerHsHebdo($details);
 
         return response()->json([
             'employe_id' => $request->employe_id,
@@ -103,7 +103,10 @@ class PointageController extends Controller
     public function store(PointageRequest $request)
     {
         try {
-            $pointage = Pointage::create($request->validated());
+            $payload = $request->validated();
+            $payload['pointe_a'] = $this->normalizePointageTimestampToUtc((string) $payload['pointe_a']);
+
+            $pointage = Pointage::create($payload);
             return response()->json($pointage, 201);
         } catch (\Throwable $e) {
             Log::error('Erreur creation pointage', ['error' => $e->getMessage()]);
@@ -248,16 +251,8 @@ class PointageController extends Controller
         $minutesBrut = $debut->diffInMinutes($fin);
         $pauses = $this->calculerDureePauses($pointages);
         $minutesTravail = max(0, $minutesBrut - $pauses);
-        $minutesNormales = max(0, ($hoursPerDay * 60) - $pauseMinutes);
-
         $heuresTravaillees = round($minutesTravail / 60, 2);
-        $heuresSupp = max(0, round(($minutesTravail - $minutesNormales) / 60, 2));
-
-        // Si férié ou week-end non travaillé, tout le temps est compté en HS (majoré ailleurs)
-        if ($isHoliday || (($isSaturday || $isSunday) && !$isWorkingDay)) {
-            $heuresSupp = $heuresTravaillees;
-            $heuresTravaillees = 0;
-        }
+        $heuresSupp = 0;
 
         $heureTheorique = (clone $dateObj)->setTime($startHour, $startMinute, 0);
         $retardMinutes = 0;
@@ -288,6 +283,70 @@ class PointageController extends Controller
             'present_partiel'         => $presentPartiel && !$isAbsenceByThreshold,
             'heures_manquantes'       => $heuresManquantes,
         ];
+    }
+
+    /**
+     * Calcule les heures supplémentaires sur base hebdomadaire.
+     * Les heures de week-end non ouvré et les jours fériés sont automatiquement en HS.
+     */
+    protected function calculerHsHebdo(array $details): float
+    {
+        $settings = $this->loadWorktimeSettings();
+        $threshold = (float) ($settings['weekly_threshold'] ?? 40);
+        $saturdayMode = $settings['saturday_mode'] ?? 'normal';
+
+        $weeks = [];
+        foreach ($details as $d) {
+            $hours = (float) ($d['heures_travaillees'] ?? 0);
+            if ($hours <= 0) {
+                continue;
+            }
+
+            $date = Carbon::parse($d['jour']);
+            $weekKey = $date->isoWeekYear() . '-' . $date->isoWeek();
+            if (!isset($weeks[$weekKey])) {
+                $weeks[$weekKey] = [
+                    'weekday_hours' => 0,
+                    'saturday_hours' => 0,
+                    'sunday_hours' => 0,
+                    'holiday_hours' => 0,
+                ];
+            }
+
+            if (($d['ferie'] ?? false) === true) {
+                $weeks[$weekKey]['holiday_hours'] += $hours;
+                continue;
+            }
+
+            $dayCode = strtolower(substr($date->format('D'), 0, 3));
+            if ($date->isSunday()) {
+                $weeks[$weekKey]['sunday_hours'] += $hours;
+            } elseif ($dayCode === 'sat') {
+                $weeks[$weekKey]['saturday_hours'] += $hours;
+            } else {
+                $weeks[$weekKey]['weekday_hours'] += $hours;
+            }
+        }
+
+        $totalHs = 0;
+        foreach ($weeks as $week) {
+            $weekdayHours = (float) $week['weekday_hours'];
+            $saturdayHours = (float) $week['saturday_hours'];
+            $sundayHours = (float) $week['sunday_hours'];
+            $holidayHours = (float) $week['holiday_hours'];
+
+            if ($saturdayMode === 'normal') {
+                $weekdayHours += $saturdayHours;
+                $saturdayHsHours = 0;
+            } else {
+                $saturdayHsHours = $saturdayHours;
+            }
+
+            $overtime = max(0, $weekdayHours - $threshold);
+            $totalHs += $overtime + $saturdayHsHours + $sundayHours + $holidayHours;
+        }
+
+        return round($totalHs, 2);
     }
 
     protected function calculerDureePauses($pointages)
@@ -352,5 +411,22 @@ class PointageController extends Controller
             ];
         }
         return config('worktime');
+    }
+
+    /**
+     * Convertit l'heure saisie en heure locale vers UTC avant stockage.
+     * Le champ datetime-local du front n'envoie pas de fuseau horaire.
+     */
+    protected function normalizePointageTimestampToUtc(string $value): string
+    {
+        $raw = trim($value);
+        $localTimezone = (string) config('app.local_timezone', 'Indian/Antananarivo');
+        $hasTimezone = (bool) preg_match('/(Z|[+\-]\d{2}:\d{2})$/i', $raw);
+
+        $timestamp = $hasTimezone
+            ? Carbon::parse($raw)
+            : Carbon::parse($raw, $localTimezone);
+
+        return $timestamp->setTimezone('UTC')->format('Y-m-d H:i:s');
     }
 }

@@ -35,6 +35,28 @@
     .net { font-size: 14px; font-weight: bold; background: #d9ead3; }
     .signature td { border: none; padding-top: 40px; }
     .page-content { position: relative; z-index: 2; }
+    .company-brand {
+        display: table;
+        width: 100%;
+    }
+    .company-brand-cell {
+        display: table-cell;
+        vertical-align: middle;
+    }
+    .company-brand-cell.logo {
+        width: 74px;
+    }
+    .company-brand-name {
+        font-size: 18px;
+        font-weight: 700;
+        line-height: 1.2;
+    }
+    .company-logo {
+        max-height: 52px;
+        max-width: 62px;
+        display: block;
+        margin-right: 10px;
+    }
     .watermark-prevision {
         position: fixed;
         top: 50%;
@@ -75,7 +97,18 @@
 <!-- ================= ENTÊTE ================= -->
 <table class="no-border">
 <tr>
-    <td width="30%"><strong>ITUniversity</strong></td>
+    <td width="30%">
+        <div class="company-brand">
+            @if(!empty($entreprise_logo_path))
+                <div class="company-brand-cell logo">
+                    <img src="{{ $entreprise_logo_path }}" alt="Logo entreprise" class="company-logo">
+                </div>
+            @endif
+            <div class="company-brand-cell">
+                <div class="company-brand-name">{{ $entreprise_nom ?? config('app.name', 'Module RH') }}</div>
+            </div>
+        </div>
+    </td>
     <td width="40%" class="center">
         <div class="title">FICHE DE PAIE</div>
         <div class="subtitle">Période : {{ $periode }}</div>

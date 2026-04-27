@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Employe;
+use App\Models\EntrepriseSetting;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Log;
 
@@ -20,10 +21,23 @@ class EmployePdfController extends Controller
             ])->findOrFail($id);
 
             $contratActuel = $employe->contrats->first();
+            $entreprise = EntrepriseSetting::firstOrCreate(
+                [],
+                ['nom' => config('app.name', 'Module RH')]
+            );
+            $entrepriseLogoPath = null;
+            if (!empty($entreprise->logo_path)) {
+                $candidateLogoPath = storage_path('app/public/' . ltrim((string) $entreprise->logo_path, '/'));
+                if (is_file($candidateLogoPath)) {
+                    $entrepriseLogoPath = $candidateLogoPath;
+                }
+            }
 
             $pdf = Pdf::loadView('pdf.employe', [
                 'employe' => $employe,
                 'contratActuel' => $contratActuel,
+                'entreprise_nom' => $entreprise->nom ?: config('app.name', 'Module RH'),
+                'entreprise_logo_path' => $entrepriseLogoPath,
             ]);
 
             $ref = $employe->matricule ? $employe->matricule : $employe->id;

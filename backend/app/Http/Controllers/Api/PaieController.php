@@ -15,6 +15,7 @@ use App\Models\Employe;
 use App\Models\IrsaTranche;
 use App\Models\DemandeConge;
 use App\Models\JourFerie;
+use App\Models\EntrepriseSetting;
 use App\Services\CongeService;
 use App\Services\PayrollRateService;
 use App\Services\RemunerationItemService;
@@ -1314,6 +1315,18 @@ class PaieController extends Controller
     {
         try {
             $paie = Paie::with(['employe.poste'])->findOrFail($id);
+            $entreprise = EntrepriseSetting::firstOrCreate(
+                [],
+                ['nom' => config('app.name', 'Module RH')]
+            );
+            $entrepriseLogoPath = null;
+            if (!empty($entreprise->logo_path)) {
+                $candidateLogoPath = storage_path('app/public/' . ltrim((string) $entreprise->logo_path, '/'));
+                if (is_file($candidateLogoPath)) {
+                    $entrepriseLogoPath = $candidateLogoPath;
+                }
+            }
+
             $mouvement = CaisseMouvement::with('caisse')
                 ->where('paie_id', $paie->id)
                 ->where('type', 'sortie')
@@ -1330,6 +1343,8 @@ class PaieController extends Controller
                 'mouvement' => $mouvement,
                 'employe' => $paie->employe,
                 'caisse' => $mouvement->caisse,
+                'entreprise_nom' => $entreprise->nom ?: config('app.name', 'Module RH'),
+                'entreprise_logo_path' => $entrepriseLogoPath,
             ]);
 
             return $pdf->download("recu_paiement_{$paie->employe_id}_{$paie->mois}.pdf");

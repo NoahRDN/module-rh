@@ -2,78 +2,188 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
+    <title>Fiche employe</title>
     <style>
-        body { font-family: DejaVu Sans, sans-serif; font-size: 12px; color: #222; }
-        h1 { margin: 0 0 8px; font-size: 20px; }
-        h3 { margin: 16px 0 6px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-        td, th { border: 1px solid #ddd; padding: 6px 8px; }
-        th { background: #f5f5f5; text-align: left; }
-        .muted { color: #666; }
-        .section { margin-top: 12px; }
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 12px;
+            margin: 0;
+            padding: 30px;
+            color: #000;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        td, th {
+            border: 1px solid #000;
+            padding: 6px 8px;
+        }
+        .no-border td { border: none; }
+        .center { text-align: center; }
+        .right { text-align: right; }
+        .bold { font-weight: bold; }
+        .title { font-size: 16px; font-weight: bold; text-align: center; }
+        .subtitle { text-align: center; font-weight: bold; }
+        .section-title {
+            background: #f2f2f2;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .muted {
+            color: #555;
+            font-size: 11px;
+        }
+        .company-brand {
+            display: table;
+            width: 100%;
+        }
+        .company-brand-cell {
+            display: table-cell;
+            vertical-align: middle;
+        }
+        .company-brand-cell.logo {
+            width: 74px;
+        }
+        .company-brand-name {
+            font-size: 18px;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+        .company-logo {
+            max-height: 52px;
+            max-width: 62px;
+            display: block;
+            margin-right: 10px;
+        }
     </style>
 </head>
 <body>
-    <h1>Fiche employé</h1>
-    <p class="muted">Générée automatiquement</p>
 
-    <div class="section">
-        <h3>Identité</h3>
-        <table>
-            <tr><th>Matricule</th><td>{{ $employe->matricule }}</td></tr>
-            <tr><th>Nom complet</th><td>{{ $employe->nom }} {{ $employe->prenom }}</td></tr>
-            <tr><th>Email</th><td>{{ $employe->email }}</td></tr>
-            <tr><th>Téléphone</th><td>{{ $employe->telephone ?? '—' }}</td></tr>
-            <tr><th>Adresse</th><td>{{ $employe->adresse ?? '—' }}</td></tr>
-            <tr><th>Date de naissance</th><td>{{ optional($employe->date_naissance)->format('Y-m-d') }}</td></tr>
-            <tr><th>Date d'embauche</th><td>{{ optional($employe->date_embauche)->format('Y-m-d') }}</td></tr>
-        </table>
-    </div>
+<table class="no-border">
+    <tr>
+        <td width="30%">
+            <div class="company-brand">
+                @if(!empty($entreprise_logo_path))
+                    <div class="company-brand-cell logo">
+                        <img src="{{ $entreprise_logo_path }}" alt="Logo entreprise" class="company-logo">
+                    </div>
+                @endif
+                <div class="company-brand-cell">
+                    <div class="company-brand-name">{{ $entreprise_nom ?? config('app.name', 'Module RH') }}</div>
+                </div>
+            </div>
+        </td>
+        <td width="40%" class="center">
+            <div class="title">FICHE EMPLOYE</div>
+            <div class="subtitle">Dossier collaborateur</div>
+        </td>
+        <td width="30%" class="right muted">
+            Genere le {{ now()->format('d/m/Y') }}
+        </td>
+    </tr>
+</table>
 
-    <div class="section">
-        <h3>Poste & département</h3>
-        <table>
-            <tr><th>Poste</th><td>{{ $employe->poste->nom ?? '—' }}</td></tr>
-            <tr><th>Catégorie</th><td>{{ $employe->poste->categorie ?? '—' }}</td></tr>
-            <tr><th>Département</th><td>{{ $employe->departement->nom ?? '—' }}</td></tr>
-        </table>
-    </div>
+<br>
 
-    <div class="section">
-        <h3>Contrat actuel</h3>
-        @if($contratActuel)
-        <table>
-            <tr><th>Numéro</th><td>{{ $contratActuel->numero ?? '—' }}</td></tr>
-            <tr><th>Type</th><td>{{ $contratActuel->type_contrat }}</td></tr>
-            <tr><th>Contrat</th><td>{{ optional($contratActuel->date_debut)->format('Y-m-d') }} → {{ optional($contratActuel->date_fin)->format('Y-m-d') }}</td></tr>
-            <tr><th>Période d'essai</th><td>{{ optional($contratActuel->periode_essai_debut)->format('Y-m-d') ?? '—' }} → {{ optional($contratActuel->periode_essai_fin)->format('Y-m-d') ?? '—' }}</td></tr>
-            <tr><th>Salaire base</th><td>{{ number_format($contratActuel->salaire_base, 0, ',', ' ') }} Ar</td></tr>
-            <tr><th>Statut</th><td>{{ $contratActuel->date_fin && $contratActuel->date_fin->lt(now()) ? 'Inactif' : 'Actif' }}</td></tr>
-        </table>
-        @else
-            <p class="muted">Aucun contrat enregistré.</p>
-        @endif
-    </div>
+<table>
+    <tr class="section-title">
+        <th colspan="4">Identite</th>
+    </tr>
+    <tr>
+        <td class="bold">Matricule</td>
+        <td>{{ $employe->matricule ?? '—' }}</td>
+        <td class="bold">Nom complet</td>
+        <td>{{ trim(($employe->nom ?? '') . ' ' . ($employe->prenom ?? '')) ?: '—' }}</td>
+    </tr>
+    <tr>
+        <td class="bold">Email</td>
+        <td>{{ $employe->email ?? '—' }}</td>
+        <td class="bold">Telephone</td>
+        <td>{{ $employe->telephone ?? '—' }}</td>
+    </tr>
+    <tr>
+        <td class="bold">Adresse</td>
+        <td>{{ $employe->adresse ?? '—' }}</td>
+        <td class="bold">Date de naissance</td>
+        <td>{{ optional($employe->date_naissance)->format('d/m/Y') ?? '—' }}</td>
+    </tr>
+    <tr>
+        <td class="bold">Date d'embauche</td>
+        <td>{{ optional($employe->date_embauche)->format('d/m/Y') ?? '—' }}</td>
+        <td class="bold">Departement</td>
+        <td>{{ $employe->departement->nom ?? '—' }}</td>
+    </tr>
+</table>
 
-    <div class="section">
-        <h3>Historique des postes (3 derniers)</h3>
-        <table>
-            <thead>
-                <tr><th>Date</th><th>Poste</th><th>Département</th><th>Motif</th></tr>
-            </thead>
-            <tbody>
-                @forelse($employe->historiquePostes->take(3) as $h)
-                    <tr>
-                        <td>{{ optional($h->date_changement)->format('Y-m-d') }}</td>
-                        <td>{{ $h->poste->nom ?? '—' }}</td>
-                        <td>{{ $h->departement->nom ?? '—' }}</td>
-                        <td>{{ $h->motif ?? '—' }}</td>
-                    </tr>
-                @empty
-                    <tr><td colspan="4" class="muted">Aucun historique</td></tr>
-                @endforelse
-            </tbody>
-        </table>
-    </div>
+<br>
+
+<table>
+    <tr class="section-title">
+        <th colspan="4">Poste actuel</th>
+    </tr>
+    <tr>
+        <td class="bold">Poste</td>
+        <td>{{ $employe->poste->nom ?? '—' }}</td>
+        <td class="bold">Categorie</td>
+        <td>{{ $employe->poste->categorie ?? '—' }}</td>
+    </tr>
+</table>
+
+<br>
+
+<table>
+    <tr class="section-title">
+        <th colspan="4">Contrat actuel</th>
+    </tr>
+    @if($contratActuel)
+    <tr>
+        <td class="bold">Numero</td>
+        <td>{{ $contratActuel->numero ?? '—' }}</td>
+        <td class="bold">Type</td>
+        <td>{{ $contratActuel->type_contrat ?? '—' }}</td>
+    </tr>
+    <tr>
+        <td class="bold">Periode contrat</td>
+        <td>{{ optional($contratActuel->date_debut)->format('d/m/Y') ?? '—' }} -> {{ optional($contratActuel->date_fin)->format('d/m/Y') ?? '—' }}</td>
+        <td class="bold">Periode d'essai</td>
+        <td>{{ optional($contratActuel->periode_essai_debut)->format('d/m/Y') ?? '—' }} -> {{ optional($contratActuel->periode_essai_fin)->format('d/m/Y') ?? '—' }}</td>
+    </tr>
+    <tr>
+        <td class="bold">Salaire de base</td>
+        <td>{{ number_format((float) $contratActuel->salaire_base, 0, ',', ' ') }} Ar</td>
+        <td class="bold">Statut</td>
+        <td>{{ $contratActuel->date_fin && $contratActuel->date_fin->lt(now()) ? 'Inactif' : 'Actif' }}</td>
+    </tr>
+    @else
+    <tr>
+        <td colspan="4" class="center muted">Aucun contrat enregistre.</td>
+    </tr>
+    @endif
+</table>
+
+<br>
+
+<table>
+    <tr class="section-title">
+        <th>Date</th>
+        <th>Poste</th>
+        <th>Departement</th>
+        <th>Motif</th>
+    </tr>
+    @forelse($employe->historiquePostes->take(3) as $h)
+        <tr>
+            <td>{{ optional($h->date_changement)->format('d/m/Y') ?? '—' }}</td>
+            <td>{{ $h->poste->nom ?? '—' }}</td>
+            <td>{{ $h->departement->nom ?? '—' }}</td>
+            <td>{{ $h->motif ?? '—' }}</td>
+        </tr>
+    @empty
+        <tr>
+            <td colspan="4" class="center muted">Aucun historique.</td>
+        </tr>
+    @endforelse
+</table>
+
 </body>
 </html>

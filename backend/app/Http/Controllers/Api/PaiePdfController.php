@@ -9,6 +9,7 @@ use App\Models\IrsaTranche;
 use App\Models\WorktimeSetting;
 use App\Models\JourFerie;
 use App\Models\Contrat;
+use App\Models\EntrepriseSetting;
 use App\Services\PayrollRateService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Log;
@@ -78,6 +79,18 @@ class PaiePdfController extends Controller
             $sourceMontants = $this->sourceMontantsForMonth($paie->mois);
             $forcePrevision = $request->boolean('prevision');
             $isPrevisionPdf = $forcePrevision || $paie->type === 'mixte' || $paie->type === 'prevision';
+            $entreprise = EntrepriseSetting::firstOrCreate(
+                [],
+                ['nom' => config('app.name', 'Module RH')]
+            );
+            $entrepriseLogoPath = null;
+            if (!empty($entreprise->logo_path)) {
+                $candidateLogoPath = storage_path('app/public/' . ltrim((string) $entreprise->logo_path, '/'));
+                if (is_file($candidateLogoPath)) {
+                    $entrepriseLogoPath = $candidateLogoPath;
+                }
+            }
+
             Log::info("Generating PDF for Paie ID: {$paie->id}");
             Log::info("Employe ID: {$employe->id}, mois: {$paie->mois} ,Annee: {$paie->annee}");
             $pdf = Pdf::loadView('pdf.bulletin_paie', [
@@ -103,6 +116,8 @@ class PaiePdfController extends Controller
                 'revenu_imposable' => $revenu_imposable,
                 'enfants_charge' => $enfants_charge,
                 'isPrevisionPdf' => $isPrevisionPdf,
+                'entreprise_nom' => $entreprise->nom ?: config('app.name', 'Module RH'),
+                'entreprise_logo_path' => $entrepriseLogoPath,
             ]);
 
             return $pdf->download("bulletin_paie_{$employe->id}_{$paie->mois}.pdf");

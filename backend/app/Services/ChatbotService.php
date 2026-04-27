@@ -13,23 +13,19 @@ use App\Models\Formation;
 use App\Models\TypeConge;
 use App\Models\JourFerie;
 use App\Models\WorktimeSetting;
+use App\Models\Departement;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class ChatbotService
 {
-    private string $apiKey;
-    private string $apiUrl;
-    private string $model;
+    private AIProviderService $ai;
 
-    public function __construct()
+    public function __construct(AIProviderService $ai)
     {
-        // Cast en string pour éviter toute assignation null sur propriétés typées
-        $this->apiKey = (string) (config('services.openai.api_key') ?? '');
-        $this->apiUrl = (string) (config('services.openai.api_url') ?? 'https://api.openai.com/v1/chat/completions');
-        $this->model  = (string) (config('services.openai.model') ?? 'gpt-4o-mini');
-
+        $this->ai = $ai;
     }
 
     /**
@@ -38,13 +34,40 @@ class ChatbotService
     public function processQuestion(string $question, User $user): array
     {
         try {
-            // Vérifier la clé API
-            if (empty($this->apiKey)) {
-                return [
-                    'success' => false,
-                    'response' => 'Le chatbot n\'est pas configuré. Veuillez contacter l\'administrateur.',
-                    'error' => 'API_KEY non configurée dans .env',
-                ];
+            // Vérifier la config du provider IA actif (OpenAI/Gemini)
+            $provider = (string) config('services.ai_provider', 'openai');
+            if ($provider === 'gemini') {
+                $geminiKey = (string) (config('services.gemini.api_key') ?? '');
+                $geminiUrl = (string) (config('services.gemini.api_url') ?? '');
+
+                if ($geminiKey === '' || $geminiUrl === '') {
+                    return [
+                        'success' => false,
+                        'response' => 'Le chatbot n\'est pas configuré. Veuillez contacter l\'administrateur.',
+                        'error' => 'GEMINI_API_KEY ou GEMINI_API_URL non configuré(e) dans .env',
+                    ];
+                }
+            } else {
+                $openaiKey = (string) (config('services.openai.api_key') ?? '');
+                $openaiUrl = (string) (config('services.openai.api_url') ?? '');
+
+                if ($openaiKey === '' || $openaiUrl === '') {
+                    return [
+                        'success' => false,
+                        'response' => 'Le chatbot n\'est pas configuré. Veuillez contacter l\'administrateur.',
+                        'error' => 'OPENAI_API_KEY ou OPENAI_API_URL non configuré(e) dans .env',
+                    ];
+                }
+            }
+
+            // Vérifier si c'est une question sur l'effectif (traitement spécial)
+            if ($this->isEffectifQuestion($question)) {
+                return $this->handleEffectifQuestion($user);
+            }
+
+            // Vérifier si c'est une question sur la répartition/statistiques (traitement spécial)
+            if ($this->isRepartitionQuestion($question)) {
+                return $this->handleRepartitionQuestion($user, $question);
             }
 
             // Récupérer le contexte de l'employé
@@ -127,6 +150,7 @@ class ChatbotService
             'horaire' => ['horaire', 'heure de travail', 'temps de travail', 'pause'],
             'evaluation' => ['évaluation', 'performance', 'objectif', 'entretien'],
             'document' => ['document', 'attestation', 'certificat', 'fiche'],
+            'effectif' => ['combien', 'effectif', 'employé', 'employés', 'personnel', 'équipe', 'nombre'],
         ];
 
         foreach ($intents as $intent => $keywords) {
@@ -397,50 +421,10 @@ PROMPT;
      */
     private function callAI(string $systemPrompt, string $question): string
 {
-    if (empty($this->apiKey)) {
-        throw new \Exception('Clé API OpenAI non configurée');
-    }
-
-    $response = Http::timeout(30)
-        ->withToken($this->apiKey)
-        ->post($this->apiUrl, [
-            'model' => $this->model,
-            'messages' => [
-                [
-                    'role' => 'system',
-                    'content' => $systemPrompt,
-                ],
-                [
-                    'role' => 'user',
-                    'content' => $question,
-                ],
-            ],
-            'temperature' => 0.7,
-            'max_tokens' => 500,
-        ]);
-
-    // 🔴 SEULE VRAIE ERREUR = HTTP
-    if (!$response->successful()) {
-        Log::error('OpenAI HTTP error', [
-            'status' => $response->status(),
-            'body' => $response->body(),
-        ]);
-
-        throw new \Exception('OpenAI HTTP error');
-    }
-
-    $data = $response->json();
-
-    // 🟢 Toujours retourner quelque chose depuis l’API
-    if (
-        isset($data['choices'][0]['message']['content']) &&
-        trim($data['choices'][0]['message']['content']) !== ''
-    ) {
-        return $data['choices'][0]['message']['content'];
-    }
-
-    // 🟡 Cas rare : réponse vide mais API OK
-    return "Bonjour 👋 Je suis l’assistant RH. Comment puis-je vous aider ?";
+    return $this->ai->chatText($systemPrompt, $question, [
+        'temperature' => 0.7,
+        'max_tokens' => 500,
+    ]);
 }
 
 
@@ -457,6 +441,7 @@ PROMPT;
             'pointage' => "Vous pouvez consulter vos pointages dans la section 'Mes pointages'. N'oubliez pas de pointer à l'arrivée et au départ chaque jour.",
             'contrat' => "Les informations sur votre contrat sont disponibles dans votre profil. Pour toute modification ou question, contactez le service RH.",
             'formation' => "Consultez le catalogue des formations dans la section 'Formations'. Vous pouvez vous inscrire aux formations disponibles ou demander une formation spécifique via une demande RH.",
+            'effectif' => "Pour connaître l'effectif de l'entreprise, veuillez contacter le service RH.",
         ];
 
         foreach ($responses as $keyword => $response) {
@@ -466,6 +451,234 @@ PROMPT;
         }
 
         return "Je suis désolé, je ne peux pas répondre à votre question pour le moment. Veuillez contacter le service RH pour plus d'informations.";
+    }
+
+    /**
+     * Vérifier si la question concerne l'effectif total
+     */
+    private function isEffectifQuestion(string $question): bool
+    {
+        $question = strtolower($question);
+        $keywords = ['combien', 'effectif', 'employé', 'employés', 'personnel', 'équipe', 'nombre'];
+
+        foreach ($keywords as $keyword) {
+            if (str_contains($question, $keyword)) {
+                // Éviter les faux positifs (ex: "combien de jours de congé")
+                $excludeWords = ['congé', 'conge', 'vacances', 'solde', 'paie', 'salaire', 'pointage', 'heure'];
+                foreach ($excludeWords as $exclude) {
+                    if (str_contains($question, $exclude)) {
+                        return false;
+                    }
+                }
+
+                // Éviter les questions sur la répartition/comparaison (ex: "département qui a le plus")
+                $repartitionWords = ['département', 'departement', 'service', 'plus', 'moins', 'par', 'selon', 'répartition', 'réparti'];
+                foreach ($repartitionWords as $repartition) {
+                    if (str_contains($question, $repartition)) {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Traiter une question sur l'effectif
+     */
+    private function handleEffectifQuestion(User $user): array
+    {
+        // Vérifier les permissions - seuls admin/RH peuvent voir les stats détaillées
+        if (!$user->isAdmin() && !$user->isRH()) {
+            return [
+                'success' => true,
+                'response' => 'En tant qu\'assistant RH, je ne peux fournir des informations sur l\'effectif total de l\'entreprise qu\'aux membres du service RH. Veuillez contacter votre responsable RH pour ces informations.',
+                'intent' => 'effectif',
+            ];
+        }
+
+        // Calculer les effectifs
+        $now = now()->toDateString();
+        $totalEmployes = Employe::count();
+
+        $employesActifs = Employe::whereHas('contrats', function ($q) use ($now) {
+            $q->whereDate('date_debut', '<=', $now)
+              ->where(function ($q2) use ($now) {
+                  $q2->whereNull('date_fin')->orWhereDate('date_fin', '>=', $now);
+              });
+        })->count();
+
+        $response = "L'entreprise compte actuellement {$totalEmployes} employé(s) enregistré(s), dont {$employesActifs} actif(s).";
+
+        return [
+            'success' => true,
+            'response' => $response,
+            'intent' => 'effectif',
+            'data' => [
+                'total' => $totalEmployes,
+                'actifs' => $employesActifs,
+            ],
+        ];
+    }
+
+    /**
+     * Vérifier si la question concerne la répartition/statistiques
+     */
+    private function isRepartitionQuestion(string $question): bool
+    {
+        $question = strtolower($question);
+        $repartitionKeywords = ['département', 'departement', 'service', 'plus', 'moins', 'répartition', 'réparti', 'par'];
+
+        foreach ($repartitionKeywords as $keyword) {
+            if (str_contains($question, $keyword)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Traiter une question sur la répartition/statistiques
+     */
+    private function handleRepartitionQuestion(User $user, string $question): array
+    {
+        // Vérifier les permissions - seuls admin/RH peuvent voir les stats détaillées
+        if (!$user->isAdmin() && !$user->isRH()) {
+            return [
+                'success' => true,
+                'response' => 'En tant qu\'assistant RH, je ne peux fournir des informations sur la répartition des employés qu\'aux membres du service RH. Veuillez contacter votre responsable RH pour ces informations.',
+                'intent' => 'repartition',
+            ];
+        }
+
+        $question = strtolower($question);
+
+        // Détecter le type de répartition demandé
+        if (str_contains($question, 'département') || str_contains($question, 'departement')) {
+            return $this->handleDepartementRepartition($question);
+        }
+
+        // Par défaut, retourner une réponse générique
+        return [
+            'success' => true,
+            'response' => 'Je peux vous fournir des informations sur la répartition des employés par département. Pour d\'autres types de statistiques, veuillez consulter le tableau de bord RH.',
+            'intent' => 'repartition',
+        ];
+    }
+
+    /**
+     * Gérer la répartition par département
+     */
+    private function handleDepartementRepartition(string $question): array
+    {
+        $question = strtolower($question);
+        $now = now()->toDateString();
+
+        // Récupérer la répartition par département (même logique que DashboardController)
+        $repartition = Departement::select('departements.id', 'departements.nom')
+            ->whereExists(function ($q) use ($now) {
+                $q->select(DB::raw(1))
+                    ->from('employes')
+                    ->whereColumn('employes.departement_id', 'departements.id')
+                    ->whereExists(function ($q2) use ($now) {
+                        $q2->select(DB::raw(1))
+                            ->from('contrats')
+                            ->whereColumn('contrats.employe_id', 'employes.id')
+                            ->whereDate('date_debut', '<=', $now)
+                            ->where(function ($q3) use ($now) {
+                                $q3->whereNull('date_fin')->orWhereDate('date_fin', '>=', $now);
+                            });
+                    });
+            })
+            ->withCount(['employes as employes_actifs_count' => function ($q) use ($now) {
+                $q->whereHas('contrats', function ($q2) use ($now) {
+                    $q2->whereDate('date_debut', '<=', $now)
+                        ->where(function ($q3) use ($now) {
+                            $q3->whereNull('date_fin')->orWhereDate('date_fin', '>=', $now);
+                        });
+                });
+            }])
+            ->get();
+
+        if ($repartition->isEmpty()) {
+            return [
+                'success' => true,
+                'response' => 'Aucun département avec des employés actifs trouvé.',
+                'intent' => 'repartition',
+            ];
+        }
+
+        // Trier par nombre d'employés décroissant et croissant
+        $sortedDesc = $repartition->sortByDesc('employes_actifs_count');
+        $sortedAsc = $repartition->sortBy('employes_actifs_count');
+
+        // Détecter si l'utilisateur demande une liste complète
+        $demandeComplete = $this->isDemandeRepartitionComplete($question);
+
+        // Détecter demande de "moins" (le département avec le moins d'employés)
+        $demandeMoins = false;
+        $moinsKeywords = ['moins', 'le moins', 'moins d', 'le moins d'];
+        foreach ($moinsKeywords as $kw) {
+            if (str_contains($question, $kw)) {
+                $demandeMoins = true;
+                break;
+            }
+        }
+
+        if ($demandeComplete) {
+            // Réponse avec la liste complète (triée décroissant pour lisibilité)
+            $response = "Voici la répartition des employés actifs par département :\n\n";
+            foreach ($sortedDesc as $dept) {
+                $response .= "- **{$dept->nom}** : {$dept->employes_actifs_count} employé(s)\n";
+            }
+        } else if ($demandeMoins) {
+            // Réponse avec le département qui a le moins d'employés actifs
+            $bottom = $sortedAsc->first();
+            $response = "Le département qui compte le moins d'employés actifs est **{$bottom->nom}** avec {$bottom->employes_actifs_count} employé(s).";
+        } else {
+            // Réponse par défaut : top département
+            $topDepartement = $sortedDesc->first();
+            $response = "Le département qui compte le plus d'employés actifs est **{$topDepartement->nom}** avec {$topDepartement->employes_actifs_count} employé(s).";
+
+            // Ajouter les autres départements s'il y en a peu
+            if ($sortedDesc->count() <= 3) {
+                $response .= "\n\nRépartition complète :\n";
+                foreach ($sortedDesc as $dept) {
+                    $response .= "- {$dept->nom} : {$dept->employes_actifs_count} employé(s)\n";
+                }
+            }
+        }
+
+        return [
+            'success' => true,
+            'response' => $response,
+            'intent' => 'repartition',
+            'data' => [
+                'repartition_complete' => $demandeComplete,
+                'repartition' => $sorted->map(fn($d) => [
+                    'departement' => $d->nom,
+                    'employes_actifs' => $d->employes_actifs_count,
+                ])->toArray(),
+            ],
+        ];
+    }
+
+    /**
+     * Détecter si la question demande une répartition complète
+     */
+    private function isDemandeRepartitionComplete(string $question): bool
+    {
+        $question = strtolower($question);
+        $completeKeywords = ['chaque', 'tous', 'toutes', 'liste', 'toute', 'complet', 'complète', 'dans chaque', 'nombre', 'combien'];
+
+        foreach ($completeKeywords as $keyword) {
+            if (str_contains($question, $keyword)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

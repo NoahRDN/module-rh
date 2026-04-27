@@ -35,6 +35,9 @@ return [
         ],
     ],
 
+    // Provider IA utilisé par les services (openai|gemini)
+    'ai_provider' => env('AI_PROVIDER', 'openai'),
+
     'gemini' => [
         // API_KEY reste compatible, mais privilégier GEMINI_API_KEY
         'api_key' => env('GEMINI_API_KEY', env('API_KEY')),

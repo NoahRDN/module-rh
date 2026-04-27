@@ -19,17 +19,11 @@ use Carbon\Carbon;
 
 class ChatbotService
 {
-    private string $apiKey;
-    private string $apiUrl;
-    private string $model;
+    private AIProviderService $ai;
 
-    public function __construct()
+    public function __construct(AIProviderService $ai)
     {
-        // Cast en string pour éviter toute assignation null sur propriétés typées
-        $this->apiKey = (string) (config('services.openai.api_key') ?? '');
-        $this->apiUrl = (string) (config('services.openai.api_url') ?? 'https://api.openai.com/v1/chat/completions');
-        $this->model  = (string) (config('services.openai.model') ?? 'gpt-4o-mini');
-
+        $this->ai = $ai;
     }
 
     /**
@@ -38,13 +32,30 @@ class ChatbotService
     public function processQuestion(string $question, User $user): array
     {
         try {
-            // Vérifier la clé API
-            if (empty($this->apiKey)) {
-                return [
-                    'success' => false,
-                    'response' => 'Le chatbot n\'est pas configuré. Veuillez contacter l\'administrateur.',
-                    'error' => 'API_KEY non configurée dans .env',
-                ];
+            // Vérifier la config du provider IA actif (OpenAI/Gemini)
+            $provider = (string) config('services.ai_provider', 'openai');
+            if ($provider === 'gemini') {
+                $geminiKey = (string) (config('services.gemini.api_key') ?? '');
+                $geminiUrl = (string) (config('services.gemini.api_url') ?? '');
+
+                if ($geminiKey === '' || $geminiUrl === '') {
+                    return [
+                        'success' => false,
+                        'response' => 'Le chatbot n\'est pas configuré. Veuillez contacter l\'administrateur.',
+                        'error' => 'GEMINI_API_KEY ou GEMINI_API_URL non configuré(e) dans .env',
+                    ];
+                }
+            } else {
+                $openaiKey = (string) (config('services.openai.api_key') ?? '');
+                $openaiUrl = (string) (config('services.openai.api_url') ?? '');
+
+                if ($openaiKey === '' || $openaiUrl === '') {
+                    return [
+                        'success' => false,
+                        'response' => 'Le chatbot n\'est pas configuré. Veuillez contacter l\'administrateur.',
+                        'error' => 'OPENAI_API_KEY ou OPENAI_API_URL non configuré(e) dans .env',
+                    ];
+                }
             }
 
             // Récupérer le contexte de l'employé
@@ -397,50 +408,10 @@ PROMPT;
      */
     private function callAI(string $systemPrompt, string $question): string
 {
-    if (empty($this->apiKey)) {
-        throw new \Exception('Clé API OpenAI non configurée');
-    }
-
-    $response = Http::timeout(30)
-        ->withToken($this->apiKey)
-        ->post($this->apiUrl, [
-            'model' => $this->model,
-            'messages' => [
-                [
-                    'role' => 'system',
-                    'content' => $systemPrompt,
-                ],
-                [
-                    'role' => 'user',
-                    'content' => $question,
-                ],
-            ],
-            'temperature' => 0.7,
-            'max_tokens' => 500,
-        ]);
-
-    // 🔴 SEULE VRAIE ERREUR = HTTP
-    if (!$response->successful()) {
-        Log::error('OpenAI HTTP error', [
-            'status' => $response->status(),
-            'body' => $response->body(),
-        ]);
-
-        throw new \Exception('OpenAI HTTP error');
-    }
-
-    $data = $response->json();
-
-    // 🟢 Toujours retourner quelque chose depuis l’API
-    if (
-        isset($data['choices'][0]['message']['content']) &&
-        trim($data['choices'][0]['message']['content']) !== ''
-    ) {
-        return $data['choices'][0]['message']['content'];
-    }
-
-    // 🟡 Cas rare : réponse vide mais API OK
-    return "Bonjour 👋 Je suis l’assistant RH. Comment puis-je vous aider ?";
+    return $this->ai->chatText($systemPrompt, $question, [
+        'temperature' => 0.7,
+        'max_tokens' => 500,
+    ]);
 }
 
 

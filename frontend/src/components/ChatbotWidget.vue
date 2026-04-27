@@ -165,8 +165,10 @@ export default {
         
         console.log('Chatbot response:', response.data)
         
-        // La réponse peut être dans response.data.reponse ou response.data.response
-        const botMessage = response.data.reponse || response.data.response || 'Pas de réponse'
+        // Si le backend indique un échec, privilégier le champ d'erreur (plus explicite)
+        const botMessage = response.data?.success === false
+          ? (response.data.erreur || response.data.reponse || 'Erreur inconnue')
+          : (response.data.reponse || response.data.response || 'Pas de réponse')
         
         this.messages.push({
           text: botMessage,

@@ -1078,6 +1078,11 @@ class PaieController extends Controller
                     abort(422, 'Seule une fiche validée et non payée peut être envoyée au paiement');
                 }
 
+                $sourceMontants = $this->sourceMontantsForForecastMonth($paie->mois);
+                if (in_array($sourceMontants['code'], ['prevision', 'mixte'], true)) {
+                    abort(422, 'Paiement impossible pour une fiche basée sur des montants prévisionnels.');
+                }
+
                 if (!Caisse::where('id', $data['caisse_id'])->where('active', true)->exists()) {
                     abort(422, 'Cette caisse est désactivée');
                 }
@@ -1373,14 +1378,16 @@ class PaieController extends Controller
             $statut = $this->statutPaie($paie);
             $mouvementPaiement = $paie ? $paiementMouvements->get($paie->id) : null;
             $forecast = $this->buildPaieForecast($contrat, $mois, null, false, true);
-            $usesValidatedPayroll = $this->usesValidatedPayrollForEtat($statut);
+            $forecastSourceMontants = $this->sourceMontantsForForecastMonth($mois);
+            $isMixedCurrentPeriod = $forecastSourceMontants['code'] === 'mixte';
+            $usesValidatedPayroll = $this->usesValidatedPayrollForEtat($statut) && !$isMixedCurrentPeriod;
             $sourceMontants = $usesValidatedPayroll
                 ? [
                     'code' => 'reel',
                     'label' => 'Réel validé',
                     'description' => 'Fiche de paie validée ou en paiement.',
                 ]
-                : $this->sourceMontantsForForecastMonth($mois);
+                : $forecastSourceMontants;
             $employerCharges = $paie
                 ? $this->estimateEmployerChargesForPaie($paie)
                 : $forecast['charges_patronales'];
@@ -1398,7 +1405,7 @@ class PaieController extends Controller
                 'source_montants' => $sourceMontants['code'],
                 'source_montants_label' => $sourceMontants['label'],
                 'source_montants_description' => $sourceMontants['description'],
-                'est_prevision' => $sourceMontants['code'] === 'prevision',
+                'est_prevision' => in_array($sourceMontants['code'], ['prevision', 'mixte'], true),
                 'salaire_previsionnel' => $forecast['cout_reel_entreprise'],
                 'net_a_payer_previsionnel' => $forecast['net_a_payer'],
                 'brut_previsionnel' => $forecast['total_brut'],

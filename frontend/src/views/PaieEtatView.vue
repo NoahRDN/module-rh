@@ -343,7 +343,7 @@ const metrics = computed(() => [
     tag: 'Forecast',
     label: isSummaryMode.value ? 'Total brut' : 'Montants retenus',
     value: formatMoney(isSummaryMode.value ? totaux.value.total_brut : totaux.value.prevision_salaire_base),
-    caption: isSummaryMode.value ? 'Réel validé sinon prévision' : 'Réel validé sinon prévision supposé présent',
+    caption: isSummaryMode.value ? 'Selon la source: réel, réel calculé ou prévision' : 'Selon la source: réel, réel calculé ou réel + prévision',
   },
   {
     tag: 'Payment',

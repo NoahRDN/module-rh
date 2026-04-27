@@ -34,10 +34,30 @@
     .highlight { background: #e6f3ff; font-weight: bold; }
     .net { font-size: 14px; font-weight: bold; background: #d9ead3; }
     .signature td { border: none; padding-top: 40px; }
+    .page-content { position: relative; z-index: 2; }
+    .watermark-prevision {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) rotate(-32deg);
+        font-size: 96px;
+        font-weight: 800;
+        letter-spacing: 10px;
+        color: rgba(200, 0, 0, 0.17);
+        text-transform: uppercase;
+        white-space: nowrap;
+        z-index: 1;
+    }
 </style>
 </head>
 
 <body>
+
+@if(!empty($isPrevisionPdf))
+<div class="watermark-prevision">Prevision</div>
+@endif
+
+<div class="page-content">
 
 @php
     use Carbon\Carbon;
@@ -83,7 +103,7 @@
 
 <td width="50%">
     <table class="no-border">
-        <tr><td>Salaire de base :</td><td class="right highlight">{{ number_format($paie->salaire_base, 2, ',', ' ') }}</td></tr>
+        <tr><td>Salaire de base :</td><td class="right highlight">{{ number_format($salaire_base_reference ?? $paie->salaire_base, 2, ',', ' ') }}</td></tr>
         <tr><td>Taux journalier :</td><td class="right">{{ number_format($taux_journalier, 2, ',', ' ') }}</td></tr>
         <tr><td>Taux horaire :</td><td class="right">{{ number_format($taux_horaire, 2, ',', ' ') }}</td></tr>
     </table>
@@ -106,8 +126,26 @@
     <td>Salaire {{ $periode }}</td>
     <td class="center">1 mois</td>
     <td class="right">—</td>
-    <td class="right">{{ number_format($paie->salaire_base, 2, ',', ' ') }}</td>
+    <td class="right">{{ number_format($salaire_base_reference ?? $paie->salaire_base, 2, ',', ' ') }}</td>
 </tr>
+
+@if(!empty($deduction_retards) && $deduction_retards > 0)
+<tr>
+    <td>Retards</td>
+    <td class="center">{{ isset($retards_minutes) ? number_format($retards_minutes, 0, ',', ' ') . ' min' : '—' }}</td>
+    <td class="right">—</td>
+    <td class="right">- {{ number_format($deduction_retards, 2, ',', ' ') }}</td>
+</tr>
+@endif
+
+@if(!empty($deduction_absences) && $deduction_absences > 0)
+<tr>
+    <td>Absences non justifiées</td>
+    <td class="center">{{ isset($absences_non_justifiees) ? number_format($absences_non_justifiees, 0, ',', ' ') . ' jour(s)' : '—' }}</td>
+    <td class="right">—</td>
+    <td class="right">- {{ number_format($deduction_absences, 2, ',', ' ') }}</td>
+</tr>
+@endif
 
 @forelse ($details_revenus as $detail)
 <tr>
@@ -133,7 +171,7 @@
 
 <tr class="bold">
     <td colspan="3" class="right">SALAIRE BRUT</td>
-    <td class="right">{{ number_format($paie->total_brut, 2, ',', ' ') }}</td>
+    <td class="right">{{ number_format($paie->total_brut, 2, '.', ',') }}</td>
 </tr>
 </table>
 
@@ -253,6 +291,8 @@
     <td class="center">L’Employé(e)</td>
 </tr>
 </table>
+
+</div>
 
 </body>
 </html>

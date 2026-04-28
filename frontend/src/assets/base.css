@@ -34,6 +34,14 @@
   --color-text: var(--vt-c-text-light-1);
 
   --section-gap: 160px;
+
+  /* Chatbot / agent variables (light) */
+  --chat-header-start: var(--vt-c-indigo);
+  --chat-header-end: #164e9f;
+  --chat-avatar-bot-bg: var(--color-background-soft);
+  --chat-avatar-user-bg: var(--vt-c-indigo);
+  --chat-window-bg: var(--color-background);
+  --chat-bubble-bot-bg: var(--color-background-soft);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -47,7 +55,48 @@
 
     --color-heading: var(--vt-c-text-dark-1);
     --color-text: var(--vt-c-text-dark-2);
+    /* Chatbot / agent variables (dark)
+       Prefer slightly more contrast for header and bubbles in dark mode */
+    --chat-header-start: #0f1724;
+    --chat-header-end: #12233a;
+    --chat-avatar-bot-bg: var(--vt-c-black-soft);
+    --chat-avatar-user-bg: #1f6feb;
+    --chat-window-bg: var(--color-background);
+    --chat-bubble-bot-bg: var(--vt-c-black-soft);
   }
+}
+
+/* Support explicit theme classes on <body> or <html> so toggles update vars */
+body.theme-dark, html.theme-dark {
+  --color-background: var(--vt-c-black);
+  --color-background-soft: var(--vt-c-black-soft);
+  --color-background-mute: var(--vt-c-black-mute);
+  --color-border: var(--vt-c-divider-dark-2);
+  --color-border-hover: var(--vt-c-divider-dark-1);
+  --color-heading: var(--vt-c-text-dark-1);
+  --color-text: var(--vt-c-text-dark-2);
+  --chat-header-start: #0f1724;
+  --chat-header-end: #12233a;
+  --chat-avatar-bot-bg: var(--vt-c-black-soft);
+  --chat-avatar-user-bg: #1f6feb;
+  --chat-window-bg: var(--color-background);
+  --chat-bubble-bot-bg: var(--vt-c-black-soft);
+}
+
+body.theme-light, html.theme-light {
+  --color-background: var(--vt-c-white);
+  --color-background-soft: var(--vt-c-white-soft);
+  --color-background-mute: var(--vt-c-white-mute);
+  --color-border: var(--vt-c-divider-light-2);
+  --color-border-hover: var(--vt-c-divider-light-1);
+  --color-heading: var(--vt-c-text-light-1);
+  --color-text: var(--vt-c-text-light-1);
+  --chat-header-start: var(--vt-c-indigo);
+  --chat-header-end: #164e9f;
+  --chat-avatar-bot-bg: var(--color-background-soft);
+  --chat-avatar-user-bg: var(--vt-c-indigo);
+  --chat-window-bg: var(--color-background);
+  --chat-bubble-bot-bg: var(--color-background-soft);
 }
 
 *,

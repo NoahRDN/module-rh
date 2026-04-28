@@ -35,7 +35,7 @@ WORKDIR /var/www/html
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint
 RUN chmod +x /usr/local/bin/entrypoint
 
-EXPOSE 8000
+EXPOSE 8001
 
 ENTRYPOINT ["entrypoint"]
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
+CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8001"]

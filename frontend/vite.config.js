@@ -8,7 +8,7 @@ import vueDevTools from 'vite-plugin-vue-devtools'
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
 
-  const backendUrl = env.VITE_BACKEND_URL || 'http://backend:8000'
+  const backendUrl = env.VITE_BACKEND_URL || 'http://backend:8001'
 
   return {
   plugins: [

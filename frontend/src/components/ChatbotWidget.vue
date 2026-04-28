@@ -26,7 +26,10 @@
             <button @click="clearChat" class="action-btn" title="Effacer la conversation">
               <AppIcon name="trash" :size="16" />
             </button>
-            <button @click="toggleChat" class="action-btn close-btn">
+            <button class="action-btn" @click="toggleMinimize" aria-label="Minimize chat">
+              <AppIcon name="chevron-down" :size="16" />
+            </button>
+            <button @click="toggleChat" class="action-btn close-btn" title="Fermer">
               <AppIcon name="logout" :size="16" />
             </button>
           </div>
@@ -238,15 +241,27 @@ export default {
 .chatbot-icon{font-size:22px}
 .chatbot-badge{position:absolute;top:-6px;right:-6px;background:#ef4444;color:#fff;padding:4px 7px;border-radius:999px;font-size:12px;font-weight:600}
 .chatbot-window{width:380px;max-width:calc(100vw - 32px);height:560px;max-height:calc(100vh - 120px);background:var(--color-background);color:var(--color-text);border-radius:12px;display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--color-border);box-shadow:0 20px 50px rgba(2,6,23,0.14)}
-.chatbot-header{background:linear-gradient(135deg,var(--vt-c-indigo),#164e9f);color:#fff;padding:12px 14px;display:flex;align-items:center;justify-content:space-between}
-.chatbot-title{display:flex;gap:10px;align-items:center}.chatbot-avatar{font-size:26px}.chatbot-info h4{margin:0;font-size:15px}.chatbot-status{font-size:12px;opacity:.95}.chatbot-actions{display:flex;gap:8px}.action-btn{background:rgba(255,255,255,0.08);border:none;width:34px;height:34px;border-radius:8px;color:#fff;cursor:pointer}.action-btn:hover{background:rgba(255,255,255,0.12)}
-.chatbot-messages{flex:1;overflow-y:auto;padding:18px;background:var(--color-background-soft)}
+.chatbot-header{background:linear-gradient(135deg,var(--chat-header-start),var(--chat-header-end));color:#fff;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;transition:background-color .35s, color .35s}
+.chatbot-title{display:flex;gap:10px;align-items:center}
+.chatbot-avatar{font-size:26px;display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:8px;background:var(--chat-avatar-bot-bg);border:1px solid var(--color-border);transition:background-color .25s,border-color .25s}
+.chatbot-info h4{margin:0;font-size:15px}
+.chatbot-status{font-size:12px;opacity:.95}
+.chatbot-actions{display:flex;gap:8px;align-items:center}
+.action-btn{background:rgba(255,255,255,0.08);border:none;width:36px;height:36px;border-radius:8px;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.action-btn:hover{background:rgba(255,255,255,0.12)}
+.chatbot-messages{flex:1;overflow-y:auto;padding:18px;background:var(--chat-window-bg);transition:background-color .35s}
 .welcome-message{text-align:center;padding:14px}.welcome-icon{font-size:44px;margin-bottom:8px}.welcome-message h4{margin:0 0 8px 0;color:var(--color-heading)}.welcome-message p{color:var(--color-text);opacity:.85}
 .suggestion-btn{display:block;width:100%;text-align:left;padding:10px 12px;margin-bottom:8px;background:var(--color-background);border:1px solid var(--color-border);border-radius:8px;cursor:pointer;color:var(--color-text)}
 .suggestion-btn:hover{background:rgba(37,99,235,0.08);border-color:rgba(37,99,235,0.18);color:var(--vt-c-indigo)}
-.message{display:flex;gap:10px;margin-bottom:14px;align-items:flex-end}.message-avatar{font-size:20px;flex-shrink:0}.message-content{max-width:78%}.message-text{padding:10px 14px;border-radius:12px;font-size:14px;line-height:1.45}
-.user-message{flex-direction:row-reverse}.user-message .message-text{background:var(--vt-c-indigo);color:#fff;border-bottom-right-radius:6px}
-.bot-message .message-text{background:var(--color-background);border:1px solid var(--color-border);color:var(--color-text);box-shadow:none}
+.message{display:flex;gap:10px;margin-bottom:14px;align-items:center}
+.message-avatar{font-size:20px;flex-shrink:0;display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:8px;background:var(--chat-avatar-bot-bg);border:1px solid var(--color-border);margin-top:0;transition:background-color .25s,border-color .25s}
+.message-content{max-width:78%}
+.message-text{padding:10px 14px;border-radius:12px;font-size:14px;line-height:1.45}
+.user-message{flex-direction:row-reverse}
+.user-message .message-avatar{background:var(--chat-avatar-user-bg);border-color:rgba(0,0,0,0.06);}
+.user-message .message-avatar svg{color:#fff}
+.user-message .message-text{background:var(--vt-c-indigo);color:#fff;border-bottom-right-radius:6px}
+.bot-message .message-text{background:var(--chat-bubble-bot-bg);border:1px solid var(--color-border);color:var(--color-text);box-shadow:none;transition:background-color .25s,border-color .25s,color .25s}
 .message-time{display:block;font-size:11px;color:var(--color-text);opacity:.6;margin-top:6px}
 .typing-indicator{display:flex;gap:6px;align-items:center}.typing-indicator span{width:8px;height:8px;background:var(--vt-c-indigo);border-radius:50%;animation:bounce 1.2s infinite}@keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-6px)}}
 .chatbot-input{display:flex;gap:10px;padding:12px;border-top:1px solid var(--color-border);background:var(--color-background)}

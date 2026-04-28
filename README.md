@@ -38,7 +38,7 @@ docker compose up -d
 ```
 
 Ensuite :
-- API : `http://localhost:8000/api`
+- API : `http://localhost:8001/api`
 - Frontend : `http://localhost:5173`
 
 Note :
@@ -110,7 +110,7 @@ npm install                  # dépendances Vite/Tailwind utilisées par Laravel
 ### Lancer l'API en développement
 - Serveur HTTP uniquement :
   ```bash
-  php artisan serve --host=127.0.0.1 --port=8000
+  php artisan serve --host=127.0.0.1 --port=8001
   npm run dev    # dans un deuxième terminal pour Vite
   ```
 - Tout-en-un (serveur, queue, logs, Vite) : `composer run dev` utilise `npx concurrently` pour démarrer tous les processus.
@@ -120,7 +120,7 @@ npm install                  # dépendances Vite/Tailwind utilisées par Laravel
 cd frontend
 npm install
 ```
-L'URL de l'API consommée par Axios se trouve dans `src/services/api.js` (`baseURL: 'http://localhost:8000/api'`). Modifiez cette valeur ou externalisez-la via une variable d'environnement Vite si votre API tourne sur un autre hôte/port.
+L'URL de l'API consommée par Axios se trouve dans `src/services/api.js` (`baseURL: 'http://localhost:8001/api'`). Modifiez cette valeur ou externalisez-la via une variable d'environnement Vite si votre API tourne sur un autre hôte/port.
 
 Lancer l'interface :
 ```bash
@@ -135,26 +135,26 @@ npm run build
 1. **Choisir l'IP locale du PC hôte**  
    - Linux/macOS : `ip a` ; Windows : `ipconfig`. Exemple : `192.168.1.20`.
 2. **Backend Laravel**  
-   - Dans `backend/.env`, mettez `APP_URL=http://192.168.1.20:8000` et `FRONTEND_URL=http://192.168.1.20:5173`.  
+   - Dans `backend/.env`, mettez `APP_URL=http://192.168.1.20:8001` et `FRONTEND_URL=http://192.168.1.20:5173`.  
    - Si plusieurs frontends doivent accéder, vous pouvez définir `FRONTEND_URLS` (liste séparée par des virgules) pour CORS, par ex. `FRONTEND_URLS=http://192.168.1.20:5173,http://localhost:5173`.  
    - Démarrez en écoutant sur toutes les interfaces :  
      ```bash
      cd backend
-     php artisan serve --host=0.0.0.0 --port=8000
+     php artisan serve --host=0.0.0.0 --port=8001
      npm run dev             # Vite backend sur 0.0.0.0:5174 si vous utilisez les assets Blade
      ```
 3. **Frontend Vue**  
-   - Dans `frontend/.env.local`, mettez `VITE_API_URL=http://192.168.1.20:8000/api`.  
+   - Dans `frontend/.env.local`, mettez `VITE_API_URL=http://192.168.1.20:8001/api`.  
    - Démarrez en écoutant sur toutes les interfaces :  
      ```bash
      cd frontend
      npm run dev             # Vite frontend sur 0.0.0.0:5173
      ```
 4. **Depuis le PC client**  
-   - API : `http://192.168.1.20:8000/api/...`  
+   - API : `http://192.168.1.20:8001/api/...`  
    - SPA : `http://192.168.1.20:5173`
 5. **Pare-feu**  
-   - Ouvrez les ports TCP 8000 (API) et 5173 (Vite) sur le PC hôte pour autoriser les machines du réseau local.
+   - Ouvrez les ports TCP 8001 (API) et 5173 (Vite) sur le PC hôte pour autoriser les machines du réseau local.
 
 ## Scripts utiles
 | Commande | Description |

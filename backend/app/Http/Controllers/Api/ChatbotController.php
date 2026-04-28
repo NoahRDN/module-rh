@@ -23,13 +23,15 @@ class ChatbotController extends Controller
     {
         $request->validate([
             'question' => 'required|string|max:1000',
+            'context' => 'nullable',
         ]);
 
         $user = $request->user();
         $question = $request->input('question');
+        $context = $request->input('context', null);
 
         try {
-            $response = $this->chatbotService->processQuestion($question, $user);
+            $response = $this->chatbotService->processQuestion($question, $user, $context);
 
             if (!$response['success']) {
                 return response()->json([

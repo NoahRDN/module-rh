@@ -34,7 +34,7 @@ class ChatbotService
     /**
      * Traiter une question de l'utilisateur
      */
-    public function processQuestion(string $question, User $user): array
+    public function processQuestion(string $question, User $user, $conversation = null): array
     {
         try {
             // Vérifier la config du provider IA actif (OpenAI/Gemini)
@@ -95,12 +95,56 @@ class ChatbotService
 
             // Récupérer le contexte de l'employé
             $context = $this->buildUserContext($user);
+
+            // Inclure l'historique de conversation (5 derniers messages) si fourni
+            if (!empty($conversation) && is_array($conversation)) {
+                // Normalize recent messages structure
+                $context['recent_messages'] = array_map(function ($m) {
+                    // Accept objects or arrays with keys: isUser, text, role, message, timestamp
+                    $sender = null;
+                    if (is_array($m)) {
+                        if (isset($m['isUser'])) $sender = $m['isUser'] ? 'user' : 'assistant';
+                        if (isset($m['role'])) $sender = $m['role'];
+                        $text = $m['text'] ?? ($m['message'] ?? '');
+                        $time = $m['timestamp'] ?? null;
+                    } else if (is_object($m)) {
+                        $sender = isset($m->isUser) ? ($m->isUser ? 'user' : 'assistant') : ($m->role ?? null);
+                        $text = $m->text ?? ($m->message ?? '');
+                        $time = $m->timestamp ?? null;
+                    } else {
+                        $sender = 'user';
+                        $text = (string) $m;
+                        $time = null;
+                    }
+
+                    return [
+                        'role' => $sender ?? 'user',
+                        'text' => is_string($text) ? $text : json_encode($text, JSON_UNESCAPED_UNICODE),
+                        'timestamp' => $time,
+                    ];
+                }, array_values($conversation));
+            }
             
             // Détecter l'intention de la question
             $intent = $this->detectIntent($question);
             
             // Enrichir le contexte selon l'intention
             $enrichedContext = $this->enrichContextByIntent($intent, $user, $context);
+
+            // Forcer l'inclusion du contexte calendrier (jours fériés + événements) afin
+            // que l'IA puisse répondre aux questions sur les événements à venir.
+            try {
+                $calendarContext = $this->getCalendrierContext();
+                if (is_array($calendarContext)) {
+                    foreach ($calendarContext as $k => $v) {
+                        if (!array_key_exists($k, $enrichedContext)) {
+                            $enrichedContext[$k] = $v;
+                        }
+                    }
+                }
+            } catch (\Exception $e) {
+                Log::warning('ChatbotService: unable to include calendrier context', ['error' => $e->getMessage()]);
+            }
             
             // Construire le prompt système
             $systemPrompt = $this->buildSystemPrompt($enrichedContext);
@@ -161,6 +205,9 @@ class ChatbotService
     private function detectIntent(string $question): string
     {
         $question = strtolower($question);
+
+        // Normaliser (supprimer accents pour la détection basique)
+        $normalized = @iconv('UTF-8', 'ASCII//TRANSLIT', $question) ?: $question;
         
         $intents = [
             'conge' => ['congé', 'conge', 'vacances', 'absence', 'repos', 'solde', 'jours restants'],
@@ -178,9 +225,17 @@ class ChatbotService
 
         foreach ($intents as $intent => $keywords) {
             foreach ($keywords as $keyword) {
-                if (str_contains($question, $keyword)) {
+                if (str_contains($question, $keyword) || str_contains($normalized, $keyword)) {
                     return $intent;
                 }
+            }
+        }
+
+        // Si l'utilisateur mentionne un mois, considérer comme question de calendrier
+        $months = ['janvier','fevrier','fevrier','mars','avril','mai','juin','juillet','aout','aout','septembre','octobre','novembre','decembre'];
+        foreach ($months as $m) {
+            if (str_contains($question, $m) || str_contains($normalized, $m)) {
+                return 'calendrier';
             }
         }
 
@@ -368,6 +423,16 @@ class ChatbotService
             ->limit(5)
             ->get();
 
+        // Prochains événements calendrier (événements RH, réunions, autres)
+        $start = now();
+        $end = now()->addDays(90);
+        $evenements = CalendrierEvenement::where(function ($q) use ($start, $end) {
+                $q->whereBetween('date_debut', [$start->format('Y-m-d'), $end->format('Y-m-d')])
+                  ->orWhereBetween('date_fin', [$start->format('Y-m-d'), $end->format('Y-m-d')]);
+            })
+            ->orderBy('date_debut')
+            ->limit(20)
+            ->get();
         return [
             'jours_feries_annee' => $joursFeries->map(fn($j) => [
                 'nom' => $j->nom,
@@ -377,6 +442,13 @@ class ChatbotService
                 'nom' => $j->nom,
                 'date' => Carbon::parse($j->date)->format('d/m/Y'),
                 'dans' => Carbon::parse($j->date)->diffForHumans(),
+            ])->toArray(),
+            'prochains_evenements' => $evenements->map(fn($e) => [
+                'type' => $e->type,
+                'titre' => $e->description ?? ($e->meta['nom'] ?? 'Événement'),
+                'date_debut' => $e->date_debut?->format('Y-m-d'),
+                'date_fin' => $e->date_fin?->format('Y-m-d'),
+                'description' => $e->description,
             ])->toArray(),
         ];
     }
@@ -412,11 +484,9 @@ class ChatbotService
     private function buildSystemPrompt(array $context): string
     {
         $contextJson = json_encode($context, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
-
         return <<<PROMPT
 Tu es un assistant RH virtuel intelligent pour une entreprise. Tu dois répondre aux questions des employés de manière professionnelle, claire et concise en français.
-
-RÈGLES IMPORTANTES:
+    RÈGLES IMPORTANTES:
 1. Tu as accès aux données personnelles de l'employé qui te pose la question (voir contexte ci-dessous)
 2. Réponds toujours en français
 3. Sois précis et donne des informations chiffrées quand tu les as
@@ -425,6 +495,8 @@ RÈGLES IMPORTANTES:
 6. Sois empathique et professionnel
 7. Ne divulgue jamais d'informations sensibles sur d'autres employés
 8. Si la question nécessite une action humaine, oriente vers le service RH
+    9. Assure-toi que ta réponse se termine par une phrase complète : ne laisse jamais de mot ou de phrase inachevée. Si la réponse est longue, priorise la complétude des phrases plutôt que des exemples supplémentaires.
+10. Si le contexte fourni inclut des clés `prochains_feries` ou `prochains_evenements`, UTILISE ces informations pour répondre aux questions sur le calendrier et liste les événements pertinents. Ne prétends pas ne pas avoir accès au calendrier si ces données sont présentes.
 
 CONTEXTE DE L'EMPLOYÉ:
 {$contextJson}
@@ -443,12 +515,61 @@ PROMPT;
      * Appeler l'API Gemini
      */
     private function callAI(string $systemPrompt, string $question): string
-{
-    return $this->ai->chatText($systemPrompt, $question, [
-        'temperature' => 0.7,
-        'max_tokens' => 500,
-    ]);
-}
+    {
+        // Première tentative avec plus de tokens pour éviter les coupures
+        $response = $this->ai->chatText($systemPrompt, $question, [
+            'temperature' => 0.7,
+            'max_tokens' => 1000,
+        ]);
+
+        // Normaliser
+        $trimmed = trim((string) $response);
+        $words = preg_split('/\s+/', $trimmed);
+        $lastWord = is_array($words) && count($words) ? end($words) : '';
+
+        // Détecter un éventuel tronquage: fin par mot très court sans ponctuation
+        $maybeTruncated = false;
+        if ($lastWord !== null && is_string($lastWord) && strlen($lastWord) > 0 && strlen($lastWord) <= 3) {
+            // pas uniquement une ponctuation finale
+            if (!str_ends_with($trimmed, '.') && !str_ends_with($trimmed, '!') && !str_ends_with($trimmed, '?')) {
+                $maybeTruncated = true;
+            }
+        }
+
+        if ($maybeTruncated) {
+            Log::warning('ChatbotService: possible truncated response detected', [
+                'question_snippet' => mb_substr($question, 0, 200),
+                'response_preview' => mb_substr($trimmed, 0, 200),
+            ]);
+
+            // Ne relancer qu'une seule fois pour compléter la phrase
+            try {
+                $followUp = "Complète la phrase précédente si elle s'est arrêtée prématurément. Phrase incomplète: \"{$trimmed}\"\nDonne la suite et termine par une phrase complète en français.";
+                $continued = $this->ai->chatText($systemPrompt, $followUp, [
+                    'temperature' => 0.6,
+                    'max_tokens' => 400,
+                ]);
+
+                $continuedTrim = trim((string) $continued);
+
+                Log::info('ChatbotService: continuation attempt result', [
+                    'continued_preview' => mb_substr($continuedTrim, 0, 300),
+                ]);
+
+                // Si la suite paraît plus longue ou différente, l'utiliser
+                if (strlen($continuedTrim) > strlen($trimmed)) {
+                    return $continuedTrim;
+                }
+            } catch (\Exception $e) {
+                Log::error('ChatbotService: continuation failed', ['error' => $e->getMessage()]);
+                // Ne pas faire échouer la requête principale pour un échec de complétion
+                // On retourne la réponse initiale
+                return $trimmed;
+            }
+        }
+
+        return $trimmed;
+    }
 
 
     /**
@@ -994,18 +1115,42 @@ PROMPT;
      */
     public function getSuggestions(User $user): array
     {
-        $suggestions = [
-            'Quel est mon solde de congés ?',
-            'Quand est mon prochain jour férié ?',
-            'Comment demander une attestation de travail ?',
-            'Quel est mon salaire net ?',
-            'Quelles formations sont disponibles ?',
-        ];
+        $role = strtolower(trim((string) ($user->role ?? '')));
 
+        // Suggestions basées sur le rôle de l'utilisateur
+        if (in_array($role, ['admin', 'rh'])) {
+            $suggestions = [
+                'Créer un événement RH',
+                'Ajouter un jour férié',
+                'Afficher les événements RH à venir',
+                'Quand est le prochain jour férié ?',
+                'Consulter les demandes de congés',
+                'Générer une attestation de travail',
+            ];
+        } elseif ($role === 'manager') {
+            $suggestions = [
+                'Valider une demande de congé',
+                'Consulter mes équipes',
+                'Quand est le prochain jour férié ?',
+                'Comment demander une attestation de travail ?',
+            ];
+        } else {
+            $suggestions = [
+                'Quel est mon solde de congés ?',
+                'Quand est mon prochain jour férié ?',
+                'Comment demander une attestation de travail ?',
+                'Quelles formations sont disponibles ?',
+            ];
+        }
+
+        // Conserver la logique d'alerte sur solde faible pour les employés
         if ($user->employe) {
             $solde = SoldeConge::where('employe_id', $user->employe->id)->first();
             if ($solde && $solde->solde_actuel < 5) {
-                array_unshift($suggestions, 'Comment fonctionne l\'acquisition de congés ?');
+                // ajouter en tête si ce n'est pas déjà présent
+                if (!in_array('Comment fonctionne l\'acquisition de congés ?', $suggestions)) {
+                    array_unshift($suggestions, 'Comment fonctionne l\'acquisition de congés ?');
+                }
             }
         }
 

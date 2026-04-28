@@ -49,7 +49,7 @@
                 v-for="(suggestion, index) in suggestions" 
                 :key="index"
                 class="suggestion-btn"
-                @click="sendMessage(suggestion)"
+                @click="handleSuggestion(suggestion)"
               >
                 {{ suggestion }}
               </button>
@@ -233,39 +233,135 @@ export default {
         this.suggestions = response.data.suggestions || []
       } catch (error) {
         console.error('Erreur chargement suggestions:', error)
-        this.suggestions = [
-          "Quel est mon solde de congés ?",
-          "Quand est ma prochaine paie ?",
-          "Comment poser un congé ?",
-          "Quelles formations sont disponibles ?"
-        ]
+        // fallback: adapter les suggestions en local selon le rôle connu (localStorage)
+        const role = (localStorage.getItem('role') || '').toLowerCase()
+        if (role === 'admin' || role === 'rh') {
+          this.suggestions = [
+            'Créer un événement RH',
+            'Ajouter un jour férié',
+            'Afficher les événements RH à venir',
+            'Quand est le prochain jour férié ?',
+          ]
+        } else if (role === 'manager') {
+          this.suggestions = [
+            'Valider une demande de congé',
+            'Consulter mes équipes',
+            'Quand est le prochain jour férié ?',
+          ]
+        } else {
+          this.suggestions = [
+            "Quel est mon solde de congés ?",
+            "Quand est mon prochain jour férié ?",
+            "Comment demander une attestation de travail ?",
+            "Quelles formations sont disponibles ?",
+          ]
+        }
+      }
+    },
+
+    async handleSuggestion(suggestion) {
+      const s = (suggestion || '').toLowerCase()
+
+      // Admin shortcuts
+      if (s.includes('créer') && s.includes('événement')) {
+        // Naviguer vers le calendrier (l'utilisateur peut créer un événement)
+        try { this.$router.push('/calendrier') } catch (e) { window.location.href = '/calendrier' }
+        return
+      }
+
+      if (s.includes('ajouter') && s.includes('jour')) {
+        try { this.$router.push('/jours-feries/nouveau') } catch (e) { window.location.href = '/jours-feries/nouveau' }
+        return
+      }
+
+      if (s.includes('événements rh') || s.includes('événements à venir') || s.includes('événements rh à venir')) {
+        await this.fetchUpcomingEvents('rh', 30)
+        return
+      }
+
+      if (s.includes('prochain') && s.includes('jour f')) {
+        await this.fetchNextHoliday()
+        return
+      }
+
+      // Par défaut, envoyer la question au backend IA
+      this.sendMessage(suggestion)
+    },
+
+    async fetchNextHoliday() {
+      try {
+        const res = await chatbotService.getUpcomingEvents('ferie', 90)
+        const items = res.data.data || []
+        if (!items.length) {
+          this.messages.push({ text: 'Aucun jour férié trouvé dans les 90 prochains jours.', isUser: false, timestamp: new Date() })
+          return
+        }
+
+        const next = items[0]
+        const desc = `${next.description || 'Jour férié'} — ${next.date_debut || next.date}
+`
+        this.messages.push({ text: `Prochain jour férié : ${desc}`, isUser: false, timestamp: new Date() })
+        this.scrollToBottom()
+      } catch (error) {
+        console.error('Erreur récupération prochain jour férié', error)
+        this.messages.push({ text: 'Impossible de récupérer le prochain jour férié.', isUser: false, timestamp: new Date() })
+      }
+    },
+
+    async fetchUpcomingEvents(type = 'rh', days = 30) {
+      try {
+        const res = await chatbotService.getUpcomingEvents(type, days)
+        const items = res.data.data || []
+        if (!items.length) {
+          this.messages.push({ text: `Aucun événement ${type} trouvé dans les ${days} prochains jours.`, isUser: false, timestamp: new Date() })
+          return
+        }
+
+        const lines = items.slice(0, 6).map((it) => {
+          const name = it.description || it.meta?.nom || it.description || 'Événement'
+          const date = it.date_debut || it.date || ''
+          return `• ${name} — ${date}`
+        })
+
+        this.messages.push({ text: `Événements à venir (${type}):\n${lines.join('\n')}`, isUser: false, timestamp: new Date() })
+        this.scrollToBottom()
+      } catch (error) {
+        console.error('Erreur récupération événements', error)
+        this.messages.push({ text: `Impossible de récupérer les événements ${type}.`, isUser: false, timestamp: new Date() })
       }
     },
     async sendMessage(text = null) {
       const message = text || this.inputMessage.trim()
       if (!message) return
 
-      // Ajouter le message utilisateur
+      // Capturer les 5 derniers messages comme contexte (avant d'ajouter le nouveau message)
+      const recent = this.messages.slice(-5).map(m => ({
+        role: m.isUser ? 'user' : 'assistant',
+        text: m.text,
+        timestamp: m.timestamp
+      }))
+
+      // Ajouter le message utilisateur localement
       this.messages.push({
         text: message,
         isUser: true,
         timestamp: new Date()
       })
-      
+
       this.inputMessage = ''
       this.isTyping = true
       this.scrollToBottom()
 
       try {
-        const response = await chatbotService.ask(message)
-        
+        const response = await chatbotService.ask(message, recent)
+
         console.log('Chatbot response:', response.data)
-        
+
         // Si le backend indique un échec, privilégier le champ d'erreur (plus explicite)
         const botMessage = response.data?.success === false
           ? (response.data.erreur || response.data.reponse || 'Erreur inconnue')
           : (response.data.reponse || response.data.response || 'Pas de réponse')
-        
+
         this.messages.push({
           text: botMessage,
           isUser: false,
@@ -278,11 +374,11 @@ export default {
       } catch (error) {
         console.error('Erreur chatbot:', error)
         console.error('Error details:', error.response?.data)
-        
+
         const errorMessage = error.response?.data?.reponse 
           || error.response?.data?.erreur 
           || "Désolé, une erreur s'est produite. Veuillez réessayer."
-        
+
         this.messages.push({
           text: errorMessage,
           isUser: false,

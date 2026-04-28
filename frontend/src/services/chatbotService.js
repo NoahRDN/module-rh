@@ -27,6 +27,21 @@ const chatbotService = {
   },
 
   /**
+   * Récupérer les événements du calendrier (feries / rh / conge / absence)
+   * @param {string} type - Le type d'événement ('ferie', 'rh', 'conge', 'absence')
+   * @param {number} days - Nombre de jours à partir d'aujourd'hui
+   * @returns {Promise}
+   */
+  getUpcomingEvents(type = 'ferie', days = 30) {
+    const from = new Date().toISOString().slice(0, 10)
+    const toDate = new Date()
+    toDate.setDate(toDate.getDate() + Number(days))
+    const to = toDate.toISOString().slice(0, 10)
+
+    return api.get('/v1/calendrier-evenements', { params: { type, from, to } })
+  },
+
+  /**
    * Obtenir l'historique des conversations
    * @param {number} limit - Nombre de messages à récupérer
    * @returns {Promise}

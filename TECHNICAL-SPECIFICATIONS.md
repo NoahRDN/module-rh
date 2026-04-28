@@ -59,3 +59,9 @@ concernant l'ajout employé:
   - des boutons gérer paie permet de génerer une fiche de paie pour un employé
     - ce fiche de paie générer sera ensuite en attente de validation 
     - une fois valider, ce sera possible de le payer après et de telechager le fiche de payer en pdf
+
+Double pointage (deux entrées sans sortie)
+Sortie sans entrée
+Heures négatives / durée incohérente
+Chevauchement (deux pointages sur le même créneau)
+-> consequent: Bloquant (hard error) → empêcher l’enregistrement -> message d'erreur

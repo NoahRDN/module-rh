@@ -12,7 +12,7 @@
 
     <!-- Fenêtre de chat -->
     <transition name="slide-up">
-      <div v-if="isOpen" class="chatbot-window">
+      <div v-if="isOpen" :class="['chatbot-window', { 'theme-dark': appliedTheme === 'dark', 'theme-light': appliedTheme === 'light' }]">
         <!-- Header -->
         <div class="chatbot-header">
             <div class="chatbot-title">
@@ -116,6 +116,17 @@ export default {
   components: {
     AppIcon,
   },
+  props: {
+    /**
+     * Controle local du thème pour le widget.
+     * - 'auto' : suit `prefers-color-scheme`
+     * - 'light' ou 'dark' : force le thème du widget
+     */
+    theme: {
+      type: String,
+      default: 'auto'
+    }
+  },
   data() {
     return {
       isOpen: false,
@@ -123,13 +134,90 @@ export default {
       inputMessage: '',
       isTyping: false,
       suggestions: [],
-      unreadCount: 0
+      unreadCount: 0,
+      appliedTheme: 'auto',
+      _prefersMediaQuery: null,
+      _mutationObserver: null
     }
   },
   mounted() {
     this.loadSuggestions()
+    this.determineTheme()
+  },
+  beforeUnmount() {
+    if (this._prefersMediaQuery) {
+      try {
+        this._prefersMediaQuery.removeEventListener?.('change', this._onPrefersChange)
+        this._prefersMediaQuery.removeListener?.(this._onPrefersChange)
+      } catch (e) {
+        // ignore
+      }
+    }
+    if (this._mutationObserver) {
+      try {
+        this._mutationObserver.disconnect()
+      } catch (e) {
+        // ignore
+      }
+    }
   },
   methods: {
+    determineTheme() {
+      // Applique le thème local du widget (auto / light / dark)
+      if (this.theme === 'light' || this.theme === 'dark') {
+        this.appliedTheme = this.theme
+        return
+      }
+
+      // Priorité 1: regarder si la page a explicitement un data-theme
+      const explicit = document.documentElement.getAttribute('data-theme') || document.body.getAttribute('data-theme')
+      const mq = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)')
+
+      if (explicit === 'dark' || explicit === 'light') {
+        this.appliedTheme = explicit
+      } else {
+        // 'auto' : suivre la préférence système
+        this._prefersMediaQuery = mq
+        const isDark = mq ? mq.matches : false
+        this.appliedTheme = isDark ? 'dark' : 'light'
+      }
+
+      // gérer les changements si l'utilisateur change la préférence système
+      this._onPrefersChange = (e) => {
+        if (this.theme !== 'auto') return
+        this.appliedTheme = e.matches ? 'dark' : 'light'
+      }
+
+      try {
+        mq?.addEventListener?.('change', this._onPrefersChange)
+        mq?.addListener?.(this._onPrefersChange)
+      } catch (e) {
+        // ignore
+      }
+
+      // Observer des changements explicites de l'attribut data-theme sur la page
+      try {
+        this._mutationObserver = new MutationObserver((mutations) => {
+          if (this.theme !== 'auto') return
+          for (const m of mutations) {
+            if (m.type === 'attributes' && m.attributeName === 'data-theme') {
+              const val = document.documentElement.getAttribute('data-theme') || document.body.getAttribute('data-theme')
+              if (val === 'dark' || val === 'light') {
+                this.appliedTheme = val
+              } else {
+                const mq2 = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)')
+                this.appliedTheme = mq2 && mq2.matches ? 'dark' : 'light'
+              }
+            }
+          }
+        })
+
+        this._mutationObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+        this._mutationObserver.observe(document.body, { attributes: true, attributeFilter: ['data-theme'] })
+      } catch (e) {
+        // ignore
+      }
+    },
     toggleChat() {
       this.isOpen = !this.isOpen
       if (this.isOpen) {
@@ -234,6 +322,53 @@ export default {
 </script>
 
 <style scoped>
+/* Ensure inline SVGs are centered and don't shift baseline */
+.chatbot-toggle svg,
+.chatbot-avatar svg,
+.message-avatar svg,
+.action-btn svg,
+.send-btn svg {
+  display: block;
+  margin: auto;
+  line-height: 0;
+}
+
+.chatbot-avatar {
+  /* Icon color inside the avatar uses currentColor from AppIcon */
+  color: var(--chat-avatar-icon-color, var(--color-heading));
+}
+
+/* Local theme overrides for the widget when the app provides a choice */
+.chatbot-window.theme-dark {
+  --chat-header-start: #0f1724;
+  --chat-header-end: #12233a;
+  --chat-avatar-bot-bg: var(--vt-c-black-soft);
+  --chat-avatar-user-bg: #1f6feb;
+  --chat-window-bg: var(--color-background);
+  --chat-bubble-bot-bg: var(--vt-c-black-soft);
+  --color-background: var(--vt-c-black);
+  --color-background-soft: var(--vt-c-black-soft);
+  --color-text: var(--vt-c-text-dark-2);
+  --color-border: var(--vt-c-divider-dark-2);
+  --color-heading: var(--vt-c-text-dark-1);
+  --chat-avatar-icon-color: var(--vt-c-text-dark-1);
+}
+
+.chatbot-window.theme-light {
+  --chat-header-start: var(--vt-c-indigo);
+  --chat-header-end: #164e9f;
+  --chat-avatar-bot-bg: var(--color-background-soft);
+  --chat-avatar-user-bg: var(--vt-c-indigo);
+  --chat-window-bg: var(--color-background);
+  --chat-bubble-bot-bg: var(--color-background-soft);
+  --color-background: var(--vt-c-white);
+  --color-text: var(--vt-c-text-light-1);
+  --color-border: var(--vt-c-divider-light-2);
+  --color-heading: var(--vt-c-text-light-1);
+  --chat-avatar-icon-color: var(--vt-c-indigo);
+  --color-background-soft: var(--vt-c-white-soft);
+}
+
 /* Use app variables for color and dark mode compatibility */
 .chatbot-container{position:fixed;bottom:20px;right:20px;z-index:9999}
 .chatbot-toggle{width:56px;height:56px;border-radius:12px;background:var(--vt-c-indigo);color:#fff;border:none;cursor:pointer;box-shadow:0 10px 30px rgba(2,6,23,0.12);display:flex;align-items:center;justify-content:center;position:relative;transition:transform .18s}
@@ -241,7 +376,7 @@ export default {
 .chatbot-icon{font-size:22px}
 .chatbot-badge{position:absolute;top:-6px;right:-6px;background:#ef4444;color:#fff;padding:4px 7px;border-radius:999px;font-size:12px;font-weight:600}
 .chatbot-window{width:380px;max-width:calc(100vw - 32px);height:560px;max-height:calc(100vh - 120px);background:var(--color-background);color:var(--color-text);border-radius:12px;display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--color-border);box-shadow:0 20px 50px rgba(2,6,23,0.14)}
-.chatbot-header{background:linear-gradient(135deg,var(--chat-header-start),var(--chat-header-end));color:#fff;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;transition:background-color .35s, color .35s}
+.chatbot-header{background:var(--chat-header-start);color:#fff;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;transition:background-color .35s, color .35s}
 .chatbot-title{display:flex;gap:10px;align-items:center}
 .chatbot-avatar{font-size:26px;display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:8px;background:var(--chat-avatar-bot-bg);border:1px solid var(--color-border);transition:background-color .25s,border-color .25s}
 .chatbot-info h4{margin:0;font-size:15px}

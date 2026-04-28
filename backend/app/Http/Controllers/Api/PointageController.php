@@ -105,6 +105,10 @@ class PointageController extends Controller
         try {
             $payload = $request->validated();
             $payload['pointe_a'] = $this->normalizePointageTimestampToUtc((string) $payload['pointe_a']);
+            $consistencyError = $this->validatePointageConsistency($payload);
+            if ($consistencyError) {
+                return response()->json(['message' => $consistencyError], 422);
+            }
 
             $pointage = Pointage::create($payload);
             return response()->json($pointage, 201);
@@ -428,5 +432,46 @@ class PointageController extends Controller
             : Carbon::parse($raw, $localTimezone);
 
         return $timestamp->setTimezone('UTC')->format('Y-m-d H:i:s');
+    }
+
+    /**
+     * Bloque les incoherences techniques lors de l'enregistrement.
+     */
+    protected function validatePointageConsistency(array $payload): ?string
+    {
+        $timestamp = Carbon::parse($payload['pointe_a']);
+        $date = $timestamp->toDateString();
+
+        $existing = Pointage::forEmploye($payload['employe_id'])
+            ->whereDate('pointe_a', $date)
+            ->orderBy('pointe_a')
+            ->get(['type', 'pointe_a']);
+
+        $sameSlot = $existing->contains(fn($p) => $p->pointe_a->equalTo($timestamp));
+        if ($sameSlot) {
+            return 'Chevauchement: un pointage existe deja sur le meme creneau.';
+        }
+
+        if (!in_array($payload['type'], ['entree', 'sortie'], true)) {
+            return null;
+        }
+
+        $before = $existing->filter(fn($p) =>
+            in_array($p->type, ['entree', 'sortie'], true) && $p->pointe_a->lessThan($timestamp)
+        );
+
+        $entreesAvant = $before->where('type', 'entree')->count();
+        $sortiesAvant = $before->where('type', 'sortie')->count();
+        $hasOpenSession = $entreesAvant > $sortiesAvant;
+
+        if ($payload['type'] === 'entree' && $hasOpenSession) {
+            return 'Double pointage detecte: une entree est deja ouverte sans sortie.';
+        }
+
+        if ($payload['type'] === 'sortie' && !$hasOpenSession) {
+            return 'Sortie sans entree: aucune entree ouverte a cette heure.';
+        }
+
+        return null;
     }
 }

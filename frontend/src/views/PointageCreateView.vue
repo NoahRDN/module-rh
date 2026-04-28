@@ -22,9 +22,12 @@
             </button>
           </div>
 
-          <div v-if="message" class="status-banner danger">
+          <div v-if="error.title" class="status-banner" :class="error.variant">
             <span class="status-dot"></span>
-            <span>{{ message }}</span>
+            <div class="status-copy">
+              <strong>{{ error.title }}</strong>
+              <span>{{ error.detail }}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -89,7 +92,11 @@ import api from '../services/api'
 
 const router = useRouter()
 const employes = ref([])
-const message = ref('')
+const error = ref({
+  title: '',
+  detail: '',
+  variant: 'danger'
+})
 const saving = ref(false)
 
 const form = ref({
@@ -105,14 +112,50 @@ const fetchEmployes = async () => {
   employes.value = data.data || []
 }
 
+const setError = (status, detail) => {
+  const message = detail || 'Erreur lors de l’enregistrement'
+  let title = 'Erreur serveur'
+  let variant = status === 422 ? 'warning' : 'danger'
+
+  if (detail?.startsWith('Double pointage')) {
+    title = 'Double pointage'
+    variant = 'danger'
+  } else if (detail?.startsWith('Sortie sans entree')) {
+    title = 'Sortie sans entree'
+    variant = 'danger'
+  } else if (detail?.startsWith('Chevauchement')) {
+    title = 'Chevauchement'
+    variant = 'danger'
+  } else if (status === 422) {
+    title = 'Erreur de validation'
+  }
+
+  error.value = {
+    title,
+    detail: message,
+    variant
+  }
+}
+
+const clearError = () => {
+  error.value = {
+    title: '',
+    detail: '',
+    variant: 'danger'
+  }
+}
+
 const createPointage = async () => {
   if (saving.value) return
   saving.value = true
+  clearError()
   try {
     await api.post('/v1/pointages', form.value)
     router.push('/pointages')
   } catch (e) {
-    message.value = e.response?.data?.message || 'Erreur lors de l’enregistrement'
+    const status = e.response?.status
+    const detail = e.response?.data?.message
+    setError(status, detail)
   } finally {
     saving.value = false
   }

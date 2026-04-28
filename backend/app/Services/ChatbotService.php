@@ -18,6 +18,9 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use App\Models\Caisse;
+use App\Models\CaisseMouvement;
+use App\Models\CalendrierEvenement;
 
 class ChatbotService
 {
@@ -68,6 +71,26 @@ class ChatbotService
             // Vérifier si c'est une question sur la répartition/statistiques (traitement spécial)
             if ($this->isRepartitionQuestion($question)) {
                 return $this->handleRepartitionQuestion($user, $question);
+            }
+
+            // Vérifier si c'est une question sur la caisse
+            if ($this->isCaisseQuestion($question)) {
+                return $this->handleCaisseQuestion($user, $question);
+            }
+
+            // Vérifier si c'est une demande d'état des paies
+            if ($this->isPaieEtatQuestion($question)) {
+                return $this->handlePaieEtatQuestion($user, $question);
+            }
+
+            // Vérifier si c'est une demande de statistiques RH spécifiques
+            if ($this->isStatsRHQuestion($question)) {
+                return $this->handleStatsRHQuestion($user, $question);
+            }
+
+            // Vérifier si c'est une question sur le calendrier / congés
+            if ($this->isCalendrierCongesQuestion($question)) {
+                return $this->handleCalendrierCongesQuestion($user, $question);
             }
 
             // Récupérer le contexte de l'employé
@@ -657,10 +680,295 @@ PROMPT;
             'intent' => 'repartition',
             'data' => [
                 'repartition_complete' => $demandeComplete,
-                'repartition' => $sorted->map(fn($d) => [
+                'repartition' => $sortedDesc->values()->map(fn($d) => [
                     'departement' => $d->nom,
                     'employes_actifs' => $d->employes_actifs_count,
                 ])->toArray(),
+            ],
+        ];
+    }
+
+    /**
+     * Détecter si la question concerne la caisse
+     */
+    private function isCaisseQuestion(string $question): bool
+    {
+        $q = strtolower($question);
+        $keywords = ['caisse', 'solde caisse', 'état caisse', 'etat caisse', 'état de la caisse', 'etat de la caisse'];
+
+        foreach ($keywords as $kw) {
+            if (str_contains($q, $kw)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Gérer les demandes liées à la caisse
+     */
+    private function handleCaisseQuestion(User $user, string $question): array
+    {
+        if (!$user->isAdmin() && !$user->isRH()) {
+            return [
+                'success' => true,
+                'response' => 'Seuls les membres du service RH ou les administrateurs peuvent consulter l\'état des caisses.',
+                'intent' => 'caisse',
+            ];
+        }
+
+        $caisses = Caisse::with(['mouvements' => function ($q) {
+            $q->orderBy('created_at', 'desc')->limit(5);
+        }])->get();
+
+        if ($caisses->isEmpty()) {
+            return [
+                'success' => true,
+                'response' => 'Aucune caisse trouvée.',
+                'intent' => 'caisse',
+            ];
+        }
+
+        $response = "État des caisses :\n\n";
+        $data = [];
+        foreach ($caisses as $c) {
+            $solde = number_format($c->solde, 0, ',', ' ') . ' Ar';
+            $response .= "- {$c->nom} : {$solde}\n";
+
+            $mouvements = $c->mouvements->map(fn($m) => [
+                'id' => $m->id,
+                'type' => $m->type,
+                'categorie' => $m->categorie,
+                'montant' => number_format($m->montant, 0, ',', ' ') . ' Ar',
+                'date' => $m->created_at?->format('d/m/Y H:i') ?? null,
+                'description' => $m->description,
+            ])->toArray();
+
+            $data[] = [
+                'caisse' => $c->nom,
+                'solde' => $c->solde,
+                'mouvements_recents' => $mouvements,
+            ];
+        }
+
+        return [
+            'success' => true,
+            'response' => $response,
+            'intent' => 'caisse',
+            'data' => [
+                'caisses' => $data,
+            ],
+        ];
+    }
+
+    /**
+     * Détecter si la question concerne l'état des paies
+     */
+    private function isPaieEtatQuestion(string $question): bool
+    {
+        $q = strtolower($question);
+        $keywords = ['paie en retard', 'paies en retard', 'état des paies', 'etat des paies', 'statut des paies', 'paie', 'paye en retard', 'paye en retard'];
+
+        foreach ($keywords as $kw) {
+            if (str_contains($q, $kw)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Gérer l'état des paies
+     */
+    private function handlePaieEtatQuestion(User $user, string $question): array
+    {
+        if (!$user->isAdmin() && !$user->isRH()) {
+            return [
+                'success' => true,
+                'response' => 'Seuls les membres du service RH ou les administrateurs peuvent consulter l\'état des paies.',
+                'intent' => 'paie',
+            ];
+        }
+
+        $total = Paie::count();
+        $nonPayees = Paie::whereNull('paye_le')->count();
+        $enAttenteValidation = Paie::whereNull('valide_le')->count();
+
+        $lastNonPayees = Paie::whereNull('paye_le')
+            ->with('employe')
+            ->orderBy('mois', 'asc')
+            ->limit(5)
+            ->get()
+            ->map(fn($p) => [
+                'employe' => $p->employe?->nom . ' ' . $p->employe?->prenom,
+                'mois' => $p->mois,
+                'net' => number_format($p->net_a_payer, 0, ',', ' ') . ' Ar',
+            ])->toArray();
+
+        $response = "État des paies : total {$total}, non payées : {$nonPayees}, en attente de validation : {$enAttenteValidation}.";
+
+        return [
+            'success' => true,
+            'response' => $response,
+            'intent' => 'paie',
+            'data' => [
+                'total' => $total,
+                'non_payees' => $nonPayees,
+                'en_attente_validation' => $enAttenteValidation,
+                'exemples_non_payees' => $lastNonPayees,
+            ],
+        ];
+    }
+
+    /**
+     * Détecter si la question concerne des statistiques RH spécifiques
+     */
+    private function isStatsRHQuestion(string $question): bool
+    {
+        $q = strtolower($question);
+        $keywords = ['statistique', 'statistiques', 'top', 'les plus', 'le plus', 'ancien', 'ancienneté', 'employés avec le plus', 'employes avec le plus', 'employés les plus', 'employes les plus'];
+
+        foreach ($keywords as $kw) {
+            if (str_contains($q, $kw)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Gérer les statistiques RH (top anciens, top congés...)
+     */
+    private function handleStatsRHQuestion(User $user, string $question): array
+    {
+        if (!$user->isAdmin() && !$user->isRH()) {
+            return [
+                'success' => true,
+                'response' => 'Seuls les membres du service RH ou les administrateurs peuvent consulter ces statistiques.',
+                'intent' => 'statistiques',
+            ];
+        }
+
+        // Top anciens (par date d'embauche la plus ancienne)
+        $topAnciens = Employe::whereNotNull('date_embauche')
+            ->orderBy('date_embauche', 'asc')
+            ->limit(5)
+            ->get()
+            ->map(fn($e) => [
+                'id' => $e->id,
+                'nom' => $e->nom . ' ' . $e->prenom,
+                'date_embauche' => $e->date_embauche?->format('d/m/Y'),
+                'anciennete_annees' => $e->date_embauche ? Carbon::parse($e->date_embauche)->diffInYears(now()) : null,
+            ])->toArray();
+
+        // Top congés pris (regroupé par employe)
+        $topConges = DB::table('demandes_conges')
+            ->select('employe_id', DB::raw('SUM(jours_demandes) as total_jours'))
+            ->where('statut', 'rh_valide')
+            ->groupBy('employe_id')
+            ->orderByDesc('total_jours')
+            ->limit(5)
+            ->get()
+            ->map(fn($row) => [
+                'employe_id' => $row->employe_id,
+                'total_jours' => (int) $row->total_jours,
+                'nom' => optional(Employe::find($row->employe_id))->nom . ' ' . optional(Employe::find($row->employe_id))->prenom,
+            ])->toArray();
+
+        $response = "Statistiques RH : top anciens et top congés fournis.";
+
+        return [
+            'success' => true,
+            'response' => $response,
+            'intent' => 'statistiques',
+            'data' => [
+                'top_anciens' => $topAnciens,
+                'top_conges' => $topConges,
+            ],
+        ];
+    }
+
+    /**
+     * Détecter si la question concerne le calendrier des congés/événements
+     */
+    private function isCalendrierCongesQuestion(string $question): bool
+    {
+        $q = strtolower($question);
+        $keywords = ['calendrier', 'calendrier des congés', 'événement', 'événements', 'congé', 'conges', 'agenda'];
+
+        foreach ($keywords as $kw) {
+            if (str_contains($q, $kw)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Gérer les événements calendrier (jours fériés + congés approuvés)
+     */
+    private function handleCalendrierCongesQuestion(User $user, string $question): array
+    {
+        $start = now();
+        $end = now()->addDays(30);
+
+        // Jours fériés
+        $joursFeries = JourFerie::whereBetween('date', [$start->format('Y-m-d'), $end->format('Y-m-d')])
+            ->orderBy('date')
+            ->get()
+            ->map(fn($j) => [
+                'type' => 'jour_ferie',
+                'titre' => $j->nom,
+                'date_debut' => Carbon::parse($j->date)->format('Y-m-d'),
+                'date_fin' => Carbon::parse($j->date)->format('Y-m-d'),
+            ])->toArray();
+
+        // Congés approuvés
+        $demandeQuery = DemandeConge::where('statut', 'rh_valide')
+            ->where(function ($q) use ($start, $end) {
+                $q->whereBetween('date_debut', [$start->format('Y-m-d'), $end->format('Y-m-d')])
+                  ->orWhereBetween('date_fin', [$start->format('Y-m-d'), $end->format('Y-m-d')])
+                  ->orWhere(function ($q2) use ($start, $end) {
+                      $q2->whereDate('date_debut', '<=', $start->format('Y-m-d'))
+                         ->whereDate('date_fin', '>=', $end->format('Y-m-d'));
+                  });
+            });
+
+        if (!$user->isAdmin() && !$user->isRH() && $user->employe) {
+            $demandeQuery->where('employe_id', $user->employe->id);
+        }
+
+        $conges = $demandeQuery->with('employe')->get()->map(fn($d) => [
+            'type' => 'conge',
+            'titre' => ($d->employe?->nom ?? 'Employé') . ' - congé',
+            'employe_id' => $d->employe_id,
+            'date_debut' => Carbon::parse($d->date_debut)->format('Y-m-d'),
+            'date_fin' => Carbon::parse($d->date_fin)->format('Y-m-d'),
+            'jours' => $d->jours_demandes,
+        ])->toArray();
+
+        // Autres événements calendrier
+        $evenements = CalendrierEvenement::whereBetween('date_debut', [$start->format('Y-m-d'), $end->format('Y-m-d')])
+            ->orWhereBetween('date_fin', [$start->format('Y-m-d'), $end->format('Y-m-d')])
+            ->orderBy('date_debut')
+            ->get()
+            ->map(fn($e) => [
+                'type' => $e->type,
+                'titre' => $e->description,
+                'date_debut' => $e->date_debut?->format('Y-m-d'),
+                'date_fin' => $e->date_fin?->format('Y-m-d'),
+            ])->toArray();
+
+        $all = array_merge($joursFeries, $conges, $evenements);
+
+        $response = "Événements du calendrier pour les 30 prochains jours : " . count($all) . " événement(s) trouvés.";
+
+        return [
+            'success' => true,
+            'response' => $response,
+            'intent' => 'calendrier',
+            'data' => [
+                'evenements' => $all,
             ],
         ];
     }

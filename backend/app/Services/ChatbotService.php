@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\DemandeConge;
 use App\Models\SoldeConge;
 use App\Models\Paie;
+use App\Models\PaieParametre;
 use App\Models\Pointage;
 use App\Models\Contrat;
 use App\Models\Formation;
@@ -37,6 +38,8 @@ class ChatbotService
     public function processQuestion(string $question, User $user, $conversation = null): array
     {
         try {
+            Log::info('ChatbotService: processing question', ['user_id' => $user->id ?? null, 'question_snippet' => mb_substr($question, 0, 200)]);
+
             // Vérifier la config du provider IA actif (OpenAI/Gemini)
             $provider = (string) config('services.ai_provider', 'openai');
             if ($provider === 'gemini') {
@@ -76,6 +79,16 @@ class ChatbotService
             // Vérifier si c'est une question sur la caisse
             if ($this->isCaisseQuestion($question)) {
                 return $this->handleCaisseQuestion($user, $question);
+            }
+
+            // Vérifier si c'est une demande de calcul de cotisations pour un salaire donné
+            if ($this->isPaieCalculQuestion($question)) {
+                return $this->handlePaieCalculQuestion($user, $question);
+            }
+
+            // Vérifier si c'est une question sur les taux / cotisations (CNAPS, OSTIE, etc.)
+            if ($this->isPaieTauxQuestion($question)) {
+                return $this->handlePaieTauxQuestion($user, $question);
             }
 
             // Vérifier si c'est une demande d'état des paies
@@ -211,7 +224,7 @@ class ChatbotService
         
         $intents = [
             'conge' => ['congé', 'conge', 'vacances', 'absence', 'repos', 'solde', 'jours restants'],
-            'paie' => ['paie', 'salaire', 'bulletin', 'rémunération', 'fiche de paie', 'net', 'brut'],
+            'paie' => ['paie', 'salaire', 'bulletin', 'rémunération', 'fiche de paie', 'net', 'brut', 'cnaps', 'cotisation', 'cotisations', 'charge', 'charges', 'pourcentage', 'taux', 'salarial', 'patronal'],
             'pointage' => ['pointage', 'présence', 'heure', 'arrivée', 'départ', 'retard'],
             'contrat' => ['contrat', 'cdd', 'cdi', 'embauche', 'période essai', 'fin de contrat'],
             'formation' => ['formation', 'compétence', 'apprentissage', 'certificat', 'stage'],
@@ -226,15 +239,17 @@ class ChatbotService
         foreach ($intents as $intent => $keywords) {
             foreach ($keywords as $keyword) {
                 if (str_contains($question, $keyword) || str_contains($normalized, $keyword)) {
+                    Log::info('ChatbotService: intent keyword matched', ['intent' => $intent, 'keyword' => $keyword, 'question' => mb_substr($question, 0, 300)]);
                     return $intent;
                 }
             }
         }
 
         // Si l'utilisateur mentionne un mois, considérer comme question de calendrier
-        $months = ['janvier','fevrier','fevrier','mars','avril','mai','juin','juillet','aout','aout','septembre','octobre','novembre','decembre'];
+        $months = ['janvier','fevrier','mars','avril','mai','juin','juillet','aout','septembre','octobre','novembre','decembre'];
         foreach ($months as $m) {
             if (str_contains($question, $m) || str_contains($normalized, $m)) {
+                Log::info('ChatbotService: month detected, classifying as calendrier', ['month' => $m, 'question' => mb_substr($question, 0, 200)]);
                 return 'calendrier';
             }
         }
@@ -602,30 +617,31 @@ PROMPT;
      */
     private function isEffectifQuestion(string $question): bool
     {
-        $question = strtolower($question);
-        $keywords = ['combien', 'effectif', 'employé', 'employés', 'personnel', 'équipe', 'nombre'];
+        $q = strtolower($question);
+        $normalized = @iconv('UTF-8', 'ASCII//TRANSLIT', $q) ?: $q;
 
-        foreach ($keywords as $keyword) {
-            if (str_contains($question, $keyword)) {
-                // Éviter les faux positifs (ex: "combien de jours de congé")
-                $excludeWords = ['congé', 'conge', 'vacances', 'solde', 'paie', 'salaire', 'pointage', 'heure'];
-                foreach ($excludeWords as $exclude) {
-                    if (str_contains($question, $exclude)) {
-                        return false;
-                    }
-                }
-
-                // Éviter les questions sur la répartition/comparaison (ex: "département qui a le plus")
-                $repartitionWords = ['département', 'departement', 'service', 'plus', 'moins', 'par', 'selon', 'répartition', 'réparti'];
-                foreach ($repartitionWords as $repartition) {
-                    if (str_contains($question, $repartition)) {
-                        return false;
-                    }
-                }
-
+        // Mots indiquant clairement une question sur l'effectif
+        $indicators = ['effectif', 'employé', 'employes', 'employés', 'personnel', 'équipe', 'nombre', 'headcount'];
+        foreach ($indicators as $kw) {
+            if (str_contains($q, $kw) || str_contains($normalized, $kw)) {
+                Log::info('ChatbotService: isEffectifQuestion matched indicator', ['keyword' => $kw, 'question' => mb_substr($question, 0, 200)]);
                 return true;
             }
         }
+
+        // Si la question contient "combien", ne pas considérer comme effectif
+        // à moins qu'un autre indicateur ne soit présent (éviter faux positifs)
+        if (str_contains($q, 'combien') || str_contains($normalized, 'combien')) {
+            // vérifier présence d'un indicateur supplémentaire
+            foreach ($indicators as $kw) {
+                if (str_contains($q, $kw) || str_contains($normalized, $kw)) {
+                    Log::info('ChatbotService: isEffectifQuestion matched with "combien" plus indicator', ['keyword' => $kw, 'question' => mb_substr($question, 0, 200)]);
+                    return true;
+                }
+            }
+            return false;
+        }
+
         return false;
     }
 
@@ -830,14 +846,21 @@ PROMPT;
      */
     private function handleCaisseQuestion(User $user, string $question): array
     {
+        // Si l'utilisateur n'a pas la permission, proposer des alternatives
         if (!$user->isAdmin() && !$user->isRH()) {
             return [
                 'success' => true,
-                'response' => 'Seuls les membres du service RH ou les administrateurs peuvent consulter l\'état des caisses.',
+                'response' => 'Je n\'ai pas accès à l\'état complet des caisses. Voici quelques actions que je peux vous proposer à la place :',
                 'intent' => 'caisse',
+                'suggestions' => [
+                    'Afficher les derniers mouvements de ma caisse',
+                    'Voir les caisses actives',
+                    'Contacter le service RH pour l\'état complet',
+                ],
             ];
         }
 
+        // Utilisateur admin/RH : retourner un résumé simple (texte) au lieu d'une redirection
         $caisses = Caisse::with(['mouvements' => function ($q) {
             $q->orderBy('created_at', 'desc')->limit(5);
         }])->get();
@@ -896,6 +919,191 @@ PROMPT;
             }
         }
         return false;
+    }
+
+    /**
+     * Détecter si la question demande un calcul de cotisations pour un salaire donné
+     */
+    private function isPaieCalculQuestion(string $question): bool
+    {
+        $q = strtolower($question);
+
+        // Mots indiquant un calcul
+        if (!preg_match('/calc|calcu|calcule|calcul|calculez|calculer/i', $q)) {
+            return false;
+        }
+
+        // Vérifier la présence d'un terme lié aux cotisations ou d'un salaire
+        if (preg_match('/cotis|cotisation|cotisations|contribut|contribution|cnaps|ostie/i', $q) || str_contains($q, 'salaire') || preg_match('/\d{3,}/', $q)) {
+            Log::info('ChatbotService: isPaieCalculQuestion matched', ['question' => mb_substr($question, 0, 200)]);
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Calculer les cotisations à partir d'un salaire brut en utilisant les paramètres configurés
+     */
+    private function handlePaieCalculQuestion(User $user, string $question): array
+    {
+        // Extraire le montant si fourni
+        $found = null;
+        if (preg_match('/([0-9]+(?:[ \.,][0-9]{3})*(?:[\.,][0-9]+)?)/', $question, $m)) {
+            $found = $m[1];
+        }
+
+        if (!$found) {
+            return [
+                'success' => true,
+                'response' => "Précisez le salaire brut pour effectuer le calcul (ex : 'Calcule les cotisations pour un salaire brut de 1 000 000 Ar').",
+                'intent' => 'paie',
+            ];
+        }
+
+        // Normaliser le montant (retirer espaces et séparateurs)
+        $num = str_replace([' ', '\\.', ','], ['', '', '.'], $found);
+        $salary = (int) round(floatval($num));
+
+        try {
+            $param = PaieParametre::first();
+            if (!$param) {
+                return [
+                    'success' => true,
+                    'response' => "Les paramètres de paie ne sont pas configurés dans le système. Impossible d'effectuer le calcul automatique.",
+                    'intent' => 'paie',
+                ];
+            }
+
+            $cnaps_emp_rate = $param->cnaps_taux_employeur ? floatval($param->cnaps_taux_employeur) : 0.0;
+            $cnaps_sal_rate = $param->cnaps_taux_employe ? floatval($param->cnaps_taux_employe) : 0.0;
+            $ostie_emp_rate = $param->ostie_taux_employeur ? floatval($param->ostie_taux_employeur) : 0.0;
+            $ostie_sal_rate = $param->ostie_taux_employe ? floatval($param->ostie_taux_employe) : 0.0;
+
+            $cnaps_emp_amt = (int) round($salary * $cnaps_emp_rate / 100);
+            $cnaps_sal_amt = (int) round($salary * $cnaps_sal_rate / 100);
+            $ostie_emp_amt = (int) round($salary * $ostie_emp_rate / 100);
+            $ostie_sal_amt = (int) round($salary * $ostie_sal_rate / 100);
+
+            $total_emp = $cnaps_emp_amt + $ostie_emp_amt;
+            $total_sal = $cnaps_sal_amt + $ostie_sal_amt;
+            $net_estime = $salary - $total_sal;
+
+            $response = "Calcul indicatif des cotisations pour un salaire brut de " . number_format($salary, 0, ',', ' ') . " Ar :\n";
+            $response .= "- CNAPS (part employeur @ {$cnaps_emp_rate}%): " . number_format($cnaps_emp_amt, 0, ',', ' ') . " Ar\n";
+            $response .= "- CNAPS (part employé @ {$cnaps_sal_rate}%): " . number_format($cnaps_sal_amt, 0, ',', ' ') . " Ar\n";
+            $response .= "- OSTIE (part employeur @ {$ostie_emp_rate}%): " . number_format($ostie_emp_amt, 0, ',', ' ') . " Ar\n";
+            $response .= "- OSTIE (part employé @ {$ostie_sal_rate}%): " . number_format($ostie_sal_amt, 0, ',', ' ') . " Ar\n\n";
+            $response .= "Total cotisations employeur : " . number_format($total_emp, 0, ',', ' ') . " Ar\n";
+            $response .= "Total cotisations salarié : " . number_format($total_sal, 0, ',', ' ') . " Ar\n";
+            $response .= "Salaire net estimé après cotisations salariales : " . number_format($net_estime, 0, ',', ' ') . " Ar\n\n";
+            $response .= "Remarque : il s'agit d'un calcul indicatif basé sur les paramètres configurés dans le système. Pour un bulletin officiel, contactez le service paie/ RH.";
+
+            return [
+                'success' => true,
+                'response' => $response,
+                'intent' => 'paie',
+                'data' => [
+                    'salary' => $salary,
+                    'cnaps_emp_rate' => $cnaps_emp_rate,
+                    'cnaps_sal_rate' => $cnaps_sal_rate,
+                    'ostie_emp_rate' => $ostie_emp_rate,
+                    'ostie_sal_rate' => $ostie_sal_rate,
+                    'totals' => [
+                        'employeur' => $total_emp,
+                        'salarie' => $total_sal,
+                        'net_estime' => $net_estime,
+                    ],
+                ],
+            ];
+        } catch (\Exception $e) {
+            Log::error('ChatbotService: failed to calculate contributions', ['error' => $e->getMessage()]);
+            return [
+                'success' => true,
+                'response' => 'Une erreur est survenue lors du calcul des cotisations. Veuillez réessayer plus tard.',
+                'intent' => 'paie',
+            ];
+        }
+    }
+
+    /**
+     * Détecter si la question concerne les taux ou cotisations (CNAPS, OSTIE...)
+     */
+    private function isPaieTauxQuestion(string $question): bool
+    {
+        $q = strtolower($question);
+        $normalized = @iconv('UTF-8', 'ASCII//TRANSLIT', $q) ?: $q;
+
+        $keywords = ['taux', 'cotisation', 'cotisations', 'patronal', 'patronale', 'employeur', 'plafond', 'cnaps', 'ostie', 'taux patronal', 'taux employeur', 'plafond cnaps'];
+        foreach ($keywords as $kw) {
+            if (str_contains($q, $kw) || str_contains($normalized, $kw)) {
+                // Exiger qu'il y ait une notion de salaire/part pour éviter les faux positifs
+                if (str_contains($q, 'salaire') || str_contains($q, 'brut') || str_contains($q, 'part') || str_contains($q, 'employeur') || str_contains($q, 'patronal') || str_contains($q, 'cnaps') || str_contains($q, 'ostie')) {
+                    Log::info('ChatbotService: isPaieTauxQuestion matched', ['keyword' => $kw, 'question' => mb_substr($question, 0, 200)]);
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Répondre aux questions sur les taux de cotisation en utilisant les paramètres configurés
+     */
+    private function handlePaieTauxQuestion(User $user, string $question): array
+    {
+        try {
+            $param = PaieParametre::first();
+            if (!$param) {
+                return [
+                    'success' => true,
+                    'response' => "Les paramètres de paie (CNAPS/OSTIE/taux) ne sont pas configurés dans le système. Veuillez contacter le service RH ou la comptabilité.",
+                    'intent' => 'paie',
+                ];
+            }
+
+            $parts = [];
+            if ($param->cnaps_taux_employeur !== null) {
+                $parts[] = "Taux CNAPS - part employeur : {$param->cnaps_taux_employeur}%";
+            }
+            if ($param->cnaps_taux_employe !== null) {
+                $parts[] = "Taux CNAPS - part employé : {$param->cnaps_taux_employe}%";
+            }
+            if ($param->ostie_taux_employeur !== null) {
+                $parts[] = "Taux OSTIE - part employeur : {$param->ostie_taux_employeur}%";
+            }
+            if ($param->ostie_taux_employe !== null) {
+                $parts[] = "Taux OSTIE - part employé : {$param->ostie_taux_employe}%";
+            }
+            if ($param->cnaps_plafond !== null) {
+                $parts[] = "Plafond CNAPS : " . number_format($param->cnaps_plafond, 0, ',', ' ') . ' Ar';
+            }
+
+            if (empty($parts)) {
+                return [
+                    'success' => true,
+                    'response' => "Les paramètres de paie existent mais aucune valeur de taux n'a été configurée. Veuillez contacter le service RH.",
+                    'intent' => 'paie',
+                ];
+            }
+
+            $response = "Voici les paramètres de paie configurés dans le système :\n" . implode("\n", $parts) . "\n\nSi vous souhaitez un calcul pour un salaire brut donné, demandez par exemple : 'Calcule les cotisations patronales pour un salaire brut de 1 000 000 Ar'.";
+
+            return [
+                'success' => true,
+                'response' => $response,
+                'intent' => 'paie',
+                'data' => ['paie_parametres' => $param->toArray()],
+            ];
+        } catch (\Exception $e) {
+            Log::error('ChatbotService: failed to fetch paie parametres', ['error' => $e->getMessage()]);
+            return [
+                'success' => true,
+                'response' => 'Impossible de récupérer les paramètres de paie actuellement. Veuillez contacter le service RH.',
+                'intent' => 'paie',
+            ];
+        }
     }
 
     /**
@@ -1030,10 +1238,43 @@ PROMPT;
      */
     private function handleCalendrierCongesQuestion(User $user, string $question): array
     {
+        // Normaliser la question pour détection de mois (sans accents)
+        $qNorm = strtolower(@iconv('UTF-8', 'ASCII//TRANSLIT', $question) ?: $question);
+
+        // Mapper noms de mois en numéro
+        $months = [
+            'janvier' => 1, 'fevrier' => 2, 'mars' => 3, 'avril' => 4,
+            'mai' => 5, 'juin' => 6, 'juillet' => 7, 'aout' => 8,
+            'septembre' => 9, 'octobre' => 10, 'novembre' => 11, 'decembre' => 12,
+        ];
+
         $start = now();
         $end = now()->addDays(30);
+        $labelPeriod = 'les 30 prochains jours';
 
-        // Jours fériés
+        // Si l'utilisateur mentionne un mois, cibler ce mois entier
+        $foundMonth = null;
+        foreach ($months as $name => $num) {
+            if (str_contains($qNorm, $name)) {
+                $foundMonth = $num;
+                break;
+            }
+        }
+
+        if ($foundMonth) {
+            $year = now()->year;
+            // Construire le premier jour du mois (prochaine occurrence si le mois est écoulé cette année)
+            $candidate = Carbon::create($year, $foundMonth, 1)->startOfDay();
+            if ($candidate->lt(now())) {
+                // user likely refers to the next occurrence
+                $candidate = $candidate->addYear();
+            }
+            $start = $candidate->copy();
+            $end = $candidate->copy()->endOfMonth();
+            $labelPeriod = 'le mois de ' . array_search($foundMonth, $months);
+        }
+
+        // Jours fériés (inclus les récurrents pour le mois demandé)
         $joursFeries = JourFerie::whereBetween('date', [$start->format('Y-m-d'), $end->format('Y-m-d')])
             ->orderBy('date')
             ->get()
@@ -1043,6 +1284,32 @@ PROMPT;
                 'date_debut' => Carbon::parse($j->date)->format('Y-m-d'),
                 'date_fin' => Carbon::parse($j->date)->format('Y-m-d'),
             ])->toArray();
+
+        // Ajouter les jours fériés récurrents correspondant au mois (si absent)
+        if ($foundMonth) {
+            $recurrent = JourFerie::where('recurrent', true)->get();
+            foreach ($recurrent as $r) {
+                $rMonth = Carbon::parse($r->date)->month;
+                if ($rMonth === $foundMonth) {
+                    // Construire la date pour l'année cible
+                    $yearTarget = $start->year;
+                    $day = Carbon::parse($r->date)->day;
+                    $computedDate = Carbon::create($yearTarget, $foundMonth, $day)->format('Y-m-d');
+                    // Vérifier s'il n'est pas déjà présent
+                    $exists = collect($joursFeries)->contains(fn($it) => ($it['date_debut'] ?? '') === $computedDate);
+                    if (!$exists) {
+                        $joursFeries[] = [
+                            'type' => 'jour_ferie',
+                            'titre' => $r->nom,
+                            'date_debut' => $computedDate,
+                            'date_fin' => $computedDate,
+                        ];
+                    }
+                }
+            }
+            // trier les jours fériés par date
+            usort($joursFeries, fn($a, $b) => strcmp($a['date_debut'], $b['date_debut']));
+        }
 
         // Congés approuvés
         $demandeQuery = DemandeConge::where('statut', 'rh_valide')
@@ -1069,8 +1336,10 @@ PROMPT;
         ])->toArray();
 
         // Autres événements calendrier
-        $evenements = CalendrierEvenement::whereBetween('date_debut', [$start->format('Y-m-d'), $end->format('Y-m-d')])
-            ->orWhereBetween('date_fin', [$start->format('Y-m-d'), $end->format('Y-m-d')])
+        $evenements = CalendrierEvenement::where(function ($q) use ($start, $end) {
+                $q->whereBetween('date_debut', [$start->format('Y-m-d'), $end->format('Y-m-d')])
+                  ->orWhereBetween('date_fin', [$start->format('Y-m-d'), $end->format('Y-m-d')]);
+            })
             ->orderBy('date_debut')
             ->get()
             ->map(fn($e) => [
@@ -1082,7 +1351,7 @@ PROMPT;
 
         $all = array_merge($joursFeries, $conges, $evenements);
 
-        $response = "Événements du calendrier pour les 30 prochains jours : " . count($all) . " événement(s) trouvés.";
+        $response = "Événements du calendrier pour {$labelPeriod} : " . count($all) . " événement(s) trouvés.";
 
         return [
             'success' => true,
@@ -1090,6 +1359,10 @@ PROMPT;
             'intent' => 'calendrier',
             'data' => [
                 'evenements' => $all,
+                'periode' => [
+                    'start' => $start->format('Y-m-d'),
+                    'end' => $end->format('Y-m-d'),
+                ],
             ],
         ];
     }
@@ -1120,12 +1393,7 @@ PROMPT;
         // Suggestions basées sur le rôle de l'utilisateur
         if (in_array($role, ['admin', 'rh'])) {
             $suggestions = [
-                'Créer un événement RH',
-                'Ajouter un jour férié',
-                'Afficher les événements RH à venir',
-                'Quand est le prochain jour férié ?',
-                'Consulter les demandes de congés',
-                'Générer une attestation de travail',
+      
             ];
         } elseif ($role === 'manager') {
             $suggestions = [
@@ -1141,6 +1409,26 @@ PROMPT;
                 'Comment demander une attestation de travail ?',
                 'Quelles formations sont disponibles ?',
             ];
+        }
+
+        // Forcer trois questions fréquentes en tête de liste et limiter à 6
+        $topQuestions = [
+            "Quel taux de cotisation patronale s'applique au salaire brut ?",
+            "Quel est l'état de caisse actuel ?",
+            "Combien d'employés y a‑t‑il dans l'entreprise ?",
+        ];
+
+        // Préserver l'ordre : les éléments de $topQuestions doivent apparaître en tête
+        foreach (array_reverse($topQuestions) as $q) {
+            if (!in_array($q, $suggestions, true)) {
+                array_unshift($suggestions, $q);
+            }
+        }
+
+        // Dédupliquer et limiter à 6 suggestions affichées
+        $suggestions = array_values(array_unique($suggestions));
+        if (count($suggestions) > 6) {
+            $suggestions = array_slice($suggestions, 0, 6);
         }
 
         // Conserver la logique d'alerte sur solde faible pour les employés

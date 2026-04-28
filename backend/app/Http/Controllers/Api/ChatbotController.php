@@ -46,6 +46,7 @@ class ChatbotController extends Controller
                 'reponse' => $response['response'],
                 'intent' => $response['intent'] ?? null,
                 'data' => $response['data'] ?? null,
+                'suggestions' => $response['suggestions'] ?? null,
             ]);
         } catch (\Exception $e) {
             \Log::error('Chatbot error in controller: ' . $e->getMessage(), [

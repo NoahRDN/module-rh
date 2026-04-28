@@ -39,7 +39,12 @@
         <div class="chatbot-messages" ref="messagesContainer">
           <!-- Message de bienvenue -->
           <div v-if="messages.length === 0" class="welcome-message">
-            <div class="welcome-icon">👋</div>
+            <div class="welcome-icon" style="
+                display: flex;
+                justify-content: center;
+            ">
+              <span class="chatbot-avatar"><AppIcon name="sparkles" :size="26" /></span>
+            </div>
             <h4>Bienvenue !</h4>
             <p>Je suis votre assistant RH. Comment puis-je vous aider ?</p>
             
@@ -85,10 +90,26 @@
           </div>
         </div>
 
+        <!-- Inline suggestions shown after a bot response -->
+        <div v-if="inlineSuggestions.length > 0" class="inline-suggestions" style="padding:12px 18px;border-top:1px solid var(--color-border);background:var(--chat-window-bg)">
+          <p class="suggestions-title">Suggestions :</p>
+          <div>
+            <button
+              v-for="(s, i) in inlineSuggestions"
+              :key="i"
+              class="suggestion-btn"
+              @click="handleSuggestion(s)"
+            >
+              {{ s }}
+            </button>
+          </div>
+        </div>
+
         <!-- Input -->
         <div class="chatbot-input">
           <input 
             v-model="inputMessage"
+            @input="inlineSuggestions = []"
             @keyup.enter="sendMessage()"
             placeholder="Posez votre question..."
             :disabled="isTyping"
@@ -134,6 +155,7 @@ export default {
       inputMessage: '',
       isTyping: false,
       suggestions: [],
+      inlineSuggestions: [],
       unreadCount: 0,
       appliedTheme: 'auto',
       _prefersMediaQuery: null,
@@ -237,10 +259,7 @@ export default {
         const role = (localStorage.getItem('role') || '').toLowerCase()
         if (role === 'admin' || role === 'rh') {
           this.suggestions = [
-            'Créer un événement RH',
-            'Ajouter un jour férié',
-            'Afficher les événements RH à venir',
-            'Quand est le prochain jour férié ?',
+          
           ]
         } else if (role === 'manager') {
           this.suggestions = [
@@ -262,29 +281,35 @@ export default {
     async handleSuggestion(suggestion) {
       const s = (suggestion || '').toLowerCase()
 
-      // Admin shortcuts
+      // Avoid navigating away from the app for suggestions; prefer text responses
       if (s.includes('créer') && s.includes('événement')) {
-        // Naviguer vers le calendrier (l'utilisateur peut créer un événement)
-        try { this.$router.push('/calendrier') } catch (e) { window.location.href = '/calendrier' }
+        // Ask the chatbot to explain how to create an RH event
+        this.sendMessage('Comment créer un événement RH ?')
+        this.inlineSuggestions = []
         return
       }
 
       if (s.includes('ajouter') && s.includes('jour')) {
-        try { this.$router.push('/jours-feries/nouveau') } catch (e) { window.location.href = '/jours-feries/nouveau' }
+        // Ask the chatbot to explain how to add a holiday
+        this.sendMessage('Comment ajouter un jour férié ?')
+        this.inlineSuggestions = []
         return
       }
 
       if (s.includes('événements rh') || s.includes('événements à venir') || s.includes('événements rh à venir')) {
         await this.fetchUpcomingEvents('rh', 30)
+        this.inlineSuggestions = []
         return
       }
 
       if (s.includes('prochain') && s.includes('jour f')) {
         await this.fetchNextHoliday()
+        this.inlineSuggestions = []
         return
       }
 
-      // Par défaut, envoyer la question au backend IA
+      // Default: send the suggestion as a user message to the chatbot
+      this.inlineSuggestions = []
       this.sendMessage(suggestion)
     },
 
@@ -367,6 +392,13 @@ export default {
           isUser: false,
           timestamp: new Date()
         })
+
+        // Afficher des suggestions inline si le backend en fournit
+        if (Array.isArray(response.data?.suggestions) && response.data.suggestions.length) {
+          this.inlineSuggestions = response.data.suggestions
+        } else {
+          this.inlineSuggestions = []
+        }
 
         if (!this.isOpen) {
           this.unreadCount++

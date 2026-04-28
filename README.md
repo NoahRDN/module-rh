@@ -2,6 +2,8 @@
 
 Ce dépôt rassemble un backend Laravel et un frontend Vue destinés à la gestion d'un module RH. Les deux applications vivent dans le même dépôt afin de faciliter le développement local.
 
+Pour comprendre le périmètre fonctionnel et ce que l'application permet de faire, consultez les [spécifications fonctionnelles et techniques](TECHNICAL-SPECIFICATIONS.md).
+
 ## Architecture du dépôt
 - `backend/` – API Laravel 12 (PHP 8.2, Sanctum, Vite pour les assets).
 - `frontend/` – SPA Vue 3 + Vite consommant l'API exposée par le backend.

@@ -49,3 +49,4 @@ coverage/
 *.sqlite
 
 /utilitaires
+.codex

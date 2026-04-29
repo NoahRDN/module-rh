@@ -50,6 +50,10 @@ if [[ -f .env ]] && ! grep -qE '^APP_KEY=base64:' .env; then
   run_as_app php artisan key:generate
 fi
 
+# Clear Laravel caches so Render env vars are used
+run_as_app php artisan config:clear || true
+run_as_app php artisan cache:clear || true
+
 # 6) Optional database bootstrap for Docker development
 fresh_db=0
 if [[ "${RUN_SEEDERS_ON_FRESH_DB:-false}" == "true" ]]; then

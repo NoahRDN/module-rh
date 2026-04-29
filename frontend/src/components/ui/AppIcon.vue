@@ -142,6 +142,19 @@
       <path d="M18 12H9.5" :stroke-width="strokeWidth" stroke="currentColor" stroke-linecap="round" />
     </template>
 
+    <template v-else-if="name === 'eye'">
+      <path d="M4.75 12C6.25 8.75 8.75 7 12 7C15.25 7 17.75 8.75 19.25 12C17.75 15.25 15.25 17 12 17C8.75 17 6.25 15.25 4.75 12Z" :stroke-width="strokeWidth" stroke="currentColor" stroke-linejoin="round" />
+      <path d="M12 14.25C13.2426 14.25 14.25 13.2426 14.25 12C14.25 10.7574 13.2426 9.75 12 9.75C10.7574 9.75 9.75 10.7574 9.75 12C9.75 13.2426 10.7574 14.25 12 14.25Z" :stroke-width="strokeWidth" stroke="currentColor" />
+    </template>
+
+    <template v-else-if="name === 'eye-off'">
+      <path d="M5.25 5.25L18.75 18.75" :stroke-width="strokeWidth" stroke="currentColor" stroke-linecap="round" />
+      <path d="M9.4 7.5C10.195 7.168 11.061 7 12 7C15.25 7 17.75 8.75 19.25 12C18.744 13.096 18.124 14.02 17.391 14.764" :stroke-width="strokeWidth" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" />
+      <path d="M14.03 14.03C13.51 14.49 12.801 14.25 12 14.25C10.7574 14.25 9.75 13.2426 9.75 12C9.75 11.199 9.51 10.49 9.97 9.97" :stroke-width="strokeWidth" stroke="currentColor" stroke-linecap="round" />
+      <path d="M14.25 12.25C14.15 10.95 13.05 9.85 11.75 9.75" :stroke-width="strokeWidth" stroke="currentColor" stroke-linecap="round" />
+      <path d="M6.732 9.135C5.949 9.877 5.289 10.834 4.75 12C6.25 15.25 8.75 17 12 17C13.018 17 13.962 16.828 14.83 16.493" :stroke-width="strokeWidth" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" />
+    </template>
+
     <template v-else-if="name === 'refresh'">
       <path d="M18.5 10.25C17.9235 7.08237 15.1556 4.75 11.75 4.75C8.82526 4.75 6.37307 6.4694 5.22058 8.95" :stroke-width="strokeWidth" stroke="currentColor" stroke-linecap="round" />
       <path d="M5.25 5.75V9.5H9" :stroke-width="strokeWidth" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" />

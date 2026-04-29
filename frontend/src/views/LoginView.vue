@@ -7,6 +7,17 @@
         <p class="login-subtitle">
           Renseignez votre identifiant et votre mot de passe pour ouvrir votre espace.
         </p>
+        <div class="demo-credentials" aria-label="Identifiants de démonstration">
+          <span class="demo-title">Accès démo</span>
+          <p>
+            <span>Identifiant :</span>
+            <strong>admin@rh.test</strong>
+          </p>
+          <p>
+            <span>Mot de passe :</span>
+            <code>password</code>
+          </p>
+        </div>
       </div>
 
       <form class="auth-form" @submit.prevent="onLogin">
@@ -24,14 +35,25 @@
 
         <label class="field-card">
           <span class="field-label">Mot de passe</span>
-          <input
-            v-model="mdp"
-            class="input"
-            type="password"
-            autocomplete="current-password"
-            placeholder="Votre mot de passe"
-            required
-          />
+          <span class="password-field">
+            <input
+              v-model="mdp"
+              class="input password-input"
+              :type="showPassword ? 'text' : 'password'"
+              autocomplete="current-password"
+              placeholder="Votre mot de passe"
+              required
+            />
+            <button
+              class="password-toggle"
+              type="button"
+              :aria-label="showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'"
+              :title="showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'"
+              @click="showPassword = !showPassword"
+            >
+              <AppIcon :name="showPassword ? 'eye-off' : 'eye'" :size="20" />
+            </button>
+          </span>
         </label>
 
         <button class="btn auth-submit" type="submit" :disabled="loading">
@@ -56,6 +78,7 @@ const identifiant = ref('')
 const mdp = ref('')
 const error = ref('')
 const loading = ref(false)
+const showPassword = ref(false)
 
 const onLogin = async () => {
   error.value = ''
@@ -149,6 +172,55 @@ const onLogin = async () => {
   line-height: 1.6;
 }
 
+.demo-credentials {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid rgba(99, 102, 241, 0.22);
+  border-radius: 14px;
+  color: var(--text);
+  font-size: 0.86rem;
+}
+
+.demo-title {
+  color: var(--brand-600);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.demo-credentials p {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+}
+
+.demo-credentials p span {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.demo-credentials strong,
+.demo-credentials code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.demo-credentials strong {
+  font-weight: 700;
+}
+
+.demo-credentials code {
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.08);
+  font-family: inherit;
+  font-weight: 700;
+}
+
 .auth-form {
   display: grid;
   gap: 16px;
@@ -157,6 +229,41 @@ const onLogin = async () => {
 .field-card {
   display: grid;
   gap: 8px;
+}
+
+.password-field {
+  position: relative;
+  display: block;
+}
+
+.password-input {
+  width: 100%;
+  padding-right: 54px;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.password-toggle:hover,
+.password-toggle:focus-visible {
+  background: rgba(79, 70, 229, 0.12);
+  color: var(--brand-600);
+  outline: none;
 }
 
 .field-label {
@@ -187,6 +294,16 @@ const onLogin = async () => {
   .login-card {
     padding: 22px;
     border-radius: 24px;
+  }
+
+  .demo-credentials {
+    align-items: stretch;
+  }
+
+  .demo-credentials p {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
   }
 }
 </style>

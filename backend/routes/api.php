@@ -66,6 +66,18 @@ use App\Http\Controllers\Api\AnomalyDetectionController;
 use App\Http\Controllers\Api\AIMatchingController;
 use App\Http\Controllers\Api\JourFerieController;
 
+Route::get('/debug-db', function () {
+    return response()->json([
+        'default' => config('database.default'),
+        'pgsql_host' => config('database.connections.pgsql.host'),
+        'pgsql_database' => config('database.connections.pgsql.database'),
+        'pgsql_url_is_set' => !empty(config('database.connections.pgsql.url')),
+        'env_db_host' => env('DB_HOST'),
+        'env_db_url_is_set' => !empty(env('DB_URL')),
+        'env_database_url_is_set' => !empty(env('DATABASE_URL')),
+    ]);
+});
+
 Route::post('/login', [AuthController::class, 'login']);
 
 Route::middleware('auth:sanctum')->group(function () {

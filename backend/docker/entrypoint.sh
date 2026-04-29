@@ -46,7 +46,7 @@ if [[ ! -f vendor/autoload.php ]]; then
 fi
 
 # 5) APP_KEY
-if [[ -f .env ]] && ! grep -qE '^APP_KEY=base64:' .env; then
+if [[ "${APP_ENV:-local}" != "production" && -f .env ]] && ! grep -qE '^APP_KEY=base64:' .env; then
   run_as_app php artisan key:generate
 fi
 

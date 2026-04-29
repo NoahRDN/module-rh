@@ -12,8 +12,11 @@ class AuthController extends Controller
     // Connexion
     public function login(Request $request)
     {
-        Log::info('Tentative de login');
         try {
+            Log::info('LOGIN REQUEST RECEIVED', [
+                'payload' => $request->all(),
+            ]);
+
             $request->validate([
                 'identifiant' => 'required|string',
                 'mdp' => 'required|string'
@@ -39,8 +42,14 @@ class AuthController extends Controller
                 ]
             ]);
         } catch (\Throwable $e) {
-            Log::error('Erreur login', ['error' => $e->getMessage()]);
-            return response()->json(['message' => 'Erreur serveur'], 500);
+            Log::error('LOGIN ERROR', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'message' => $e->getMessage(),
+            ], 500);
         }
     }
 

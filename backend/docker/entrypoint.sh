@@ -11,8 +11,8 @@ run_as_app() {
   "$@"
 }
 
-# 1) .env
-if [[ ! -f .env && -f .env.example ]]; then
+# 1) .env only for local development
+if [[ "${APP_ENV:-local}" != "production" && ! -f .env && -f .env.example ]]; then
   cp .env.example .env
 fi
 

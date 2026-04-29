@@ -2,18 +2,37 @@
 
 return [
 
-    'paths' => ['*'],
+    /*
+    |--------------------------------------------------------------------------
+    | Cross-Origin Resource Sharing (CORS) Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Autorise le frontend à appeler l'API Laravel depuis un autre domaine,
+    | par exemple Vercel -> Render.
+    |
+    */
+
+    'paths' => [
+        'api/*',
+        'sanctum/csrf-cookie',
+    ],
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => [
-        'https://module-rh.vercel.app',
-        'http://localhost:5173',
-    ],
+    'allowed_origins' => array_filter(array_map(
+        'trim',
+        explode(',', env('FRONTEND_URLS', env('FRONTEND_URL', 'http://localhost:5173')))
+    )),
 
-    'allowed_origins_patterns' => [
-        '#^https://.*\.vercel\.app$#',
-    ],
+    'allowed_origins_patterns' => env('APP_ENV') === 'local'
+        ? [
+            '#^https?://localhost(:\d+)?$#',
+            '#^https?://127\.0\.0\.1(:\d+)?$#',
+            '#^https?://10\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?$#',
+            '#^https?://172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}(:\d+)?$#',
+            '#^https?://192\.168\.\d{1,3}\.\d{1,3}(:\d+)?$#',
+        ]
+        : [],
 
     'allowed_headers' => ['*'],
 
@@ -21,6 +40,19 @@ return [
 
     'max_age' => 0,
 
-    'supports_credentials' => false,
+    /*
+    |--------------------------------------------------------------------------
+    | Credentials
+    |--------------------------------------------------------------------------
+    |
+    | Mets true si tu utilises Sanctum avec cookies/session.
+    | Mets false si ton login retourne un token Bearer stocké côté frontend.
+    |
+    */
+
+    'supports_credentials' => filter_var(
+        env('CORS_SUPPORTS_CREDENTIALS', false),
+        FILTER_VALIDATE_BOOLEAN
+    ),
 
 ];

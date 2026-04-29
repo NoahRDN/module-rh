@@ -7,3 +7,6 @@ bootstrap/cache
 .idea
 tests
 *.log
+vendor
+bootstrap/cache/*.php
+storage/logs/*.log

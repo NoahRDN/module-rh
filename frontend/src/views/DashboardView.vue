@@ -258,21 +258,27 @@
                 <table class="table">
                   <thead>
                     <tr>
-                      <th>Matricule</th>
-                      <th>Nom</th>
+                      <th>Employé</th>
                       <th>Poste</th>
                       <th>Département</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr v-for="emp in derniersEmployes" :key="emp.id">
-                      <td>{{ emp.matricule || '—' }}</td>
-                      <td>{{ emp.nom }} {{ emp.prenom }}</td>
+                      <td>
+                        <div class="employee-cell">
+                          <div class="employee-avatar">{{ initials(emp) }}</div>
+                          <div class="employee-copy">
+                            <p>{{ employeName(emp) }}</p>
+                            <span>{{ emp.matricule || 'Sans matricule' }}</span>
+                          </div>
+                        </div>
+                      </td>
                       <td>{{ emp.poste?.nom || '—' }}</td>
                       <td>{{ emp.departement?.nom || '—' }}</td>
                     </tr>
                     <tr v-if="!derniersEmployes.length">
-                      <td colspan="4" class="empty-table">Aucun employé disponible pour le moment.</td>
+                      <td colspan="3" class="empty-table">Aucun employé disponible pour le moment.</td>
                     </tr>
                   </tbody>
                 </table>
@@ -789,6 +795,17 @@ const formatDecimal = (value) =>
     minimumFractionDigits: 0,
     maximumFractionDigits: 1,
   }).format(Number(value || 0))
+
+const employeName = (employe) =>
+  `${employe?.nom || ''} ${employe?.prenom || ''}`.trim() || 'Employé non renseigné'
+
+const initials = (employe) =>
+  employeName(employe)
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join('') || 'RH'
 
 onMounted(() => {
   loadData()

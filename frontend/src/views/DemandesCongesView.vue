@@ -150,8 +150,14 @@
           <tbody>
             <tr v-for="d in demandesFiltrees" :key="d.id">
               <td>
-                <p class="emp-main">{{ d.employe?.matricule || '—' }}</p>
-                <p class="emp-sub">{{ d.employe ? `${d.employe.nom} ${d.employe.prenom}` : '—' }}</p>
+                <div v-if="d.employe" class="employee-cell">
+                  <div class="employee-avatar">{{ initials(d.employe) }}</div>
+                  <div class="employee-copy">
+                    <p>{{ employeName(d.employe) }}</p>
+                    <span>{{ d.employe.matricule || 'Sans matricule' }}</span>
+                  </div>
+                </div>
+                <span v-else>—</span>
               </td>
               <td>{{ d.type_conge?.libelle || d.type?.nom || '—' }}</td>
               <td class="period">{{ formatDate(d.date_debut) || '—' }} → {{ formatDate(d.date_fin) || '—' }}</td>
@@ -329,6 +335,17 @@ const resetFilters = () => {
 
 const canAct = (demande) => demande.statut === 'en_attente' || demande.statut === 'manager_valide'
 const formatDate = (value) => formatDateValue(value)
+
+const employeName = (employe) =>
+  `${employe?.nom || ''} ${employe?.prenom || ''}`.trim() || 'Employé non renseigné'
+
+const initials = (employe) =>
+  employeName(employe)
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join('') || 'RH'
 
 const formatInteger = (value) =>
   new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(Number(value) || 0)

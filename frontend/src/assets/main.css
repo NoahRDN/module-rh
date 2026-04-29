@@ -787,6 +787,59 @@ body[data-theme='dark'] .status-banner {
   font-weight: 700;
 }
 
+.employee-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.employee-cell .employee-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--brand-600);
+  color: #ffffff;
+  font-size: 0.9rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  object-fit: cover;
+}
+
+.employee-cell .employee-photo {
+  background: #dbeafe;
+}
+
+.employee-cell .employee-copy,
+.employee-cell .employee-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.employee-cell .employee-name,
+.employee-cell .employee-copy p {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.95rem;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.employee-cell .employee-meta,
+.employee-cell .employee-sub,
+.employee-cell .employee-copy span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
 .rh-metric-label,
 .metric-label {
   color: var(--muted);

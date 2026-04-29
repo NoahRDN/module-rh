@@ -163,7 +163,16 @@
 
               <tbody>
                 <tr v-for="d in docsFiltres" :key="d.id">
-                  <td>{{ d.employe ? `${d.employe.matricule} - ${d.employe.nom} ${d.employe.prenom || ''}` : '—' }}</td>
+                  <td>
+                    <div v-if="d.employe" class="employee-cell">
+                      <div class="employee-avatar">{{ initials(d.employe) }}</div>
+                      <div class="employee-copy">
+                        <p>{{ employeName(d.employe) }}</p>
+                        <span>{{ d.employe.matricule || 'Sans matricule' }}</span>
+                      </div>
+                    </div>
+                    <span v-else>—</span>
+                  </td>
                   <td>{{ d.type_document || '—' }}</td>
                   <td>{{ fileName(d.fichier) }}</td>
                   <td>{{ formatDate(d.date_expiration) || '—' }}</td>
@@ -275,6 +284,17 @@ const formatDate = (d) => {
 }
 
 const documentUrl = (doc) => resolveBackendAssetUrl(doc?.url)
+
+const employeName = (employe) =>
+  `${employe?.nom || ''} ${employe?.prenom || ''}`.trim() || 'Employé non renseigné'
+
+const initials = (employe) =>
+  employeName(employe)
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join('') || 'RH'
 
 const docsFiltres = computed(() => {
   const f = filters.value

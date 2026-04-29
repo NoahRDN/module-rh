@@ -142,7 +142,15 @@
           </thead>
           <tbody>
             <tr v-for="s in soldesFiltres" :key="s.id">
-              <td>{{ s.employe ? `${s.employe.matricule} - ${s.employe.nom} ${s.employe.prenom}` : `${s.employe_matricule || ''} ${s.employe_nom || ''} ${s.employe_prenom || ''}` }}</td>
+              <td>
+                <div class="employee-cell">
+                  <div class="employee-avatar">{{ initials(soldeEmploye(s)) }}</div>
+                  <div class="employee-copy">
+                    <p>{{ employeName(soldeEmploye(s)) }}</p>
+                    <span>{{ soldeEmploye(s).matricule || 'Sans matricule' }}</span>
+                  </div>
+                </div>
+              </td>
               <td>{{ s.type_conge?.libelle || s.type_conge_libelle || '—' }}</td>
               <td>{{ contratLabel(s) }}</td>
               <td>{{ s.premier_acquis || '—' }}</td>
@@ -223,6 +231,23 @@ const optionsTypes = computed(() => {
 const optionsDepartements = computed(() =>
   [...new Set(soldes.value.map((item) => item.employe?.departement?.nom).filter(Boolean))],
 )
+
+const soldeEmploye = (solde) => solde.employe || {
+  matricule: solde.employe_matricule,
+  nom: solde.employe_nom,
+  prenom: solde.employe_prenom,
+}
+
+const employeName = (employe) =>
+  `${employe?.nom || ''} ${employe?.prenom || ''}`.trim() || 'Employé non renseigné'
+
+const initials = (employe) =>
+  employeName(employe)
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join('') || 'RH'
 
 const form = ref({
   employe_id: '',

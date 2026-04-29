@@ -190,7 +190,16 @@
               <tbody>
                 <tr v-for="h in historiquesFiltres" :key="h.id">
                   <td>{{ formatDate(h.date_changement) || '—' }}</td>
-                  <td>{{ h.employe ? `${h.employe.matricule} - ${h.employe.nom} ${h.employe.prenom}` : '—' }}</td>
+                  <td>
+                    <div v-if="h.employe" class="employee-cell">
+                      <div class="employee-avatar">{{ initials(h.employe) }}</div>
+                      <div class="employee-copy">
+                        <p>{{ employeName(h.employe) }}</p>
+                        <span>{{ h.employe.matricule || 'Sans matricule' }}</span>
+                      </div>
+                    </div>
+                    <span v-else>—</span>
+                  </td>
                   <td>{{ h.poste?.nom || '—' }}</td>
                   <td>{{ h.departement?.nom || '—' }}</td>
                   <td class="history-reason">{{ h.motif || '—' }}</td>
@@ -362,6 +371,17 @@ const formatInteger = (value) =>
   new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(Number(value) || 0)
 
 const formatDate = (value) => formatDateValue(value)
+
+const employeName = (employe) =>
+  `${employe?.nom || ''} ${employe?.prenom || ''}`.trim() || 'Employé non renseigné'
+
+const initials = (employe) =>
+  employeName(employe)
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join('') || 'RH'
 
 const lastSyncedLabel = computed(() => {
   if (!lastRefreshedAt.value) return 'Jamais'

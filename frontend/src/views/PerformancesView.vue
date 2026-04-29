@@ -112,9 +112,12 @@
         <tbody>
           <tr v-for="item in evaluations" :key="item.id">
             <td>
-              <div class="employe-cell">
-                <span class="name">{{ item.employe?.nom }} {{ item.employe?.prenom }}</span>
-                <span class="matricule">{{ item.employe?.matricule }}</span>
+              <div class="employee-cell">
+                <div class="employee-avatar">{{ initials(item.employe) }}</div>
+                <div class="employee-copy">
+                  <p>{{ employeName(item.employe) }}</p>
+                  <span>{{ item.employe?.matricule || 'Sans matricule' }}</span>
+                </div>
               </div>
             </td>
             <td>{{ item.employe?.departement?.nom || '—' }}</td>
@@ -371,6 +374,17 @@ const formatPeriode = (p) => {
   return `${months[parseInt(month) - 1]} ${year}`
 }
 
+const employeName = (employe) =>
+  `${employe?.nom || ''} ${employe?.prenom || ''}`.trim() || 'Employé non renseigné'
+
+const initials = (employe) =>
+  employeName(employe)
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join('') || 'RH'
+
 const getScoreClass = (score) => {
   if (score >= 90) return 'excellent'
   if (score >= 75) return 'good'
@@ -463,14 +477,6 @@ onUnmounted(() => Object.values(charts).forEach(c => c?.destroy()))
 .chart-container {
   height: 200px;
 }
-
-.employe-cell {
-  display: flex;
-  flex-direction: column;
-}
-
-.employe-cell .name { font-weight: 600; }
-.employe-cell .matricule { font-size: 12px; color: var(--muted); }
 
 .score-cell {
   display: flex;

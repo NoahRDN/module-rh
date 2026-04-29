@@ -249,9 +249,6 @@
                         <span class="employee-name">{{ employeName(c.employe) }}</span>
                         <span class="employee-meta">
                           {{ c.employe?.matricule || 'Sans matricule' }}
-                          <template v-if="c.employe?.departement?.nom">
-                            · {{ c.employe.departement.nom }}
-                          </template>
                         </span>
                       </div>
                     </div>

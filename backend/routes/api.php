@@ -66,46 +66,6 @@ use App\Http\Controllers\Api\AnomalyDetectionController;
 use App\Http\Controllers\Api\AIMatchingController;
 use App\Http\Controllers\Api\JourFerieController;
 
-Route::get('/debug-env', function () {
-    return response()->json([
-        'app' => [
-            'APP_NAME_env' => env('APP_NAME'),
-            'APP_NAME_config' => config('app.name'),
-            'APP_ENV_env' => env('APP_ENV'),
-            'APP_ENV_app' => app()->environment(),
-            'APP_DEBUG_env' => env('APP_DEBUG'),
-            'APP_DEBUG_config' => config('app.debug'),
-            'APP_URL_env' => env('APP_URL'),
-            'APP_URL_config' => config('app.url'),
-        ],
-
-        'database' => [
-            'DB_CONNECTION_env' => env('DB_CONNECTION'),
-            'DB_HOST_env' => env('DB_HOST'),
-            'DB_DATABASE_env' => env('DB_DATABASE'),
-            'DB_URL_SET' => !empty(env('DB_URL')),
-            'DATABASE_URL_SET' => !empty(env('DATABASE_URL')),
-
-            'default_connection_config' => config('database.default'),
-            'pgsql_host_config' => config('database.connections.pgsql.host'),
-            'pgsql_database_config' => config('database.connections.pgsql.database'),
-            'pgsql_url_SET' => !empty(config('database.connections.pgsql.url')),
-        ],
-    ]);
-});
-
-Route::get('/debug-db', function () {
-    return response()->json([
-        'default' => config('database.default'),
-        'pgsql_host' => config('database.connections.pgsql.host'),
-        'pgsql_database' => config('database.connections.pgsql.database'),
-        'pgsql_url_is_set' => !empty(config('database.connections.pgsql.url')),
-        'env_db_host' => env('DB_HOST'),
-        'env_db_url_is_set' => !empty(env('DB_URL')),
-        'env_database_url_is_set' => !empty(env('DATABASE_URL')),
-    ]);
-});
-
 
 Route::post('/login', [AuthController::class, 'login']);
 

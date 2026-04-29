@@ -9,7 +9,11 @@ use App\Models\Departement;
 use App\Models\DemandeConge;
 use App\Models\Pointage;
 use App\Models\Evaluation;
+use App\Models\JourFerie;
+use App\Models\WorktimeSetting;
 use Carbon\Carbon;
+use DateInterval;
+use DatePeriod;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -21,10 +25,15 @@ class DashboardController extends Controller
      */
     public function statistiques(Request $request)
     {
-        $filtre = $request->get('filtre', 'annee'); // mois, trimestre, annee
+        $filtre = $request->get('filtre', 'annee'); // mois, annee, periode
         $date = $request->get('date', now()->format('Y-m-d'));
 
-        $periode = $this->getPeriode($filtre, $date);
+        $periode = $this->getPeriode(
+            $filtre,
+            $date,
+            $request->query('date_debut'),
+            $request->query('date_fin')
+        );
 
         return response()->json([
             'effectifs' => $this->getStatistiquesEffectifs($periode),
@@ -42,7 +51,7 @@ class DashboardController extends Controller
     /**
      * Calcule les dates de début et fin selon le filtre
      */
-    private function getPeriode(string $filtre, string $date): array
+    private function getPeriode(string $filtre, string $date, ?string $dateDebut = null, ?string $dateFin = null): array
     {
         $dateRef = Carbon::parse($date);
 
@@ -52,10 +61,17 @@ class DashboardController extends Controller
                     'debut' => $dateRef->copy()->startOfMonth(),
                     'fin' => $dateRef->copy()->endOfMonth(),
                 ];
-            case 'trimestre':
+            case 'periode':
+                $debut = $dateDebut ? Carbon::parse($dateDebut)->startOfDay() : $dateRef->copy()->startOfMonth();
+                $fin = $dateFin ? Carbon::parse($dateFin)->endOfDay() : $dateRef->copy()->endOfMonth();
+
+                if ($fin->lt($debut)) {
+                    [$debut, $fin] = [$fin->copy()->startOfDay(), $debut->copy()->endOfDay()];
+                }
+
                 return [
-                    'debut' => $dateRef->copy()->startOfQuarter(),
-                    'fin' => $dateRef->copy()->endOfQuarter(),
+                    'debut' => $debut,
+                    'fin' => $fin,
                 ];
             case 'annee':
             default:
@@ -71,29 +87,34 @@ class DashboardController extends Controller
      */
     private function getStatistiquesEffectifs(array $periode): array
     {
-        $now = now()->toDateString();
+        $dateReference = $periode['fin']->toDateString();
 
-        // Employés actifs (avec contrat en cours)
-        $employesActifs = Employe::whereHas('contrats', function ($q) use ($now) {
-            $q->whereDate('date_debut', '<=', $now)
-              ->where(function ($q2) use ($now) {
-                  $q2->whereNull('date_fin')->orWhereDate('date_fin', '>=', $now);
+        // Employés actifs à la fin de la période sélectionnée.
+        $employesActifs = Employe::whereHas('contrats', function ($q) use ($dateReference) {
+            $q->whereDate('date_debut', '<=', $dateReference)
+              ->where(function ($q2) use ($dateReference) {
+                  $q2->whereNull('date_fin')->orWhereDate('date_fin', '>=', $dateReference);
               });
         })->count();
 
         // Total employés
         $totalEmployes = Employe::count();
 
-        // Nouveaux employés sur la période
-        $nouveauxEmployes = Employe::whereBetween('date_embauche', [$periode['debut'], $periode['fin']])
+        // Nouvelles entrées sur la période : date d'embauche ou premier contrat démarré dans la période.
+        $nouveauxEmployes = Employe::where(function ($q) use ($periode) {
+            $q->whereBetween('date_embauche', [$periode['debut'], $periode['fin']])
+              ->orWhereHas('contrats', function ($contrats) use ($periode) {
+                  $contrats->whereBetween('date_debut', [$periode['debut'], $periode['fin']]);
+              });
+        })
             ->count();
 
         // Départs sur la période (contrats terminés)
         $departs = Contrat::whereBetween('date_fin', [$periode['debut'], $periode['fin']])
-            ->whereDoesntHave('employe.contrats', function ($q) use ($now) {
-                $q->whereDate('date_debut', '<=', $now)
-                  ->where(function ($q2) use ($now) {
-                      $q2->whereNull('date_fin')->orWhereDate('date_fin', '>=', $now);
+            ->whereDoesntHave('employe.contrats', function ($q) use ($dateReference) {
+                $q->whereDate('date_debut', '<=', $dateReference)
+                  ->where(function ($q2) use ($dateReference) {
+                      $q2->whereNull('date_fin')->orWhereDate('date_fin', '>=', $dateReference);
                   });
             })
             ->distinct('employe_id')
@@ -144,22 +165,38 @@ class DashboardController extends Controller
 
         $turnover = $effectifMoyen > 0 ? round(($departs / $effectifMoyen) * 100, 2) : 0;
 
-        // Taux d'absentéisme
-        $joursOuvres = $this->calculerJoursOuvres($periode['debut'], $periode['fin']);
-        $employesActifs = max(1, $effectifMoyen);
-        $joursTheoriques = $joursOuvres * $employesActifs;
+        // Taux d'absentéisme sur la période réellement observable (pas les jours futurs).
+        $periodeAbsenteisme = $this->getPeriodeObservable($periode);
+        $settingsPresence = $this->loadWorktimeSettings();
+        $employeIdsAbsenteisme = $this->getEmployeIdsPourAbsenteisme(
+            $periodeAbsenteisme['debut'],
+            $periodeAbsenteisme['fin']
+        );
+        $joursOuvres = $this->calculerJoursOuvresPresence(
+            $periodeAbsenteisme['debut'],
+            $periodeAbsenteisme['fin'],
+            $settingsPresence
+        );
+        $joursTheoriques = $joursOuvres * max(1, $employeIdsAbsenteisme->count());
 
-        $joursAbsences = DemandeConge::where('statut', 'rh_valide')
-            ->where(function ($q) use ($periode) {
-                $q->whereBetween('date_debut', [$periode['debut'], $periode['fin']])
-                  ->orWhereBetween('date_fin', [$periode['debut'], $periode['fin']]);
+        $joursAbsencesConges = DemandeConge::where('statut', 'rh_valide')
+            ->whereIn('employe_id', $employeIdsAbsenteisme)
+            ->where(function ($q) use ($periodeAbsenteisme) {
+                $q->whereBetween('date_debut', [$periodeAbsenteisme['debut'], $periodeAbsenteisme['fin']])
+                  ->orWhereBetween('date_fin', [$periodeAbsenteisme['debut'], $periodeAbsenteisme['fin']]);
             })
             ->get()
-            ->sum(function ($demande) use ($periode) {
-                $debut = Carbon::parse($demande->date_debut)->max($periode['debut']);
-                $fin = Carbon::parse($demande->date_fin)->min($periode['fin']);
+            ->sum(function ($demande) use ($periodeAbsenteisme) {
+                $debut = Carbon::parse($demande->date_debut)->max($periodeAbsenteisme['debut']);
+                $fin = Carbon::parse($demande->date_fin)->min($periodeAbsenteisme['fin']);
                 return max(0, $debut->diffInWeekdays($fin) + 1);
             });
+        $joursAbsencesPointage = $this->calculerJoursAbsencePointage(
+            $periodeAbsenteisme,
+            $employeIdsAbsenteisme,
+            $settingsPresence
+        );
+        $joursAbsences = $joursAbsencesConges + $joursAbsencesPointage;
 
         $tauxAbsenteisme = $joursTheoriques > 0 ? round(($joursAbsences / $joursTheoriques) * 100, 2) : 0;
 
@@ -181,51 +218,50 @@ class DashboardController extends Controller
      */
     private function getRepartitions(array $periode): array
     {
-        $now = now()->toDateString();
+        $dateReference = $periode['fin']->toDateString();
 
-        // Par département
+        // Par département : employés actifs à la fin de la période sélectionnée.
         $parDepartement = Departement::select('departements.id', 'departements.nom')
-            ->whereExists(function ($q) use ($now) {
+            ->whereExists(function ($q) use ($dateReference) {
                 $q->select(DB::raw(1))
                     ->from('employes')
                     ->whereColumn('employes.departement_id', 'departements.id')
-                    ->whereExists(function ($q2) use ($now) {
+                    ->whereExists(function ($q2) use ($dateReference) {
                         $q2->select(DB::raw(1))
                             ->from('contrats')
                             ->whereColumn('contrats.employe_id', 'employes.id')
-                            ->whereDate('date_debut', '<=', $now)
-                            ->where(function ($q3) use ($now) {
-                                $q3->whereNull('date_fin')->orWhereDate('date_fin', '>=', $now);
+                            ->whereDate('date_debut', '<=', $dateReference)
+                            ->where(function ($q3) use ($dateReference) {
+                                $q3->whereNull('date_fin')->orWhereDate('date_fin', '>=', $dateReference);
                             });
                     });
             })
-            ->withCount(['employes as employes_actifs_count' => function ($q) use ($now) {
-                $q->whereHas('contrats', function ($q2) use ($now) {
-                    $q2->whereDate('date_debut', '<=', $now)
-                        ->where(function ($q3) use ($now) {
-                            $q3->whereNull('date_fin')->orWhereDate('date_fin', '>=', $now);
+            ->withCount(['employes as employes_actifs_count' => function ($q) use ($dateReference) {
+                $q->whereHas('contrats', function ($q2) use ($dateReference) {
+                    $q2->whereDate('date_debut', '<=', $dateReference)
+                        ->where(function ($q3) use ($dateReference) {
+                            $q3->whereNull('date_fin')->orWhereDate('date_fin', '>=', $dateReference);
                         });
                 });
             }])
             ->get()
             ->map(fn($d) => ['label' => $d->nom, 'value' => $d->employes_actifs_count]);
 
-        // Par type de contrat
-        $parTypeContrat = Contrat::whereDate('date_debut', '<=', $now)
-            ->where(function ($q) use ($now) {
-                $q->whereNull('date_fin')->orWhereDate('date_fin', '>=', $now);
+        // Par type de contrat : contrats actifs à la fin de la période sélectionnée.
+        $parTypeContrat = Contrat::whereDate('date_debut', '<=', $dateReference)
+            ->where(function ($q) use ($dateReference) {
+                $q->whereNull('date_fin')->orWhereDate('date_fin', '>=', $dateReference);
             })
             ->select('type_contrat', DB::raw('count(*) as total'))
             ->groupBy('type_contrat')
             ->get()
             ->map(fn($c) => ['label' => $c->type_contrat ?? 'Non défini', 'value' => $c->total]);
 
-        // Par genre (à partir de la date de naissance - approximation basée sur le prénom)
-        // Note: Si vous avez un champ genre, utilisez-le à la place
-        $parGenre = $this->getGenreDistribution();
+        // Par genre (à partir des employés actifs à la fin de la période)
+        $parGenre = $this->getGenreDistribution($periode);
 
-        // Par tranche d'âge
-        $parAge = $this->getAgeDistribution();
+        // Par tranche d'âge des employés actifs à la fin de la période
+        $parAge = $this->getAgeDistribution($periode);
 
         return [
             'departements' => $parDepartement,
@@ -238,21 +274,20 @@ class DashboardController extends Controller
     /**
      * Distribution par genre
      */
-    private function getGenreDistribution(): array
+    private function getGenreDistribution(array $periode): array
     {
-        // Si vous avez un champ genre dans la table employes, utilisez-le
-        // Sinon, cette méthode retourne un placeholder
+        // Si vous ajoutez un champ genre, groupez ici par genre.
         return [
-            ['label' => 'Non renseigné', 'value' => Employe::count()],
+            ['label' => 'Non renseigné', 'value' => $this->employesActifsALaDate($periode['fin'])->count()],
         ];
     }
 
     /**
      * Distribution par tranche d'âge
      */
-    private function getAgeDistribution(): array
+    private function getAgeDistribution(array $periode): array
     {
-        $now = now();
+        $dateReference = $periode['fin']->copy();
 
         $tranches = [
             ['label' => '< 25 ans', 'min' => 0, 'max' => 24, 'value' => 0],
@@ -262,19 +297,12 @@ class DashboardController extends Controller
             ['label' => '55+ ans', 'min' => 55, 'max' => 100, 'value' => 0],
         ];
 
-        $employes = Employe::whereNotNull('date_naissance')
-            ->whereHas('contrats', function ($q) {
-                $now = now()->toDateString();
-                $q->whereDate('date_debut', '<=', $now)
-                  ->where(function ($q2) use ($now) {
-                      $q2->whereNull('date_fin')->orWhereDate('date_fin', '>=', $now);
-                  });
-            })
+        $employes = $this->employesActifsALaDate($dateReference)
+            ->whereNotNull('date_naissance')
             ->get();
 
         foreach ($employes as $emp) {
-            $age = $emp->date_naissance->diffInYears($now);
-            Log::info("Calcul âge pour l'employé ID {$emp->id} : $age ans");
+            $age = $emp->date_naissance->diffInYears($dateReference);
             foreach ($tranches as &$tranche) {
                 if ($age >= $tranche['min'] && $age <= $tranche['max']) {
                     $tranche['value']++;
@@ -284,6 +312,18 @@ class DashboardController extends Controller
         }
 
         return array_map(fn($t) => ['label' => $t['label'], 'value' => $t['value']], $tranches);
+    }
+
+    private function employesActifsALaDate(Carbon $date)
+    {
+        $dateReference = $date->toDateString();
+
+        return Employe::whereHas('contrats', function ($q) use ($dateReference) {
+            $q->whereDate('date_debut', '<=', $dateReference)
+              ->where(function ($q2) use ($dateReference) {
+                  $q2->whereNull('date_fin')->orWhereDate('date_fin', '>=', $dateReference);
+              });
+        });
     }
 
     /**
@@ -306,8 +346,13 @@ class DashboardController extends Controller
                   });
             })->count();
 
-            // Entrées du mois
-            $entrees = Employe::whereBetween('date_embauche', [$current, $moisFin])->count();
+            // Entrées du mois : date d'embauche ou contrat démarré sur le mois.
+            $entrees = Employe::where(function ($q) use ($current, $moisFin) {
+                $q->whereBetween('date_embauche', [$current, $moisFin])
+                  ->orWhereHas('contrats', function ($contrats) use ($current, $moisFin) {
+                      $contrats->whereBetween('date_debut', [$current, $moisFin]);
+                  });
+            })->count();
 
             // Sorties du mois
             $sorties = Contrat::whereBetween('date_fin', [$current, $moisFin])
@@ -334,6 +379,190 @@ class DashboardController extends Controller
     private function calculerJoursOuvres(Carbon $debut, Carbon $fin): int
     {
         return $debut->diffInWeekdays($fin) + 1;
+    }
+
+    private function getPeriodeObservable(array $periode): array
+    {
+        return [
+            'debut' => $periode['debut']->copy()->startOfDay(),
+            'fin' => $periode['fin']->copy()->min(now())->startOfDay(),
+        ];
+    }
+
+    private function getEmployeIdsPourAbsenteisme(Carbon $debut, Carbon $fin)
+    {
+        if ($fin->lt($debut)) {
+            return collect();
+        }
+
+        $idsAvecContrat = Employe::whereHas('contrats', function ($q) use ($debut, $fin) {
+            $q->whereDate('date_debut', '<=', $fin)
+              ->where(function ($q2) use ($debut) {
+                  $q2->whereNull('date_fin')->orWhereDate('date_fin', '>=', $debut);
+              });
+        })->pluck('id');
+
+        return $idsAvecContrat->isNotEmpty()
+            ? $idsAvecContrat
+            : Employe::pluck('id');
+    }
+
+    private function calculerJoursOuvresPresence(Carbon $debut, Carbon $fin, array $settings): int
+    {
+        if ($fin->lt($debut)) {
+            return 0;
+        }
+
+        $jours = 0;
+        $period = new DatePeriod($debut, new DateInterval('P1D'), $fin->copy()->addDay());
+
+        foreach ($period as $day) {
+            if ($this->isJourTravaille(Carbon::instance($day), $settings)) {
+                $jours++;
+            }
+        }
+
+        return $jours;
+    }
+
+    private function calculerJoursAbsencePointage(array $periode, $employeIds, array $settings): int
+    {
+        $debut = $periode['debut']->copy()->startOfDay();
+        $fin = $periode['fin']->copy()->startOfDay();
+
+        if ($fin->lt($debut) || $employeIds->isEmpty()) {
+            return 0;
+        }
+
+        $pointages = Pointage::whereIn('employe_id', $employeIds)
+            ->between($debut->toDateString(), $fin->toDateString())
+            ->orderBy('pointe_a')
+            ->get()
+            ->groupBy(fn ($pointage) => $pointage->employe_id . '|' . $pointage->pointe_a->format('Y-m-d'));
+
+        $absences = 0;
+
+        foreach ($employeIds as $employeId) {
+            $period = new DatePeriod($debut, new DateInterval('P1D'), $fin->copy()->addDay());
+
+            foreach ($period as $day) {
+                $jour = Carbon::instance($day)->toDateString();
+
+                if ($this->isCongeValide((int) $employeId, $jour)) {
+                    continue;
+                }
+
+                $resume = $this->calculerJourneePointage($pointages->get($employeId . '|' . $jour, collect()), $jour, $settings);
+
+                if ($resume['absent']) {
+                    $absences++;
+                }
+            }
+        }
+
+        return $absences;
+    }
+
+    private function calculerJourneePointage($pointages, string $jour, array $settings): array
+    {
+        $hoursPerDay = (float) ($settings['hours_per_day'] ?? 8);
+        $retardThresholdHours = (float) ($settings['retard_threshold_hours'] ?? 2);
+
+        $dateObj = Carbon::parse($jour);
+
+        if (!$this->isJourTravaille($dateObj, $settings)) {
+            return ['absent' => false];
+        }
+
+        if ($pointages->isEmpty()) {
+            return ['absent' => true];
+        }
+
+        $premiereEntree = $pointages->firstWhere('type', 'entree');
+        $derniereSortie = $pointages->where('type', 'sortie')->last();
+
+        if (!$premiereEntree || !$derniereSortie) {
+            return ['absent' => true];
+        }
+
+        $minutesBrut = $premiereEntree->pointe_a->diffInMinutes($derniereSortie->pointe_a);
+        $minutesTravail = max(0, $minutesBrut - $this->calculerDureePauses($pointages));
+        $heuresTravaillees = round($minutesTravail / 60, 2);
+        $heuresManquantes = max(0, round($hoursPerDay - $heuresTravaillees, 2));
+
+        return [
+            'absent' => $heuresTravaillees <= 0 || $heuresManquantes > $retardThresholdHours,
+        ];
+    }
+
+    private function isJourTravaille(Carbon $date, array $settings): bool
+    {
+        $workingDays = $settings['working_days'] ?? ['mon', 'tue', 'wed', 'thu', 'fri'];
+        $saturdayMode = $settings['saturday_mode'] ?? 'normal';
+        $dayCode = strtolower(substr($date->format('D'), 0, 3));
+        $isSaturday = $dayCode === 'sat';
+        $isWorkingDay = in_array($dayCode, $workingDays, true) || ($isSaturday && $saturdayMode === 'normal');
+
+        return $isWorkingDay && !$this->isHoliday($date);
+    }
+
+    private function calculerDureePauses($pointages): int
+    {
+        $pauses = $pointages->filter(
+            fn ($pointage) => in_array($pointage->type, ['pause_debut', 'pause_fin'], true)
+        )->sortBy('pointe_a')->values();
+
+        $total = 0;
+        for ($i = 0; $i < $pauses->count(); $i += 2) {
+            $debut = $pauses[$i] ?? null;
+            $fin = $pauses[$i + 1] ?? null;
+
+            if ($debut && $fin) {
+                $total += $debut->pointe_a->diffInMinutes($fin->pointe_a);
+            }
+        }
+
+        return $total;
+    }
+
+    private function isCongeValide(int $employeId, string $jour): bool
+    {
+        return DemandeConge::where('employe_id', $employeId)
+            ->where('statut', 'rh_valide')
+            ->whereDate('date_debut', '<=', $jour)
+            ->whereDate('date_fin', '>=', $jour)
+            ->exists();
+    }
+
+    private function isHoliday(Carbon $date): bool
+    {
+        $dayMonth = $date->format('m-d');
+
+        return JourFerie::where(function ($q) use ($date) {
+                $q->whereDate('date', $date->toDateString())
+                  ->where('recurrent', false);
+            })
+            ->orWhere(function ($q) use ($dayMonth) {
+                $q->whereRaw("to_char(date, 'MM-DD') = ?", [$dayMonth])
+                  ->where('recurrent', true);
+            })
+            ->exists();
+    }
+
+    private function loadWorktimeSettings(): array
+    {
+        $setting = WorktimeSetting::first();
+
+        if ($setting) {
+            return [
+                'working_days' => $setting->working_days ?: config('worktime.working_days'),
+                'saturday_mode' => $setting->saturday_mode ?: config('worktime.saturday_mode'),
+                'hours_per_day' => $setting->hours_per_day ?? config('worktime.hours_per_day'),
+                'retard_threshold_hours' => $setting->retard_threshold_hours ?? config('worktime.retard_threshold_hours', 2),
+            ];
+        }
+
+        return config('worktime');
     }
 
     /**

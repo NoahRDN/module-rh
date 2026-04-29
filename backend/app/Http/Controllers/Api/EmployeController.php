@@ -37,8 +37,14 @@ class EmployeController extends Controller
                         $c->whereDate('date_debut', '<=', $now)
                           ->where(function ($w) use ($now) {
                               $w->whereNull('date_fin')->orWhereDate('date_fin', '>=', $now);
-                          });
+                        });
                     });
+                })
+                ->when($request->filled('date_debut'), function ($q) use ($request) {
+                    $q->whereDate('date_embauche', '>=', $request->query('date_debut'));
+                })
+                ->when($request->filled('date_fin'), function ($q) use ($request) {
+                    $q->whereDate('date_embauche', '<=', $request->query('date_fin'));
                 })
                 ->orderBy($orderColumn, $orderDirection);
 

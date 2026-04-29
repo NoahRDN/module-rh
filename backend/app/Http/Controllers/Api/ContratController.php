@@ -26,6 +26,19 @@ class ContratController extends Controller
                 $query->where('employe_id', $employe);
             }
 
+            if ($request->filled('date_debut')) {
+                $dateDebut = Carbon::parse($request->query('date_debut'))->toDateString();
+                $query->where(function ($q) use ($dateDebut) {
+                    $q->whereNull('date_fin')
+                      ->orWhereDate('date_fin', '>=', $dateDebut);
+                });
+            }
+
+            if ($request->filled('date_fin')) {
+                $dateFin = Carbon::parse($request->query('date_fin'))->toDateString();
+                $query->whereDate('date_debut', '<=', $dateFin);
+            }
+
             return response()->json($all ? $query->get() : $query->paginate(10));
         } catch (\Throwable $e) {
             Log::error('Erreur liste contrats', ['error' => $e->getMessage()]);

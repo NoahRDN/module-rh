@@ -23,15 +23,32 @@
               <span>Période</span>
               <select v-model="filtre" class="select" @change="loadData">
                 <option value="mois">Mois</option>
-                <option value="trimestre">Trimestre</option>
                 <option value="annee">Année</option>
+                <option value="periode">Période</option>
               </select>
             </label>
 
-            <label class="filter-field">
-              <span>Date de référence</span>
-              <input v-model="dateRef" class="input" type="date" @change="loadData" />
+            <label v-if="filtre === 'mois'" class="filter-field">
+              <span>Mois</span>
+              <input v-model="selectedMonth" class="input" type="month" @change="loadData" />
             </label>
+
+            <label v-else-if="filtre === 'annee'" class="filter-field">
+              <span>Année</span>
+              <input v-model="selectedYear" class="input" type="number" min="2000" max="2100" step="1" @change="loadData" />
+            </label>
+
+            <template v-else>
+              <label class="filter-field">
+                <span>Date début</span>
+                <input v-model="dateDebut" class="input" type="date" @change="loadData" />
+              </label>
+
+              <label class="filter-field">
+                <span>Date fin</span>
+                <input v-model="dateFin" class="input" type="date" @change="loadData" />
+              </label>
+            </template>
           </div>
 
           <div class="hero-action-row">
@@ -168,7 +185,7 @@
             </p>
 
             <section class="charts-grid">
-              <article class="chart-card">
+              <article class="chart-card chart-wide">
                 <div class="chart-head">
                   <div>
                     <p class="section-kicker">Répartition</p>
@@ -278,7 +295,11 @@ import AppIcon from '../components/ui/AppIcon.vue'
 Chart.register(...registerables)
 
 const filtre = ref('annee')
-const dateRef = ref(new Date().toISOString().split('T')[0])
+const today = new Date()
+const selectedMonth = ref(today.toISOString().slice(0, 7))
+const selectedYear = ref(String(today.getFullYear()))
+const dateDebut = ref(today.toISOString().slice(0, 10))
+const dateFin = ref(today.toISOString().slice(0, 10))
 const statsData = ref({})
 const alertes = ref([])
 const derniersEmployes = ref([])
@@ -302,8 +323,8 @@ const hasAges = computed(() => {
 const alertesCritiques = computed(() => alertes.value.filter((item) => item.level === 'danger').length)
 const activeHeadcount = computed(() => Number(statsData.value.effectifs?.actifs || 0))
 const newEmployees = computed(() => Number(statsData.value.effectifs?.nouveaux || 0))
+const terminatedContracts = computed(() => Number(statsData.value.effectifs?.departs || 0))
 const absenteisme = computed(() => Number(statsData.value.indicateurs?.absenteisme || 0))
-const performance = computed(() => Number(statsData.value.indicateurs?.performance_moyenne || 0))
 const anciennete = computed(() => Number(statsData.value.indicateurs?.anciennete_moyenne || 0))
 
 const topDepartment = computed(() => {
@@ -315,8 +336,8 @@ const topDepartment = computed(() => {
 const periodLabel = computed(() => {
   const map = {
     mois: 'Analyse mensuelle',
-    trimestre: 'Analyse trimestrielle',
     annee: 'Analyse annuelle',
+    periode: 'Analyse par période',
   }
   return map[filtre.value] || filtre.value
 })
@@ -366,11 +387,11 @@ const pulseCards = computed(() => [
     tone: alertesCritiques.value > 0 ? 'warning' : 'calm',
   },
   {
-    label: 'Performance moyenne',
-    value: `${formatDecimal(performance.value)}%`,
-    copy: performance.value >= 75 ? 'Le niveau global reste bien orienté.' : 'Un suivi managérial plus fin est recommandé.',
-    badge: 'Managers',
-    tone: performance.value >= 75 ? 'calm' : 'warning',
+    label: 'Contrats terminés',
+    value: formatInteger(terminatedContracts.value),
+    copy: terminatedContracts.value > 0 ? 'Contrats arrivés à terme sur la période.' : 'Aucun contrat terminé sur la période.',
+    badge: 'Contrats',
+    tone: terminatedContracts.value > 0 ? 'warning' : 'calm',
   },
   {
     label: 'Département dominant',
@@ -389,10 +410,10 @@ const overviewCards = computed(() => [
     tag: 'People',
   },
   {
-    label: 'Performance moyenne',
-    value: `${formatDecimal(performance.value)}%`,
-    copy: performance.value >= 75 ? 'Niveau global satisfaisant.' : 'Suivi managérial recommandé.',
-    tag: 'Performance',
+    label: 'Contrats terminés',
+    value: formatInteger(terminatedContracts.value),
+    copy: terminatedContracts.value > 0 ? 'Sorties contractuelles recensées sur la période.' : 'Aucune fin de contrat sur la période.',
+    tag: 'Contrats',
   },
   {
     label: 'Ancienneté moyenne',
@@ -446,12 +467,13 @@ const loadData = async () => {
   loadStatus.value = { type: '', text: '' }
 
   try {
+    const statsParams = buildStatsParams()
     const [statsRes, alertesRes, empRes] = await Promise.all([
       api.get('/v1/dashboard/statistiques', {
-        params: { filtre: filtre.value, date: dateRef.value },
+        params: statsParams,
       }),
       api.get('/v1/alertes'),
-      api.get('/v1/employes', { params: { per_page: 5, sort: 'recent' } }),
+      api.get('/v1/employes', { params: buildRecentEmployeesParams() }),
     ])
 
     statsData.value = statsRes.data || {}
@@ -469,7 +491,7 @@ const loadData = async () => {
     }
 
     try {
-      const [emp] = await Promise.all([api.get('/v1/employes')])
+      const [emp] = await Promise.all([api.get('/v1/employes', { params: buildRecentEmployeesParams() })])
       derniersEmployes.value = (emp.data.data || []).slice(0, 5)
       statsData.value = {
         effectifs: { actifs: emp.data.total ?? emp.data.data?.length ?? 0, nouveaux: 0 },
@@ -661,6 +683,54 @@ const updateCharts = () => {
   }
 }
 
+const buildStatsParams = () => {
+  if (filtre.value === 'mois') {
+    return {
+      filtre: 'mois',
+      date: `${selectedMonth.value || today.toISOString().slice(0, 7)}-01`,
+    }
+  }
+
+  if (filtre.value === 'annee') {
+    return {
+      filtre: 'annee',
+      date: `${selectedYear.value || today.getFullYear()}-01-01`,
+    }
+  }
+
+  return {
+    filtre: 'periode',
+    date: dateDebut.value || today.toISOString().slice(0, 10),
+    date_debut: dateDebut.value,
+    date_fin: dateFin.value,
+  }
+}
+
+const buildRecentEmployeesParams = () => {
+  const params = {
+    per_page: 5,
+    sort: 'recent',
+  }
+
+  if (filtre.value === 'mois') {
+    const [year, month] = String(selectedMonth.value || today.toISOString().slice(0, 7)).split('-')
+    const start = `${year}-${month}-01`
+    const end = new Date(Number(year), Number(month), 0).toISOString().slice(0, 10)
+    return { ...params, date_debut: start, date_fin: end }
+  }
+
+  if (filtre.value === 'annee') {
+    const year = selectedYear.value || String(today.getFullYear())
+    return { ...params, date_debut: `${year}-01-01`, date_fin: `${year}-12-31` }
+  }
+
+  return {
+    ...params,
+    ...(dateDebut.value ? { date_debut: dateDebut.value } : {}),
+    ...(dateFin.value ? { date_fin: dateFin.value } : {}),
+  }
+}
+
 const observeTheme = () => {
   const callback = () => nextTick(() => updateCharts())
   themeObserver = new MutationObserver(callback)
@@ -746,6 +816,10 @@ onUnmounted(() => {
 
 .content-grid {
   grid-template-columns: 1fr;
+}
+
+.metric-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .chart-head {

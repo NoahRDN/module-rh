@@ -129,6 +129,16 @@
           </label>
 
           <label class="field-card">
+            <span class="field-label">Début période</span>
+            <input class="input" type="date" v-model="filters.date_debut" @change="handleDateFilterChange" />
+          </label>
+
+          <label class="field-card">
+            <span class="field-label">Fin période</span>
+            <input class="input" type="date" v-model="filters.date_fin" @change="handleDateFilterChange" />
+          </label>
+
+          <label class="field-card">
             <span class="field-label">Département</span>
             <input class="input" placeholder="Structure" v-model="filters.departement" list="contrats-departements" />
           </label>
@@ -391,7 +401,18 @@ const renouvellementId = ref(null)
 const renouvellement = ref({ duree_jours: 0, duree_mois: 0, duree_ans: 0 })
 const renouvellementCible = ref('contrat')
 const renouvellementEssaiDebut = ref('')
-const filters = ref({ numero: '', matricule: '', nom: '', type: '', statut: '', departement: '', poste: '' })
+const emptyFilters = () => ({
+  numero: '',
+  matricule: '',
+  nom: '',
+  type: '',
+  statut: '',
+  date_debut: '',
+  date_fin: '',
+  departement: '',
+  poste: '',
+})
+const filters = ref(emptyFilters())
 const sortKey = ref('id')
 const sortDir = ref('asc')
 const pagination = ref({ page: 1, last_page: 1, total: 0 })
@@ -410,6 +431,8 @@ const hasFilters = computed(() =>
     filters.value.nom ||
     filters.value.type ||
     filters.value.statut ||
+    filters.value.date_debut ||
+    filters.value.date_fin ||
     filters.value.departement ||
     filters.value.poste,
   ),
@@ -587,7 +610,12 @@ function duree(c) {
 const fetchContrats = async () => {
   loading.value = true
   try {
-    const params = filterEmploye.value ? { employe_id: filterEmploye.value, page: pagination.value.page } : { page: pagination.value.page }
+    const params = {
+      page: pagination.value.page,
+      ...(filterEmploye.value ? { employe_id: filterEmploye.value } : {}),
+      ...(filters.value.date_debut ? { date_debut: filters.value.date_debut } : {}),
+      ...(filters.value.date_fin ? { date_fin: filters.value.date_fin } : {}),
+    }
     const { data } = await api.get('/v1/contrats', { params })
     contrats.value = data.data || []
     if (data.meta) {
@@ -610,6 +638,11 @@ const fetchContrats = async () => {
 }
 
 const debouncedFetchContrats = debounce(fetchContrats, 300)
+
+const handleDateFilterChange = () => {
+  pagination.value.page = 1
+  debouncedFetchContrats()
+}
 
 const fetchEmployes = async () => {
   const { data } = await api.get('/v1/employes')
@@ -738,6 +771,17 @@ const confirmerStatut = async (c) => {
 const contratsFiltres = computed(() => {
   const f = filters.value
   const toStr = (v) => String(v || '').toLowerCase()
+  const overlapsDateRange = (c) => {
+    const filterStart = f.date_debut ? new Date(f.date_debut) : null
+    const filterEnd = f.date_fin ? new Date(f.date_fin) : null
+    const contractStart = c.date_debut ? new Date(c.date_debut) : null
+    const contractEnd = c.date_fin ? new Date(c.date_fin) : null
+
+    if (filterStart && contractEnd && contractEnd < filterStart) return false
+    if (filterEnd && contractStart && contractStart > filterEnd) return false
+
+    return true
+  }
   let list = contrats.value.filter((c) => {
     return (
       toStr(c.numero).includes(toStr(f.numero)) &&
@@ -745,6 +789,7 @@ const contratsFiltres = computed(() => {
       (`${toStr(c.employe?.nom)} ${toStr(c.employe?.prenom)}`).includes(toStr(f.nom)) &&
       toStr(c.type_contrat).includes(toStr(f.type)) &&
       (!f.statut || toStr(c.statut) === toStr(f.statut)) &&
+      overlapsDateRange(c) &&
       toStr(c.employe?.departement?.nom).includes(toStr(f.departement)) &&
       toStr(c.employe?.poste?.nom).includes(toStr(f.poste))
     )
@@ -801,9 +846,11 @@ const sortLabel = (key) => (sortKey.value === key ? (sortDir.value === 'asc' ? '
 
 const resetFilters = () => {
   filterEmploye.value = ''
-  filters.value = { numero: '', matricule: '', nom: '', type: '', statut: '', departement: '', poste: '' }
+  filters.value = emptyFilters()
   sortKey.value = 'id'
   sortDir.value = 'asc'
+  pagination.value.page = 1
+  fetchContrats()
 }
 
 const formatInteger = (value) =>

@@ -52,5 +52,10 @@ return [
         'model' => env('OPENAI_MODEL', 'gpt-4o-mini'),
     ],
 
+    'supabase' => [
+        'url' => env('SUPABASE_URL'),
+        'key' => env('SUPABASE_KEY', env('SUPABASE_SERVICE_ROLE_KEY', env('SUPABASE_ANON_KEY'))),
+        'bucket' => env('SUPABASE_BUCKET', 'avatars'),
+    ],
 
 ];

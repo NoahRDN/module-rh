@@ -165,7 +165,7 @@ const loadSettings = async () => {
       ]
     }
     setStoredCurrency(form.value.devise)
-    existingLogoUrl.value = resolveBackendAssetUrl(data.logo_url || '')
+    existingLogoUrl.value = resolveBackendAssetUrl(data.logo_url || data.logo_path || '')
     logoFile.value = null
     localLogoPreview.value = ''
     removeExistingLogo.value = false
@@ -232,7 +232,7 @@ const save = async () => {
     form.value.nom = data.nom || form.value.nom
     form.value.devise = data.devise || form.value.devise || 'MGA'
     setStoredCurrency(form.value.devise)
-    existingLogoUrl.value = resolveBackendAssetUrl(data.logo_url || '')
+    existingLogoUrl.value = resolveBackendAssetUrl(data.logo_url || data.logo_path || '')
     logoFile.value = null
     removeExistingLogo.value = false
     if (localLogoPreview.value) {

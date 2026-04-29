@@ -8,6 +8,7 @@ use App\Models\Employe;
 use App\Models\Poste;
 use App\Models\User;
 use App\Http\Controllers\Api\SoldeCongeController;
+use App\Services\SupabaseStorageService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Http\JsonResponse;
@@ -50,10 +51,11 @@ class EmployeController extends Controller
         }
     }
 
-    public function store(EmployeRequest $request)
+    public function store(EmployeRequest $request, SupabaseStorageService $storage)
     {
         try {
             $payload = $request->validated();
+            $payload = $this->uploadPhotoSiNecessaire($payload, $storage);
 
             // Génération matricule si absent
             if (empty($payload['matricule'])) {
@@ -94,11 +96,12 @@ class EmployeController extends Controller
         }
     }
 
-    public function update(EmployeRequest $request, $id)
+    public function update(EmployeRequest $request, $id, SupabaseStorageService $storage)
     {
         try {
             $employe = Employe::findOrFail($id);
             $payload = $request->validated();
+            $payload = $this->uploadPhotoSiNecessaire($payload, $storage, $employe->photo);
 
             $ancienPoste = $employe->poste_id;
             $ancienDepartement = $employe->departement_id;
@@ -152,6 +155,22 @@ class EmployeController extends Controller
         } while (Employe::where('matricule', $mat)->exists());
 
         return $mat;
+    }
+
+    private function uploadPhotoSiNecessaire(array $payload, SupabaseStorageService $storage, ?string $anciennePhoto = null): array
+    {
+        if (empty($payload['photo']) || !is_string($payload['photo']) || !str_starts_with($payload['photo'], 'data:image/')) {
+            return $payload;
+        }
+
+        if ($anciennePhoto) {
+            $storage->delete($anciennePhoto);
+        }
+
+        $path = $storage->uploadDataUrl($payload['photo'], 'employes');
+        $payload['photo'] = $storage->publicUrl($path);
+
+        return $payload;
     }
 
     /**

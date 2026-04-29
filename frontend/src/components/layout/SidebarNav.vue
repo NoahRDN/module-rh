@@ -67,7 +67,7 @@ const loadEntrepriseBranding = async () => {
     const { data } = await api.get('/v1/entreprise-settings')
     entreprise.value = {
       nom: data.nom || 'Module RH',
-      logoUrl: resolveBackendAssetUrl(data.logo_url || ''),
+      logoUrl: resolveBackendAssetUrl(data.logo_url || data.logo_path || ''),
     }
   } catch (error) {
     entreprise.value = {

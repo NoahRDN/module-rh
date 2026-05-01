@@ -57,7 +57,7 @@ fi
 
 # 6) Nettoyer les caches Laravel pour bien prendre les variables Render
 run_as_app php artisan config:clear || true
-run_as_app php artisan cache:clear || true
+CACHE_STORE=array run_as_app php artisan cache:clear || true
 run_as_app php artisan route:clear || true
 run_as_app php artisan view:clear || true
 

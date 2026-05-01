@@ -43,7 +43,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import api, { resolveBackendAssetUrl } from '../../services/api'
 import AppIcon from '../ui/AppIcon.vue'
@@ -62,19 +62,36 @@ const entreprise = ref({
   logoUrl: '',
 })
 
+const BRANDING_CACHE_KEY = 'rh_entreprise_branding'
+
+const applyBranding = (branding = {}) => {
+  entreprise.value = {
+    nom: branding.nom || 'Module RH',
+    logoUrl: resolveBackendAssetUrl(branding.logoUrl || branding.logo_url || branding.logo_path || ''),
+  }
+}
+
+const loadCachedBranding = () => {
+  try {
+    const cached = JSON.parse(localStorage.getItem(BRANDING_CACHE_KEY) || 'null')
+    if (cached) applyBranding(cached)
+  } catch (error) {
+    // ignore cache parse errors
+  }
+}
+
 const loadEntrepriseBranding = async () => {
   try {
     const { data } = await api.get('/v1/entreprise-settings')
-    entreprise.value = {
-      nom: data.nom || 'Module RH',
-      logoUrl: resolveBackendAssetUrl(data.logo_url || data.logo_path || ''),
-    }
+    applyBranding(data)
+    localStorage.setItem(BRANDING_CACHE_KEY, JSON.stringify(data))
   } catch (error) {
-    entreprise.value = {
-      nom: 'Module RH',
-      logoUrl: '',
-    }
+    loadCachedBranding()
   }
+}
+
+const onBrandingUpdated = (event) => {
+  if (event?.detail) applyBranding(event.detail)
 }
 
 const groups = [
@@ -168,7 +185,19 @@ const isActive = (path) => {
   return !hasMoreSpecificActiveItem
 }
 
-onMounted(loadEntrepriseBranding)
+onMounted(() => {
+  loadCachedBranding()
+  window.addEventListener('rh:entreprise-branding', onBrandingUpdated)
+
+  const currentPath = typeof window !== 'undefined' ? window.location.pathname : ''
+  if (currentPath === '/' || currentPath.startsWith('/dashboard')) return
+
+  loadEntrepriseBranding()
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('rh:entreprise-branding', onBrandingUpdated)
+})
 </script>
 
 <style scoped>

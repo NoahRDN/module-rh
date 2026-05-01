@@ -118,6 +118,10 @@ class Employe extends Model
 
     public function getActifAttribute(): bool
     {
+        if (array_key_exists('actif', $this->attributes)) {
+            return (bool) $this->attributes['actif'];
+        }
+
         $now = now()->toDateString();
         return $this->contrats()
             ->whereDate('date_debut', '<=', $now)

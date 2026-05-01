@@ -72,6 +72,7 @@ Route::get('/health', fn () => response()->json(['ok' => true]));
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
+    Route::middleware('role:admin,rh')->get('/dashboard/bootstrap', [DashboardController::class, 'bootstrap']);
     
     // Notifications (accessible à tous les utilisateurs authentifiés)
     Route::prefix('notifications')->group(function () {

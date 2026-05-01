@@ -67,6 +67,7 @@ export const resolveBackendAssetUrl = (path) => {
 
 const api = axios.create({
   baseURL: apiBaseUrl,
+  timeout: 10000,
 })
 // injecter le token s’il existe
 api.interceptors.request.use(config => {

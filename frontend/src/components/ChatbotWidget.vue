@@ -163,7 +163,6 @@ export default {
     }
   },
   mounted() {
-    this.loadSuggestions()
     this.determineTheme()
   },
   beforeUnmount() {
@@ -244,6 +243,9 @@ export default {
       this.isOpen = !this.isOpen
       if (this.isOpen) {
         this.unreadCount = 0
+        if (!this.suggestions.length) {
+          this.loadSuggestions()
+        }
         this.$nextTick(() => {
           this.scrollToBottom()
         })

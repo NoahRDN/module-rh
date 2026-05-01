@@ -54,7 +54,7 @@ return new class extends Migration {
     private function recreateView(): void
     {
         DB::statement(<<<'SQL'
-CREATE OR REPLACE VIEW view_types_conges_full AS
+CREATE VIEW view_types_conges_full AS
 SELECT
     tc.id,
     tc.libelle,

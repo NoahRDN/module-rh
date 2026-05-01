@@ -6,19 +6,29 @@ use App\Http\Controllers\Controller;
 use App\Models\Devise;
 use App\Models\EntrepriseSetting;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\Rule;
 
 class DeviseController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Devise::query()->orderByDesc('active')->orderBy('code');
-
         if ($request->has('active')) {
-            $query->where('active', $request->boolean('active'));
+            $active = $request->boolean('active');
+            $activeKey = $active ? '1' : '0';
+
+            return response()->json(Cache::remember("settings:devises:active:{$activeKey}", now()->addMinutes(30), function () use ($active) {
+                return Devise::query()
+                    ->where('active', $active)
+                    ->orderByDesc('active')
+                    ->orderBy('code')
+                    ->get();
+            }));
         }
 
-        return response()->json($query->get());
+        return response()->json(Cache::remember('settings:devises:all', now()->addMinutes(30), function () {
+            return Devise::query()->orderByDesc('active')->orderBy('code')->get();
+        }));
     }
 
     public function store(Request $request)
@@ -38,6 +48,7 @@ class DeviseController extends Controller
             'symbole' => isset($data['symbole']) ? trim((string) $data['symbole']) : null,
             'active' => (bool) ($data['active'] ?? true),
         ]);
+        $this->clearCurrencyCache();
 
         return response()->json($devise, 201);
     }
@@ -79,6 +90,7 @@ class DeviseController extends Controller
                 ->where('devise', $oldCode)
                 ->update(['devise' => $newCode]);
         }
+        $this->clearCurrencyCache();
 
         return response()->json($devise->fresh());
     }
@@ -94,7 +106,17 @@ class DeviseController extends Controller
         }
 
         $devise->delete();
+        $this->clearCurrencyCache();
 
         return response()->json(['message' => 'Devise supprimée']);
+    }
+
+    private function clearCurrencyCache(): void
+    {
+        Cache::forget('settings:devises:all');
+        Cache::forget('settings:devises:active');
+        Cache::forget('settings:devises:active:1');
+        Cache::forget('settings:devises:active:0');
+        Cache::forget('settings:entreprise');
     }
 }

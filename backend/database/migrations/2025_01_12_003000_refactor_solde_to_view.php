@@ -36,9 +36,13 @@ return new class extends Migration {
             }
         });
 
+        if (DB::getDriverName() !== 'pgsql') {
+            return;
+        }
+
         // Créer une vue de solde calculé à partir d'acquis + consommations
         DB::statement(<<<'SQL'
-CREATE OR REPLACE VIEW view_solde_conges AS
+CREATE VIEW view_solde_conges AS
 SELECT
     row_number() OVER () AS id,
     ac.employe_id,

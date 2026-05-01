@@ -183,6 +183,7 @@ const notificationsLoading = ref(false)
 const visibleCount = ref(6)
 const notificationBatch = 6
 let notificationPollId = null
+let notificationInitialLoadId = null
 
 const roleMap = {
   admin: 'Administrateur',
@@ -425,7 +426,9 @@ const loadProfile = async () => {
 onMounted(() => {
   applyTheme()
   loadProfile()
-  loadNotificationCount()
+  notificationInitialLoadId = window.setTimeout(() => {
+    loadNotificationCount()
+  }, 1500)
   document.addEventListener('click', onDocumentClick)
 
   notificationPollId = window.setInterval(() => {
@@ -435,6 +438,9 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', onDocumentClick)
+  if (notificationInitialLoadId) {
+    window.clearTimeout(notificationInitialLoadId)
+  }
   if (notificationPollId) {
     window.clearInterval(notificationPollId)
   }

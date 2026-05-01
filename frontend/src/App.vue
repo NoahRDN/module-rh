@@ -11,6 +11,8 @@ import { setCurrencyCatalog, setStoredCurrency } from './utils/currency'
 onMounted(async () => {
   const token = localStorage.getItem('token')
   if (!token) return
+  const currentPath = typeof window !== 'undefined' ? window.location.pathname : ''
+  if (currentPath === '/' || currentPath.startsWith('/dashboard')) return
 
   try {
     const [{ data: devises }, { data: entreprise }] = await Promise.all([

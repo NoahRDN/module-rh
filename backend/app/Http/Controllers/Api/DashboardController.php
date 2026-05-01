@@ -7,6 +7,9 @@ use App\Models\Employe;
 use App\Models\Contrat;
 use App\Models\Departement;
 use App\Models\DemandeConge;
+use App\Models\DashboardStat;
+use App\Models\Devise;
+use App\Models\EntrepriseSetting;
 use App\Models\Pointage;
 use App\Models\Evaluation;
 use App\Models\JourFerie;
@@ -16,10 +19,38 @@ use DateInterval;
 use DatePeriod;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
+    public function bootstrap(Request $request)
+    {
+        $filtre = $request->get('filtre', 'annee');
+        $date = $request->get('date', now()->format('Y-m-d'));
+        $periode = $this->getPeriode(
+            $filtre,
+            $date,
+            $request->query('date_debut'),
+            $request->query('date_fin')
+        );
+
+        $entreprise = $this->cachedEntrepriseSetting();
+        $devises = $this->cachedDevisesActives();
+        $dashboard = $this->dashboardStatPayload($filtre, $periode);
+
+        return response()->json([
+            'utilisateur' => $this->userPayload($request),
+            'entreprise' => $entreprise,
+            'devise' => $this->resolveDevise($entreprise['devise'] ?? null, $devises),
+            'devises' => $devises,
+            'statistiques' => $dashboard['statistiques'],
+            'alertes_recentes' => $dashboard['alertes_recentes'],
+            'donnees_rapides' => $dashboard['donnees_rapides'],
+        ]);
+    }
+
     /**
      * Statistiques RH principales avec filtres de période
      */
@@ -35,7 +66,74 @@ class DashboardController extends Controller
             $request->query('date_fin')
         );
 
-        return response()->json([
+        return response()->json($this->dashboardStatPayload($filtre, $periode)['statistiques']);
+    }
+
+    public function refreshSnapshot(string $filtre = 'annee', ?string $date = null, ?string $dateDebut = null, ?string $dateFin = null): DashboardStat
+    {
+        $periode = $this->getPeriode($filtre, $date ?: now()->format('Y-m-d'), $dateDebut, $dateFin);
+
+        return $this->storeDashboardSnapshot($filtre, $periode);
+    }
+
+    private function dashboardStatPayload(string $filtre, array $periode): array
+    {
+        $snapshot = $this->findDashboardSnapshot($filtre, $periode)
+            ?: $this->storeDashboardSnapshot($filtre, $periode);
+
+        return [
+            'statistiques' => $snapshot->statistiques ?: $this->emptyStats($filtre, $periode),
+            'alertes_recentes' => $snapshot->alertes_recentes ?: [],
+            'donnees_rapides' => $snapshot->donnees_rapides ?: [],
+        ];
+    }
+
+    private function findDashboardSnapshot(string $filtre, array $periode): ?DashboardStat
+    {
+        return DashboardStat::query()
+            ->where('filtre', $filtre)
+            ->whereDate('date_debut', $periode['debut']->toDateString())
+            ->whereDate('date_fin', $periode['fin']->toDateString())
+            ->first();
+    }
+
+    private function storeDashboardSnapshot(string $filtre, array $periode): DashboardStat
+    {
+        $payload = [
+            'statistiques' => $this->getStatistiquesPayload($filtre, $periode),
+            'donnees_rapides' => $this->getDonneesRapides($periode),
+            'alertes_recentes' => app(AlerteController::class)->recent(6),
+            'generated_at' => now(),
+        ];
+
+        return DashboardStat::query()->updateOrCreate(
+            [
+                'filtre' => $filtre,
+                'date_debut' => $periode['debut']->toDateString(),
+                'date_fin' => $periode['fin']->toDateString(),
+            ],
+            $payload
+        );
+    }
+
+    private function emptyStats(string $filtre, array $periode): array
+    {
+        return [
+            'effectifs' => ['total' => 0, 'actifs' => 0, 'inactifs' => 0, 'nouveaux' => 0, 'departs' => 0],
+            'indicateurs' => ['anciennete_moyenne' => 0, 'turnover' => 0, 'absenteisme' => 0, 'performance_moyenne' => 0],
+            'repartitions' => ['departements' => [], 'types_contrat' => [], 'genres' => [], 'tranches_age' => []],
+            'tendances' => [],
+            'periode' => [
+                'filtre' => $filtre,
+                'debut' => $periode['debut']->format('Y-m-d'),
+                'fin' => $periode['fin']->format('Y-m-d'),
+            ],
+        ];
+    }
+
+    private function getStatistiquesPayload(string $filtre, array $periode): array
+    {
+        return [
             'effectifs' => $this->getStatistiquesEffectifs($periode),
             'indicateurs' => $this->getIndicateursRH($periode),
             'repartitions' => $this->getRepartitions($periode),
@@ -45,7 +143,7 @@ class DashboardController extends Controller
                 'debut' => $periode['debut']->format('Y-m-d'),
                 'fin' => $periode['fin']->format('Y-m-d'),
             ],
-        ]);
+        ];
     }
 
     /**
@@ -80,6 +178,113 @@ class DashboardController extends Controller
                     'fin' => $dateRef->copy()->endOfYear(),
                 ];
         }
+    }
+
+    private function userPayload(Request $request): array
+    {
+        $user = $request->user();
+        $user?->loadMissing('employe:id,matricule,nom,prenom,email,poste_id,departement_id');
+
+        return [
+            'id' => $user?->id,
+            'name' => $user?->name,
+            'email' => $user?->email,
+            'role' => $user?->role,
+            'employe_id' => $user?->employe_id,
+            'employe' => $user?->employe ? [
+                'id' => $user->employe->id,
+                'matricule' => $user->employe->matricule,
+                'nom' => $user->employe->nom,
+                'prenom' => $user->employe->prenom,
+                'email' => $user->employe->email,
+            ] : null,
+        ];
+    }
+
+    private function cachedEntrepriseSetting(): array
+    {
+        return Cache::remember('settings:entreprise', now()->addMinutes(30), function () {
+            $setting = EntrepriseSetting::firstOrCreate(
+                [],
+                [
+                    'nom' => config('app.name', 'Module RH'),
+                    'devise' => 'MGA',
+                ]
+            );
+
+            if (!$setting->devise) {
+                $setting->devise = 'MGA';
+                $setting->save();
+            }
+
+            return [
+                'id' => $setting->id,
+                'nom' => $setting->nom,
+                'devise' => $setting->devise,
+                'logo_path' => $setting->logo_path,
+                'logo_url' => $setting->logo_url,
+                'created_at' => $setting->created_at,
+                'updated_at' => $setting->updated_at,
+            ];
+        });
+    }
+
+    private function cachedDevisesActives(): array
+    {
+        return Cache::remember('settings:devises:active', now()->addMinutes(30), function () {
+            return Devise::query()
+                ->select(['id', 'code', 'libelle', 'symbole', 'active'])
+                ->where('active', true)
+                ->orderBy('code')
+                ->get()
+                ->toArray();
+        });
+    }
+
+    private function resolveDevise(?string $code, array $devises): ?array
+    {
+        if (!$code) {
+            return null;
+        }
+
+        return collect($devises)->firstWhere('code', $code)
+            ?: Devise::query()
+                ->select(['id', 'code', 'libelle', 'symbole', 'active'])
+                ->where('code', $code)
+                ->first()
+                ?->toArray();
+    }
+
+    private function getDonneesRapides(array $periode): array
+    {
+        $now = now()->toDateString();
+
+        $derniersEmployes = Employe::query()
+            ->select(['id', 'matricule', 'nom', 'prenom', 'poste_id', 'departement_id', 'date_embauche', 'created_at'])
+            ->with([
+                'poste:id,nom,departement_id,categorie,categorie_level',
+                'departement:id,nom',
+            ])
+            ->withExists(['contrats as actif' => function ($q) use ($now) {
+                $q->whereDate('date_debut', '<=', $now)
+                    ->where(function ($w) use ($now) {
+                        $w->whereNull('date_fin')->orWhereDate('date_fin', '>=', $now);
+                    });
+            }])
+            ->whereBetween('date_embauche', [$periode['debut'], $periode['fin']])
+            ->orderByDesc('created_at')
+            ->limit(5)
+            ->get();
+
+        return [
+            'derniers_employes' => $derniersEmployes,
+            'demandes_conges_en_attente' => DemandeConge::where('statut', '!=', 'rh_valide')->count(),
+            'contrats_expirant_30j' => Contrat::whereNotNull('date_fin')
+                ->whereDate('date_fin', '>=', $now)
+                ->whereDate('date_fin', '<=', now()->addDays(30)->toDateString())
+                ->count(),
+            'pointages_aujourdhui' => Pointage::whereBetween('pointe_a', [now()->startOfDay(), now()->endOfDay()])->count(),
+        ];
     }
 
     /**
@@ -179,7 +384,8 @@ class DashboardController extends Controller
         );
         $joursTheoriques = $joursOuvres * max(1, $employeIdsAbsenteisme->count());
 
-        $joursAbsencesConges = DemandeConge::where('statut', 'rh_valide')
+        $joursAbsencesConges = DemandeConge::select(['employe_id', 'date_debut', 'date_fin'])
+            ->where('statut', 'rh_valide')
             ->whereIn('employe_id', $employeIdsAbsenteisme)
             ->where(function ($q) use ($periodeAbsenteisme) {
                 $q->whereBetween('date_debut', [$periodeAbsenteisme['debut'], $periodeAbsenteisme['fin']])
@@ -298,6 +504,7 @@ class DashboardController extends Controller
         ];
 
         $employes = $this->employesActifsALaDate($dateReference)
+            ->select(['id', 'date_naissance'])
             ->whereNotNull('date_naissance')
             ->get();
 
@@ -407,17 +614,18 @@ class DashboardController extends Controller
             : Employe::pluck('id');
     }
 
-    private function calculerJoursOuvresPresence(Carbon $debut, Carbon $fin, array $settings): int
+    private function calculerJoursOuvresPresence(Carbon $debut, Carbon $fin, array $settings, ?array $holidayDates = null): int
     {
         if ($fin->lt($debut)) {
             return 0;
         }
 
         $jours = 0;
+        $holidayDates ??= $this->holidayDatesBetween($debut, $fin);
         $period = new DatePeriod($debut, new DateInterval('P1D'), $fin->copy()->addDay());
 
         foreach ($period as $day) {
-            if ($this->isJourTravaille(Carbon::instance($day), $settings)) {
+            if ($this->isJourTravaille(Carbon::instance($day), $settings, $holidayDates)) {
                 $jours++;
             }
         }
@@ -434,7 +642,11 @@ class DashboardController extends Controller
             return 0;
         }
 
-        $pointages = Pointage::whereIn('employe_id', $employeIds)
+        $holidayDates = $this->holidayDatesBetween($debut, $fin);
+        $congesValides = $this->approvedLeaveDaysByEmployee($employeIds, $debut, $fin);
+
+        $pointages = Pointage::select(['id', 'employe_id', 'type', 'pointe_a'])
+            ->whereIn('employe_id', $employeIds)
             ->between($debut->toDateString(), $fin->toDateString())
             ->orderBy('pointe_a')
             ->get()
@@ -448,11 +660,16 @@ class DashboardController extends Controller
             foreach ($period as $day) {
                 $jour = Carbon::instance($day)->toDateString();
 
-                if ($this->isCongeValide((int) $employeId, $jour)) {
+                if (isset($congesValides[(int) $employeId][$jour])) {
                     continue;
                 }
 
-                $resume = $this->calculerJourneePointage($pointages->get($employeId . '|' . $jour, collect()), $jour, $settings);
+                $resume = $this->calculerJourneePointage(
+                    $pointages->get($employeId . '|' . $jour, collect()),
+                    $jour,
+                    $settings,
+                    $holidayDates
+                );
 
                 if ($resume['absent']) {
                     $absences++;
@@ -463,14 +680,14 @@ class DashboardController extends Controller
         return $absences;
     }
 
-    private function calculerJourneePointage($pointages, string $jour, array $settings): array
+    private function calculerJourneePointage($pointages, string $jour, array $settings, ?array $holidayDates = null): array
     {
         $hoursPerDay = (float) ($settings['hours_per_day'] ?? 8);
         $retardThresholdHours = (float) ($settings['retard_threshold_hours'] ?? 2);
 
         $dateObj = Carbon::parse($jour);
 
-        if (!$this->isJourTravaille($dateObj, $settings)) {
+        if (!$this->isJourTravaille($dateObj, $settings, $holidayDates)) {
             return ['absent' => false];
         }
 
@@ -495,15 +712,18 @@ class DashboardController extends Controller
         ];
     }
 
-    private function isJourTravaille(Carbon $date, array $settings): bool
+    private function isJourTravaille(Carbon $date, array $settings, ?array $holidayDates = null): bool
     {
         $workingDays = $settings['working_days'] ?? ['mon', 'tue', 'wed', 'thu', 'fri'];
         $saturdayMode = $settings['saturday_mode'] ?? 'normal';
         $dayCode = strtolower(substr($date->format('D'), 0, 3));
         $isSaturday = $dayCode === 'sat';
         $isWorkingDay = in_array($dayCode, $workingDays, true) || ($isSaturday && $saturdayMode === 'normal');
+        $isHoliday = $holidayDates !== null
+            ? isset($holidayDates[$date->toDateString()])
+            : $this->isHoliday($date);
 
-        return $isWorkingDay && !$this->isHoliday($date);
+        return $isWorkingDay && !$isHoliday;
     }
 
     private function calculerDureePauses($pointages): int
@@ -549,20 +769,76 @@ class DashboardController extends Controller
             ->exists();
     }
 
-    private function loadWorktimeSettings(): array
+    private function holidayDatesBetween(Carbon $debut, Carbon $fin): array
     {
-        $setting = WorktimeSetting::first();
+        $dates = [];
+        $feries = Cache::remember('settings:jours_feries', now()->addMinutes(30), function () {
+            return JourFerie::select(['id', 'date', 'recurrent'])->get();
+        });
 
-        if ($setting) {
-            return [
-                'working_days' => $setting->working_days ?: config('worktime.working_days'),
-                'saturday_mode' => $setting->saturday_mode ?: config('worktime.saturday_mode'),
-                'hours_per_day' => $setting->hours_per_day ?? config('worktime.hours_per_day'),
-                'retard_threshold_hours' => $setting->retard_threshold_hours ?? config('worktime.retard_threshold_hours', 2),
-            ];
+        foreach ($feries as $ferie) {
+            if (!$ferie->recurrent) {
+                $date = $ferie->date->toDateString();
+                if ($date >= $debut->toDateString() && $date <= $fin->toDateString()) {
+                    $dates[$date] = true;
+                }
+                continue;
+            }
+
+            for ($year = $debut->year; $year <= $fin->year; $year++) {
+                try {
+                    $date = Carbon::createFromDate($year, (int) $ferie->date->format('m'), (int) $ferie->date->format('d'))->toDateString();
+                } catch (\Throwable $e) {
+                    continue;
+                }
+
+                if ($date >= $debut->toDateString() && $date <= $fin->toDateString()) {
+                    $dates[$date] = true;
+                }
+            }
         }
 
-        return config('worktime');
+        return $dates;
+    }
+
+    private function approvedLeaveDaysByEmployee(Collection $employeIds, Carbon $debut, Carbon $fin): array
+    {
+        $days = [];
+
+        DemandeConge::select(['employe_id', 'date_debut', 'date_fin'])
+            ->where('statut', 'rh_valide')
+            ->whereIn('employe_id', $employeIds)
+            ->whereDate('date_debut', '<=', $fin->toDateString())
+            ->whereDate('date_fin', '>=', $debut->toDateString())
+            ->get()
+            ->each(function ($demande) use (&$days, $debut, $fin) {
+                $start = Carbon::parse($demande->date_debut)->max($debut)->startOfDay();
+                $end = Carbon::parse($demande->date_fin)->min($fin)->startOfDay();
+
+                for ($date = $start->copy(); $date->lte($end); $date->addDay()) {
+                    $days[(int) $demande->employe_id][$date->toDateString()] = true;
+                }
+            });
+
+        return $days;
+    }
+
+    private function loadWorktimeSettings(): array
+    {
+        return Cache::remember('settings:worktime', now()->addMinutes(30), function () {
+            $setting = WorktimeSetting::first();
+
+            if ($setting) {
+                return [
+                    'working_days' => $setting->working_days ?: config('worktime.working_days'),
+                    'saturday_mode' => $setting->saturday_mode ?: config('worktime.saturday_mode'),
+                    'hours_per_day' => $setting->hours_per_day ?? config('worktime.hours_per_day'),
+                    'retard_threshold_hours' => $setting->retard_threshold_hours ?? config('worktime.retard_threshold_hours', 2),
+                ];
+            }
+
+            return config('worktime');
+        });
     }
 
     /**

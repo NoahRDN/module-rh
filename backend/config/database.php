@@ -95,10 +95,12 @@ return [
             'prefix' => '',
             'prefix_indexes' => true,
             'search_path' => 'public',
-            'sslmode' => 'prefer',
-            'options' => [
+            'sslmode' => env('DB_SSLMODE', 'prefer'),
+            'options' => array_filter([
                 'encoding' => 'utf8',
-            ],
+                PDO::ATTR_PERSISTENT => env('DB_PERSISTENT', false),
+                PDO::PGSQL_ATTR_DISABLE_PREPARES => env('DB_DISABLE_PREPARES', true),
+            ], fn ($value) => $value !== null),
         ],
 
         'sqlsrv' => [

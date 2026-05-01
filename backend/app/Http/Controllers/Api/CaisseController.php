@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Caisse;
 use App\Models\CaisseMouvement;
+use App\Models\CaisseSyntheseJournaliere;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -43,6 +45,7 @@ class CaisseController extends Controller
             'caisses' => $caisses,
             'mouvements' => $mouvements,
             'categories' => $categories,
+            'synthese' => $this->caisseSynthesePayload(now()->toDateString()),
         ]);
     }
 
@@ -96,6 +99,7 @@ class CaisseController extends Controller
                 'statut' => 'en_attente_validation',
                 'demande_validation_le' => now(),
             ]);
+            $this->refreshCaisseSyntheseForMouvement($mouvement);
 
             return response()->json([
                 'message' => 'Mouvement de caisse soumis à validation',
@@ -171,6 +175,10 @@ class CaisseController extends Controller
 
                 return $mouvement->fresh(['caisse:id,nom,solde', 'paie.employe:id,matricule,nom,prenom']);
             });
+            $this->refreshCaisseSyntheseForMouvement($mouvement);
+            if ($mouvement->paie) {
+                app(PaieController::class)->refreshPaieSyntheseMonth($mouvement->paie->mois, [$mouvement->paie->employe_id]);
+            }
 
             return response()->json([
                 'message' => 'Mouvement de caisse validé',
@@ -205,6 +213,10 @@ class CaisseController extends Controller
 
                 return $mouvement->fresh(['caisse:id,nom,solde', 'paie.employe:id,matricule,nom,prenom']);
             });
+            $this->refreshCaisseSyntheseForMouvement($mouvement);
+            if ($mouvement->paie) {
+                app(PaieController::class)->refreshPaieSyntheseMonth($mouvement->paie->mois, [$mouvement->paie->employe_id]);
+            }
 
             return response()->json([
                 'message' => 'Mouvement de caisse rejeté',
@@ -215,6 +227,109 @@ class CaisseController extends Controller
         } catch (\Throwable $e) {
             Log::error('Erreur rejet mouvement caisse', ['id' => $id, 'error' => $e->getMessage()]);
             return response()->json(['message' => 'Erreur serveur'], 500);
+        }
+    }
+
+    public function refreshCaisseSyntheseDay(?string $date = null, ?array $caisseIds = null): int
+    {
+        $day = Carbon::parse($date ?: now())->startOfDay();
+        $end = $day->copy()->endOfDay();
+        $caisseIds = $caisseIds ? array_values(array_unique(array_map('intval', $caisseIds))) : null;
+        $caisses = Caisse::query()
+            ->select(['id', 'solde'])
+            ->when($caisseIds, fn ($query) => $query->whereIn('id', $caisseIds))
+            ->get();
+
+        $mouvements = CaisseMouvement::query()
+            ->select(['id', 'caisse_id', 'type', 'categorie', 'montant', 'statut', 'created_at'])
+            ->whereBetween('created_at', [$day, $end])
+            ->when($caisseIds, fn ($query) => $query->whereIn('caisse_id', $caisseIds))
+            ->get()
+            ->groupBy('caisse_id');
+
+        $payloads = $caisses->map(function (Caisse $caisse) use ($day, $mouvements) {
+            $items = $mouvements->get($caisse->id, collect());
+            $valides = $items->where('statut', 'valide');
+            $entrees = $valides->where('type', 'entree')->sum('montant');
+            $sorties = $valides->where('type', 'sortie')->sum('montant');
+            $parCategorie = $items
+                ->groupBy(fn ($mouvement) => "{$mouvement->type}:{$mouvement->categorie}")
+                ->map(function ($categoryItems, string $key) {
+                    [$type, $categorie] = array_pad(explode(':', $key, 2), 2, null);
+
+                    return [
+                        'type' => $type,
+                        'categorie' => $categorie,
+                        'total' => round($categoryItems->sum('montant'), 2),
+                        'count' => $categoryItems->count(),
+                    ];
+                })
+                ->values()
+                ->all();
+
+            return [
+                'caisse_id' => $caisse->id,
+                'jour' => $day->toDateString(),
+                'total_entrees' => round($entrees, 2),
+                'total_sorties' => round($sorties, 2),
+                'solde_net' => round($entrees - $sorties, 2),
+                'solde_caisse' => (float) $caisse->solde,
+                'mouvements_total' => $items->count(),
+                'mouvements_valides' => $items->where('statut', 'valide')->count(),
+                'mouvements_en_attente' => $items->where('statut', 'en_attente_validation')->count(),
+                'mouvements_rejetes' => $items->where('statut', 'rejete')->count(),
+                'par_categorie' => json_encode($parCategorie, JSON_UNESCAPED_UNICODE),
+                'generated_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+        })->all();
+
+        DB::transaction(function () use ($day, $caisseIds, $payloads) {
+            $query = CaisseSyntheseJournaliere::query()->whereDate('jour', $day->toDateString());
+            if ($caisseIds) {
+                $query->whereIn('caisse_id', $caisseIds);
+            }
+            $query->delete();
+
+            if ($payloads) {
+                CaisseSyntheseJournaliere::query()->insert($payloads);
+            }
+        });
+
+        return count($payloads);
+    }
+
+    private function caisseSynthesePayload(string $date): array
+    {
+        $day = Carbon::parse($date)->toDateString();
+        $rows = CaisseSyntheseJournaliere::query()
+            ->whereDate('jour', $day)
+            ->get();
+        $generatedAt = $rows->max('generated_at');
+
+        return [
+            'jour' => $day,
+            'total_entrees' => round($rows->sum('total_entrees'), 2),
+            'total_sorties' => round($rows->sum('total_sorties'), 2),
+            'solde_net' => round($rows->sum('solde_net'), 2),
+            'mouvements_total' => (int) $rows->sum('mouvements_total'),
+            'mouvements_valides' => (int) $rows->sum('mouvements_valides'),
+            'mouvements_en_attente' => (int) $rows->sum('mouvements_en_attente'),
+            'mouvements_rejetes' => (int) $rows->sum('mouvements_rejetes'),
+            'updated_at' => $generatedAt ? Carbon::parse($generatedAt)->toIso8601String() : null,
+        ];
+    }
+
+    private function refreshCaisseSyntheseForMouvement(CaisseMouvement $mouvement): void
+    {
+        try {
+            $this->refreshCaisseSyntheseDay($mouvement->created_at?->toDateString() ?: now()->toDateString(), [$mouvement->caisse_id]);
+        } catch (\Throwable $e) {
+            Log::warning('Refresh synthese caisse échoué', [
+                'mouvement_id' => $mouvement->id,
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 }

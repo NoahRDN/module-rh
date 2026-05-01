@@ -16,6 +16,15 @@ run_as_app() {
   "$@"
 }
 
+# Docker Compose ne lit pas backend/.env pour l'interpolation, mais le conteneur
+# peut s'en servir au démarrage si la variable n'est pas déjà fournie.
+if [[ -z "${SEED_LARGE_DATASET+x}" && -f .env ]]; then
+  seed_large_dataset="$(grep -E '^SEED_LARGE_DATASET=' .env | tail -n1 | cut -d= -f2- | tr -d '\r')"
+  seed_large_dataset="${seed_large_dataset%\"}"
+  seed_large_dataset="${seed_large_dataset#\"}"
+  export SEED_LARGE_DATASET="${seed_large_dataset:-false}"
+fi
+
 # 1) .env uniquement pour développement local
 if [[ "${APP_ENV:-local}" != "production" && ! -f .env && -f .env.example ]]; then
   cp .env.example .env
@@ -64,7 +73,7 @@ run_as_app php artisan view:clear || true
 # 7) Optionnel : migrations / seeders via variables Render
 fresh_db=0
 
-if [[ "${RUN_SEEDERS_ON_FRESH_DB:-false}" == "true" ]]; then
+if [[ "${RUN_SEEDERS_ON_FRESH_DB:-false}" == "true" || "${SEED_LARGE_DATASET:-false}" == "true" ]]; then
   if ! run_as_app php artisan migrate:status >/dev/null 2>&1; then
     fresh_db=1
   fi
@@ -78,6 +87,11 @@ if [[ "${RUN_SEEDERS:-false}" == "true" ]]; then
   run_as_app php artisan db:seed --force
 elif [[ "${RUN_SEEDERS_ON_FRESH_DB:-false}" == "true" && "${fresh_db}" == "1" ]]; then
   run_as_app php artisan db:seed --force
+fi
+
+if [[ "${SEED_LARGE_DATASET:-false}" == "true" && "${fresh_db}" == "1" ]]; then
+  run_as_app php artisan db:seed --class=LargeDashboardDatasetSeeder --force
+  run_as_app php artisan read-models:refresh --annee="$(date +%Y)" || true
 fi
 
 # 8) Si aucune commande n'est fournie au container, lancer Laravel avec le serveur PHP intégré

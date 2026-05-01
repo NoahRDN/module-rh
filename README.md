@@ -25,7 +25,7 @@ cd module-rh
 Prérequis : Docker Desktop (ou Docker Engine) + le plugin `docker compose`.
 
 ### Nom du “stack” (project name)
-Le nom est défini par `COMPOSE_PROJECT_NAME` dans `.env` (à la racine). Pour le modifier, changez cette valeur, puis relancez.
+Le nom est défini par `name: module-rh1` dans `docker-compose.yml`. Pour le modifier, changez cette valeur, puis relancez.
 Astuce : si vous aviez déjà lancé l'ancien nom, il faut arrêter avec l'ancien project name, ex : `docker compose -p ancien_nom down`.
 
 ### Lancer backend + frontend + PostgreSQL

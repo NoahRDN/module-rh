@@ -26,7 +26,7 @@
 
           <label class="field-card">
             <span class="field-label">Mode</span>
-            <select class="select" v-model="mode" @change="refresh">
+            <select class="select" v-model="mode" @change="resetAndRefresh">
               <option value="mois">Mois</option>
               <option value="annee">Année</option>
               <option value="periode">Période</option>
@@ -35,7 +35,7 @@
 
           <label class="field-card">
             <span class="field-label">Statut fiche</span>
-            <select class="select" v-model="statusFilter" @change="refresh">
+            <select class="select" v-model="statusFilter" @change="resetAndRefresh">
               <option value="tous">Tous</option>
               <option value="non_genere">Non générée</option>
               <option value="en_attente_validation">En attente de validation</option>
@@ -63,11 +63,11 @@
           <div class="action-row" v-if="mode === 'mois'">
             <label class="field-card">
               <span class="field-label">Année</span>
-              <input class="input" type="number" min="2000" max="2100" v-model.number="year" @change="refresh" />
+              <input class="input" type="number" min="2000" max="2100" v-model.number="year" @change="resetAndRefresh" />
             </label>
             <label class="field-card">
               <span class="field-label">Mois</span>
-              <select class="select" v-model="month" @change="refresh">
+              <select class="select" v-model="month" @change="resetAndRefresh">
                 <option v-for="m in monthOptions" :key="m.value" :value="m.value">{{ m.label }}</option>
               </select>
             </label>
@@ -75,17 +75,17 @@
 
           <label class="field-card" v-else-if="mode === 'annee'">
             <span class="field-label">Année</span>
-            <input class="input" type="number" min="2000" max="2100" v-model.number="year" @change="refresh" />
+            <input class="input" type="number" min="2000" max="2100" v-model.number="year" @change="resetAndRefresh" />
           </label>
 
           <div class="action-row" v-else>
             <label class="field-card">
               <span class="field-label">Début période</span>
-              <input class="input" type="month" v-model="periodStart" @change="refresh" />
+              <input class="input" type="month" v-model="periodStart" @change="resetAndRefresh" />
             </label>
             <label class="field-card">
               <span class="field-label">Fin période</span>
-              <input class="input" type="month" v-model="periodEnd" @change="refresh" />
+              <input class="input" type="month" v-model="periodEnd" @change="resetAndRefresh" />
             </label>
           </div>
 
@@ -249,6 +249,19 @@
             </tbody>
           </table>
         </div>
+
+        <div v-if="!isSummaryMode && detailsPagination.total > detailsPagination.per_page" class="pagination-bar">
+          <button class="btn btn-secondary btn-xs" type="button" :disabled="loading || detailsPagination.current_page <= 1" @click="previousPage">
+            Précédent
+          </button>
+          <span class="muted">
+            Page {{ formatInteger(detailsPagination.current_page) }} / {{ formatInteger(detailsPagination.last_page) }}
+            · {{ formatInteger(detailsPagination.total) }} ligne(s)
+          </span>
+          <button class="btn btn-secondary btn-xs" type="button" :disabled="loading || detailsPagination.current_page >= detailsPagination.last_page" @click="nextPage">
+            Suivant
+          </button>
+        </div>
       </article>
     </section>
 
@@ -288,6 +301,9 @@ const paymentDue = ref({})
 const caisses = ref([])
 const selectedCaisseByPaie = ref({})
 const detailFilters = ref({ matricule: '', nom: '', contrat: '' })
+const currentPage = ref(1)
+const perPage = ref(50)
+const detailsPagination = ref({ current_page: 1, per_page: 50, total: 0, last_page: 1 })
 
 const monthOptions = [
   { value: '01', label: 'Janvier' },
@@ -489,7 +505,7 @@ const refresh = async () => {
       statut: statusFilter.value,
       ...(mode.value === 'annee' ? { annee: String(year.value) } : {}),
       ...(mode.value === 'periode' ? { debut: periodStart.value, fin: periodEnd.value } : {}),
-      ...(mode.value === 'mois' ? { mois: selectedMonth.value } : {}),
+      ...(mode.value === 'mois' ? { mois: selectedMonth.value, page: currentPage.value, per_page: perPage.value } : {}),
     }
 
     const { data } = await api.get('/v1/paies/etat', { params })
@@ -500,12 +516,31 @@ const refresh = async () => {
     paymentDue.value = data.payment_due || {}
     parMois.value = data.par_mois || []
     details.value = data.details || []
+    detailsPagination.value = data.details_pagination || { current_page: 1, per_page: perPage.value, total: details.value.length, last_page: 1 }
+    currentPage.value = detailsPagination.value.current_page || 1
     syncSelectedCaisses(details.value)
   } catch (e) {
     error.value = e.response?.data?.message || e.message || 'Erreur chargement état de paie'
   } finally {
     loading.value = false
   }
+}
+
+const resetAndRefresh = () => {
+  currentPage.value = 1
+  refresh()
+}
+
+const previousPage = () => {
+  if (currentPage.value <= 1) return
+  currentPage.value -= 1
+  refresh()
+}
+
+const nextPage = () => {
+  if (currentPage.value >= detailsPagination.value.last_page) return
+  currentPage.value += 1
+  refresh()
 }
 
 const generate = async (row) => {
@@ -656,6 +691,14 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 14px;
 }
 
 .select-xs {

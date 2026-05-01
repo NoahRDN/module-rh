@@ -78,13 +78,12 @@ class DashboardController extends Controller
 
     private function dashboardStatPayload(string $filtre, array $periode): array
     {
-        $snapshot = $this->findDashboardSnapshot($filtre, $periode)
-            ?: $this->storeDashboardSnapshot($filtre, $periode);
+        $snapshot = $this->findDashboardSnapshot($filtre, $periode);
 
         return [
-            'statistiques' => $snapshot->statistiques ?: $this->emptyStats($filtre, $periode),
-            'alertes_recentes' => $snapshot->alertes_recentes ?: [],
-            'donnees_rapides' => $snapshot->donnees_rapides ?: [],
+            'statistiques' => $snapshot?->statistiques ?: $this->emptyStats($filtre, $periode),
+            'alertes_recentes' => $snapshot?->alertes_recentes ?: [],
+            'donnees_rapides' => $snapshot?->donnees_rapides ?: [],
         ];
     }
 

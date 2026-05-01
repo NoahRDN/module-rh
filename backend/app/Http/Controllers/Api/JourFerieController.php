@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\JourFerie;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class JourFerieController extends Controller
@@ -34,6 +35,7 @@ class JourFerieController extends Controller
                 'date' => $data['date'],
                 'recurrent' => $data['recurrent'] ?? false,
             ]);
+            Cache::forget('settings:jours_feries');
 
             return response()->json(['data' => $ferie], 201);
         } catch (\Throwable $e) {
@@ -57,6 +59,7 @@ class JourFerieController extends Controller
                 'date' => $data['date'],
                 'recurrent' => $data['recurrent'] ?? false,
             ]);
+            Cache::forget('settings:jours_feries');
 
             return response()->json(['data' => $ferie]);
         } catch (\Throwable $e) {
@@ -69,6 +72,7 @@ class JourFerieController extends Controller
     {
         try {
             JourFerie::findOrFail($id)->delete();
+            Cache::forget('settings:jours_feries');
             return response()->json(['message' => 'Jour férié supprimé']);
         } catch (\Throwable $e) {
             Log::error('Erreur suppression jour férié', ['id' => $id, 'error' => $e->getMessage()]);

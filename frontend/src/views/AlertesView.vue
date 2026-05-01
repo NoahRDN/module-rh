@@ -85,7 +85,7 @@
                     <span v-if="item.date_fin">Fin le {{ formatDate(item.date_fin) }}</span>
                     <span v-if="item.date_debut">Prévu le {{ formatDate(item.date_debut) }}</span>
                     <span v-if="item.solde">Solde {{ item.solde }} jours</span>
-                    <span class="type-tag">{{ formatType(item.type) }}</span>
+                    <span class="type-tag">{{ formatType(item) }}</span>
                   </div>
 
                   <RouterLink
@@ -232,7 +232,27 @@ const levelClass = (level) => {
   }
 }
 
-const formatType = (type) => {
+const todayIsoDate = () => {
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = String(today.getMonth() + 1).padStart(2, '0')
+  const day = String(today.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const isTodayAlert = (item) => {
+  const date = item?.date_debut || item?.date_fin
+  return typeof date === 'string' && date.slice(0, 10) === todayIsoDate()
+}
+
+const formatType = (item) => {
+  const type = typeof item === 'string' ? item : item?.type
+  const todayLabels = {
+    fin_contrat: 'Contrat',
+    conge_proche: 'Congé',
+    ferie_proche: 'Férié',
+    evenement_rh_proche: 'Événement RH',
+  }
   const types = {
     fin_contrat: 'Contrat',
     conges_non_pris: 'Congés',
@@ -241,9 +261,9 @@ const formatType = (type) => {
     conge_en_attente: 'Demande',
     conge_proche: 'Congé urgent',
     ferie_proche: 'Férié proche',
-    evenement_rh_proche: 'Événement RH',
+    evenement_rh_proche: 'Événement RH proche',
   }
-  return types[type] || type
+  return isTodayAlert(item) && todayLabels[type] ? todayLabels[type] : types[type] || type
 }
 
 const formatDate = (value) => formatDateValue(value)

@@ -19,8 +19,31 @@ class ContratController extends Controller
         try {
             $employe = $request->query('employe_id');
             $all = $request->boolean('all', false);
+            $perPage = min(100, max(1, (int) $request->query('per_page', 10)));
+            $limit = min(500, max(1, (int) $request->query('limit', 500)));
 
-            $query = Contrat::with(['employe.departement', 'employe.poste'])->orderBy('date_debut', 'desc');
+            $query = Contrat::query()
+                ->select([
+                    'id',
+                    'numero',
+                    'employe_id',
+                    'type_contrat',
+                    'date_debut',
+                    'date_fin',
+                    'periode_essai_debut',
+                    'periode_essai_fin',
+                    'renouvelable',
+                    'salaire_base',
+                    'statut',
+                    'created_at',
+                    'updated_at',
+                ])
+                ->with([
+                    'employe:id,matricule,nom,prenom,poste_id,departement_id',
+                    'employe.departement:id,nom',
+                    'employe.poste:id,nom,departement_id',
+                ])
+                ->orderBy('date_debut', 'desc');
 
             if ($employe) {
                 $query->where('employe_id', $employe);
@@ -39,7 +62,7 @@ class ContratController extends Controller
                 $query->whereDate('date_debut', '<=', $dateFin);
             }
 
-            return response()->json($all ? $query->get() : $query->paginate(10));
+            return response()->json($all ? $query->limit($limit)->get() : $query->paginate($perPage));
         } catch (\Throwable $e) {
             Log::error('Erreur liste contrats', ['error' => $e->getMessage()]);
             return response()->json(['message' => 'Erreur serveur'], 500);

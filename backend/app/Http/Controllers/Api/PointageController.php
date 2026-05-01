@@ -28,12 +28,15 @@ class PointageController extends Controller
             $employeId = $request->query('employe_id');
             $from      = $request->query('from');
             $to        = $request->query('to');
+            $perPage   = min(100, max(1, (int) $request->query('per_page', 50)));
 
-            $pointages = Pointage::with('employe')
+            $pointages = Pointage::query()
+                ->select(['id', 'employe_id', 'type', 'pointe_a', 'source', 'commentaire', 'created_at'])
+                ->with('employe:id,matricule,nom,prenom,poste_id,departement_id')
                 ->forEmploye($employeId)
                 ->between($from, $to)
                 ->orderBy('pointe_a', 'asc')
-                ->paginate(50);
+                ->paginate($perPage);
 
             return response()->json($pointages);
         } catch (\Throwable $e) {

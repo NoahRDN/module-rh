@@ -19,7 +19,11 @@ return new class extends Migration {
 
         // Backfill : par défaut, caler acquis_first = acquis_le et expire_first = acquis_le + 3 ans
         DB::statement("UPDATE acquis_conges SET acquis_first = COALESCE(acquis_first, acquis_le)");
-        DB::statement("UPDATE acquis_conges SET expire_first = COALESCE(expire_first, acquis_le + interval '3 year')");
+        if (DB::getDriverName() === 'sqlite') {
+            DB::statement("UPDATE acquis_conges SET expire_first = COALESCE(expire_first, date(acquis_le, '+3 years'))");
+        } else {
+            DB::statement("UPDATE acquis_conges SET expire_first = COALESCE(expire_first, acquis_le + interval '3 year')");
+        }
     }
 
     public function down(): void

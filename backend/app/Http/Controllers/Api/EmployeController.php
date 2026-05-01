@@ -22,17 +22,44 @@ class EmployeController extends Controller
             $search = $request->query('search');
             $activeOnly = $request->boolean('active_only', false);
             $all = $request->boolean('all', false);
-            $perPage = max(1, (int) $request->query('per_page', 10));
+            $perPage = min(100, max(1, (int) $request->query('per_page', 10)));
+            $limit = min(500, max(1, (int) $request->query('limit', 500)));
             $sort = $request->query('sort', 'nom');
+            $now = now()->toDateString();
 
             // Tri : par défaut alphabétique, ou par date de création si sort=recent
             $orderColumn = $sort === 'recent' ? 'created_at' : 'nom';
             $orderDirection = $sort === 'recent' ? 'desc' : 'asc';
 
-            $query = Employe::with(['poste', 'departement'])
+            $query = Employe::query()
+                ->select([
+                    'id',
+                    'matricule',
+                    'nom',
+                    'prenom',
+                    'email',
+                    'telephone',
+                    'adresse',
+                    'date_naissance',
+                    'poste_id',
+                    'departement_id',
+                    'photo',
+                    'date_embauche',
+                    'created_at',
+                    'updated_at',
+                ])
+                ->with([
+                    'poste:id,nom,departement_id,categorie,categorie_level',
+                    'departement:id,nom',
+                ])
+                ->withExists(['contrats as actif' => function ($q) use ($now) {
+                    $q->whereDate('date_debut', '<=', $now)
+                        ->where(function ($w) use ($now) {
+                            $w->whereNull('date_fin')->orWhereDate('date_fin', '>=', $now);
+                        });
+                }])
                 ->search($search)
-                ->when($activeOnly, function ($q) {
-                    $now = now()->toDateString();
+                ->when($activeOnly, function ($q) use ($now) {
                     $q->whereHas('contrats', function ($c) use ($now) {
                         $c->whereDate('date_debut', '<=', $now)
                           ->where(function ($w) use ($now) {
@@ -48,7 +75,7 @@ class EmployeController extends Controller
                 })
                 ->orderBy($orderColumn, $orderDirection);
 
-            $employes = $all ? $query->get() : $query->paginate($perPage);
+            $employes = $all ? $query->limit($limit)->get() : $query->paginate($perPage);
 
             return response()->json($employes);
         } catch (\Throwable $e) {

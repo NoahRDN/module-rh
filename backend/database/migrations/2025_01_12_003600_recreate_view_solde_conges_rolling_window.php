@@ -7,9 +7,12 @@ return new class extends Migration {
     public function up(): void
     {
         DB::statement('DROP VIEW IF EXISTS view_solde_conges');
+        if (DB::getDriverName() !== 'pgsql') {
+            return;
+        }
 
         DB::statement(<<<'SQL'
-CREATE OR REPLACE VIEW view_solde_conges AS
+CREATE VIEW view_solde_conges AS
 WITH latest AS (
     SELECT employe_id, type_conge_id, MAX(acquis_first) AS last_acquis
     FROM acquis_conges

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Cache;
 
 class Notification extends Model
 {
@@ -34,6 +35,7 @@ class Notification extends Model
         $this->lu = true;
         $this->lu_at = now();
         $this->save();
+        Cache::forget("notifications:unread_count:{$this->user_id}");
     }
 
     public function scopeNonLues($query)
@@ -56,12 +58,16 @@ class Notification extends Model
         string $message,
         ?array $data = null
     ): self {
-        return self::create([
+        $notification = self::create([
             'user_id' => $userId,
             'type' => $type,
             'titre' => $titre,
             'message' => $message,
             'data' => $data,
         ]);
+
+        Cache::forget("notifications:unread_count:{$userId}");
+
+        return $notification;
     }
 }

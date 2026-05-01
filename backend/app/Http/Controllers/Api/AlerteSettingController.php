@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\AlerteSetting;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class AlerteSettingController extends Controller
 {
@@ -44,6 +45,7 @@ class AlerteSettingController extends Controller
         ]);
 
         $setting->update($validated);
+        Cache::forget('settings:alertes');
 
         return response()->json([
             'message' => 'Paramètre d\'alerte mis à jour',

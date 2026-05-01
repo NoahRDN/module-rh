@@ -29,7 +29,27 @@ class DemandeCongeController extends Controller
             $emp = $request->query('employe_id');
             $from = $request->query('from');
             $to = $request->query('to');
-            $query = DemandeConge::with(['employe', 'typeConge', 'approbateur'])->orderBy('created_at', 'desc');
+            $perPage = min(100, max(1, (int) $request->query('per_page', 10)));
+            $query = DemandeConge::query()
+                ->select([
+                    'id',
+                    'employe_id',
+                    'type_conge_id',
+                    'jours_demandes',
+                    'date_debut',
+                    'date_fin',
+                    'statut',
+                    'motif',
+                    'approuve_par',
+                    'created_at',
+                    'updated_at',
+                ])
+                ->with([
+                    'employe:id,matricule,nom,prenom,poste_id,departement_id',
+                    'typeConge:id,code,libelle',
+                    'approbateur:id,name,email,role',
+                ])
+                ->orderBy('created_at', 'desc');
             if ($emp) {
                 $query->where('employe_id', $emp);
             }
@@ -39,7 +59,7 @@ class DemandeCongeController extends Controller
             if ($to) {
                 $query->whereDate('date_fin', '<=', $to);
             }
-            return response()->json($query->paginate(10));
+            return response()->json($query->paginate($perPage));
         } catch (\Throwable $e) {
             Log::error('Erreur liste demandes conge', ['error' => $e->getMessage()]);
             return response()->json(['message' => 'Erreur serveur'], 500);

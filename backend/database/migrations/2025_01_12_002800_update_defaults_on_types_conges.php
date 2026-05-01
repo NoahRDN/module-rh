@@ -16,17 +16,12 @@ return new class extends Migration {
             $table->boolean('cumulable')->default(false)->change();
         });
 
-        DB::table('types_conges')
-            ->whereNull('utilise_solde')
-            ->update(['utilise_solde' => false]);
-
-        DB::table('types_conges')
-            ->whereNull('cumulable')
-            ->update(['cumulable' => false]);
+        DB::statement('UPDATE types_conges SET utilise_solde = false WHERE utilise_solde IS NULL');
+        DB::statement('UPDATE types_conges SET cumulable = false WHERE cumulable IS NULL');
 
         // Recréation de la vue
         DB::statement(<<<'SQL'
-CREATE OR REPLACE VIEW view_types_conges_full AS
+CREATE VIEW view_types_conges_full AS
 SELECT
     tc.id,
     tc.libelle,
@@ -68,7 +63,7 @@ SQL);
         });
 
         DB::statement(<<<'SQL'
-CREATE OR REPLACE VIEW view_types_conges_full AS
+CREATE VIEW view_types_conges_full AS
 SELECT
     tc.id,
     tc.libelle,

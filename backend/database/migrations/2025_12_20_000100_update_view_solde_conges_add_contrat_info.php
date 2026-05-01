@@ -7,9 +7,12 @@ return new class extends Migration {
     public function up(): void
     {
         DB::statement('DROP VIEW IF EXISTS view_solde_conges');
+        if (DB::getDriverName() !== 'pgsql') {
+            return;
+        }
 
         DB::statement(<<<'SQL'
-CREATE OR REPLACE VIEW view_solde_conges AS
+CREATE VIEW view_solde_conges AS
 SELECT
     row_number() OVER () AS id,
     ac.employe_id,

@@ -156,7 +156,7 @@
                       <span class="priority-pill" :class="`priority-pill-${alerte.level}`">
                         {{ priorityLevelLabel(alerte.level) }}
                       </span>
-                      <span class="priority-type">{{ formatAlertType(alerte.type) }}</span>
+                      <span class="priority-type">{{ formatAlertType(alerte) }}</span>
                     </div>
                     <p class="priority-message">{{ formatAlertMessage(alerte.message) }}</p>
                   </div>
@@ -297,6 +297,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { Chart, registerables } from 'chart.js'
 import api from '../services/api'
 import AppIcon from '../components/ui/AppIcon.vue'
+import { setCurrencyCatalog, setStoredCurrency } from '../utils/currency'
 
 Chart.register(...registerables)
 
@@ -312,6 +313,7 @@ const derniersEmployes = ref([])
 const loading = ref(false)
 const loadStatus = ref({ type: '', text: '' })
 const lastRefreshedAt = ref(null)
+const BRANDING_CACHE_KEY = 'rh_entreprise_branding'
 
 const chartDepartements = ref(null)
 const chartContrats = ref(null)
@@ -473,57 +475,64 @@ const loadData = async () => {
   loadStatus.value = { type: '', text: '' }
 
   try {
-    const statsParams = buildStatsParams()
-    const [statsRes, alertesRes, empRes] = await Promise.all([
-      api.get('/v1/dashboard/statistiques', {
-        params: statsParams,
-      }),
-      api.get('/v1/alertes'),
-      api.get('/v1/employes', { params: buildRecentEmployeesParams() }),
-    ])
+    const { data } = await api.get('/dashboard/bootstrap', {
+      params: buildStatsParams(),
+    })
 
-    statsData.value = statsRes.data || {}
-    alertes.value = alertesRes.data.data || []
+    statsData.value = data?.statistiques || emptyStats()
+    alertes.value = Array.isArray(data?.alertes_recentes) ? data.alertes_recentes : []
+    derniersEmployes.value = Array.isArray(data?.donnees_rapides?.derniers_employes)
+      ? data.donnees_rapides.derniers_employes
+      : []
 
-    const empData = empRes.data.data || empRes.data || []
-    derniersEmployes.value = Array.isArray(empData) ? empData : []
+    if (Array.isArray(data?.devises)) {
+      setCurrencyCatalog(data.devises)
+    }
+
+    if (data?.entreprise?.devise) {
+      setStoredCurrency(data.entreprise.devise)
+    }
+
+    if (data?.entreprise) {
+      localStorage.setItem(BRANDING_CACHE_KEY, JSON.stringify(data.entreprise))
+      window.dispatchEvent(new CustomEvent('rh:entreprise-branding', { detail: data.entreprise }))
+    }
 
     lastRefreshedAt.value = new Date()
   } catch (error) {
     console.error('Erreur chargement dashboard:', error)
     loadStatus.value = {
       type: 'warning',
-      text: 'Certaines données n’ont pas pu être chargées. Le tableau de bord utilise un mode dégradé.',
+      text: dashboardErrorMessage(error),
     }
+    statsData.value = emptyStats()
+    alertes.value = []
+    derniersEmployes.value = []
+    lastRefreshedAt.value = new Date()
+  } finally {
+    loading.value = false
+    await nextTick()
+    updateCharts()
+  }
+}
 
-    try {
-      const [emp] = await Promise.all([api.get('/v1/employes', { params: buildRecentEmployeesParams() })])
-      derniersEmployes.value = (emp.data.data || []).slice(0, 5)
-      statsData.value = {
-        effectifs: { actifs: emp.data.total ?? emp.data.data?.length ?? 0, nouveaux: 0 },
-        indicateurs: { turnover: 0, absenteisme: 0, performance_moyenne: 0, anciennete_moyenne: 0 },
-        repartitions: {},
-        tendances: [],
-      }
-      alertes.value = []
-      lastRefreshedAt.value = new Date()
-    } catch (fallbackError) {
-      console.error('Erreur fallback dashboard:', fallbackError)
-      statsData.value = {
-        effectifs: { actifs: 0, nouveaux: 0 },
-        indicateurs: { turnover: 0, absenteisme: 0, performance_moyenne: 0, anciennete_moyenne: 0 },
-        repartitions: {},
-        tendances: [],
-      }
-      alertes.value = []
-      derniersEmployes.value = []
-      lastRefreshedAt.value = new Date()
-    }
+const emptyStats = () => ({
+  effectifs: { total: 0, actifs: 0, inactifs: 0, nouveaux: 0, departs: 0 },
+  indicateurs: { turnover: 0, absenteisme: 0, performance_moyenne: 0, anciennete_moyenne: 0 },
+  repartitions: { departements: [], types_contrat: [], genres: [], tranches_age: [] },
+  tendances: [],
+})
+
+const dashboardErrorMessage = (error) => {
+  if (error?.code === 'ECONNABORTED') {
+    return 'Le tableau de bord met trop de temps à répondre. Réessayez dans quelques instants.'
   }
 
-  loading.value = false
-  await nextTick()
-  updateCharts()
+  if (error?.response?.status === 401 || error?.response?.status === 403) {
+    return 'Votre session ne permet pas de charger ce tableau de bord.'
+  }
+
+  return 'Les données du tableau de bord n’ont pas pu être chargées. Réessayez dans quelques instants.'
 }
 
 const updateCharts = () => {
@@ -756,7 +765,27 @@ const observeTheme = () => {
   }
 }
 
-const formatAlertType = (type) => {
+const todayIsoDate = () => {
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = String(today.getMonth() + 1).padStart(2, '0')
+  const day = String(today.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const isTodayAlert = (item) => {
+  const date = item?.date_debut || item?.date_fin
+  return typeof date === 'string' && date.slice(0, 10) === todayIsoDate()
+}
+
+const formatAlertType = (item) => {
+  const type = typeof item === 'string' ? item : item?.type
+  const todayLabels = {
+    fin_contrat: 'Contrat',
+    conge_proche: 'Congé',
+    ferie_proche: 'Férié',
+    evenement_rh_proche: 'Événement RH',
+  }
   const types = {
     fin_contrat: 'Contrat',
     conges_non_pris: 'Congés',
@@ -765,9 +794,9 @@ const formatAlertType = (type) => {
     conge_en_attente: 'Demande',
     conge_proche: 'Congé urgent',
     ferie_proche: 'Férié proche',
-    evenement_rh_proche: 'Événement RH',
+    evenement_rh_proche: 'Événement RH proche',
   }
-  return types[type] || type
+  return isTodayAlert(item) && todayLabels[type] ? todayLabels[type] : types[type] || type
 }
 
 const priorityLevelLabel = (level) => {

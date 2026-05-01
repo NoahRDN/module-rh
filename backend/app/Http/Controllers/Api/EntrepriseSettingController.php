@@ -6,13 +6,16 @@ use App\Http\Controllers\Controller;
 use App\Models\EntrepriseSetting;
 use App\Services\SupabaseStorageService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\Rule;
 
 class EntrepriseSettingController extends Controller
 {
     public function show()
     {
-        return response()->json($this->settingPayload($this->setting()));
+        return response()->json(Cache::remember('settings:entreprise', now()->addMinutes(30), function () {
+            return $this->settingPayload($this->setting());
+        }));
     }
 
     public function update(Request $request, SupabaseStorageService $storage)
@@ -42,6 +45,7 @@ class EntrepriseSettingController extends Controller
         }
 
         $setting->save();
+        Cache::forget('settings:entreprise');
 
         return response()->json($this->settingPayload($setting->fresh()));
     }

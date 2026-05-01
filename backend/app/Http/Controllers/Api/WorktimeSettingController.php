@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\WorktimeSetting;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class WorktimeSettingController extends Controller
@@ -42,6 +43,7 @@ class WorktimeSettingController extends Controller
         $setting = WorktimeSetting::first() ?? $this->defaults();
         $setting->fill($data);
         $setting->save();
+        Cache::forget('settings:worktime');
 
         return response()->json($this->present($setting));
     }

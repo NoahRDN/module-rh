@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
@@ -35,10 +36,10 @@ class Pointage extends Model
     public function scopeBetween(Builder $query, $from, $to): Builder
     {
         if ($from) {
-            $query->whereDate('pointe_a', '>=', $from);
+            $query->where('pointe_a', '>=', Carbon::parse($from)->startOfDay());
         }
         if ($to) {
-            $query->whereDate('pointe_a', '<=', $to);
+            $query->where('pointe_a', '<=', Carbon::parse($to)->endOfDay());
         }
         return $query;
     }

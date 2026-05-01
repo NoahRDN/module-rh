@@ -18,8 +18,9 @@ return new class extends Migration {
             }
         });
 
+        DB::statement('DROP VIEW IF EXISTS view_types_conges_full');
         DB::statement(<<<'SQL'
-CREATE OR REPLACE VIEW view_types_conges_full AS
+CREATE VIEW view_types_conges_full AS
 SELECT
     tc.id,
     tc.libelle,

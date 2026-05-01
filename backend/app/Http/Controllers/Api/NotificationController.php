@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Notification;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class NotificationController extends Controller
@@ -39,7 +40,11 @@ class NotificationController extends Controller
     public function countNonLues(Request $request)
     {
         try {
-            $count = $request->user()->notificationsNonLues()->count();
+            $user = $request->user();
+            $count = Cache::remember("notifications:unread_count:{$user->id}", now()->addSeconds(30), function () use ($user) {
+                return $user->notificationsNonLues()->count();
+            });
+
             return response()->json(['count' => $count]);
         } catch (\Throwable $e) {
             Log::error('Erreur comptage notifications', ['error' => $e->getMessage()]);
@@ -55,6 +60,7 @@ class NotificationController extends Controller
         try {
             $notification = Notification::findOrFail($id);
             $notification->marquerCommeLu();
+            Cache::forget("notifications:unread_count:{$notification->user_id}");
 
             return response()->json(['message' => 'Notification marquée comme lue']);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
@@ -71,10 +77,12 @@ class NotificationController extends Controller
     public function marquerToutesLues(Request $request)
     {
         try {
-            $request->user()->notificationsNonLues()->update([
+            $user = $request->user();
+            $user->notificationsNonLues()->update([
                 'lu' => true,
                 'lu_at' => now(),
             ]);
+            Cache::forget("notifications:unread_count:{$user->id}");
 
             return response()->json(['message' => 'Toutes les notifications ont été marquées comme lues']);
         } catch (\Throwable $e) {
@@ -90,7 +98,9 @@ class NotificationController extends Controller
     {
         try {
             $notification = Notification::findOrFail($id);
+            $userId = $notification->user_id;
             $notification->delete();
+            Cache::forget("notifications:unread_count:{$userId}");
 
             return response()->json(['message' => 'Notification supprimée']);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
@@ -107,7 +117,9 @@ class NotificationController extends Controller
     public function supprimerLues(Request $request)
     {
         try {
-            $request->user()->notifications()->where('lu', true)->delete();
+            $user = $request->user();
+            $user->notifications()->where('lu', true)->delete();
+            Cache::forget("notifications:unread_count:{$user->id}");
 
             return response()->json(['message' => 'Notifications lues supprimées']);
         } catch (\Throwable $e) {

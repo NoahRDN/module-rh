@@ -7,6 +7,7 @@ use App\Models\Employe;
 use App\Models\Contrat;
 use App\Models\Departement;
 use App\Models\DemandeConge;
+use App\Models\DashboardStat;
 use App\Models\Devise;
 use App\Models\EntrepriseSetting;
 use App\Models\Pointage;
@@ -37,15 +38,16 @@ class DashboardController extends Controller
 
         $entreprise = $this->cachedEntrepriseSetting();
         $devises = $this->cachedDevisesActives();
+        $dashboard = $this->dashboardStatPayload($filtre, $periode);
 
         return response()->json([
             'utilisateur' => $this->userPayload($request),
             'entreprise' => $entreprise,
             'devise' => $this->resolveDevise($entreprise['devise'] ?? null, $devises),
             'devises' => $devises,
-            'statistiques' => $this->cachedStatistiques($filtre, $periode),
-            'alertes_recentes' => app(AlerteController::class)->recent(6),
-            'donnees_rapides' => $this->getDonneesRapides($periode),
+            'statistiques' => $dashboard['statistiques'],
+            'alertes_recentes' => $dashboard['alertes_recentes'],
+            'donnees_rapides' => $dashboard['donnees_rapides'],
         ]);
     }
 
@@ -64,22 +66,69 @@ class DashboardController extends Controller
             $request->query('date_fin')
         );
 
-        return response()->json($this->cachedStatistiques($filtre, $periode));
+        return response()->json($this->dashboardStatPayload($filtre, $periode)['statistiques']);
     }
 
-    private function cachedStatistiques(string $filtre, array $periode): array
+    public function refreshSnapshot(string $filtre = 'annee', ?string $date = null, ?string $dateDebut = null, ?string $dateFin = null): DashboardStat
     {
-        $cacheKey = implode(':', [
-            'dashboard',
-            'statistiques',
-            $filtre,
-            $periode['debut']->format('Y-m-d'),
-            $periode['fin']->format('Y-m-d'),
-        ]);
+        $periode = $this->getPeriode($filtre, $date ?: now()->format('Y-m-d'), $dateDebut, $dateFin);
 
-        return Cache::remember($cacheKey, now()->addSeconds(60), function () use ($filtre, $periode) {
-            return $this->getStatistiquesPayload($filtre, $periode);
-        });
+        return $this->storeDashboardSnapshot($filtre, $periode);
+    }
+
+    private function dashboardStatPayload(string $filtre, array $periode): array
+    {
+        $snapshot = $this->findDashboardSnapshot($filtre, $periode)
+            ?: $this->storeDashboardSnapshot($filtre, $periode);
+
+        return [
+            'statistiques' => $snapshot->statistiques ?: $this->emptyStats($filtre, $periode),
+            'alertes_recentes' => $snapshot->alertes_recentes ?: [],
+            'donnees_rapides' => $snapshot->donnees_rapides ?: [],
+        ];
+    }
+
+    private function findDashboardSnapshot(string $filtre, array $periode): ?DashboardStat
+    {
+        return DashboardStat::query()
+            ->where('filtre', $filtre)
+            ->whereDate('date_debut', $periode['debut']->toDateString())
+            ->whereDate('date_fin', $periode['fin']->toDateString())
+            ->first();
+    }
+
+    private function storeDashboardSnapshot(string $filtre, array $periode): DashboardStat
+    {
+        $payload = [
+            'statistiques' => $this->getStatistiquesPayload($filtre, $periode),
+            'donnees_rapides' => $this->getDonneesRapides($periode),
+            'alertes_recentes' => app(AlerteController::class)->recent(6),
+            'generated_at' => now(),
+        ];
+
+        return DashboardStat::query()->updateOrCreate(
+            [
+                'filtre' => $filtre,
+                'date_debut' => $periode['debut']->toDateString(),
+                'date_fin' => $periode['fin']->toDateString(),
+            ],
+            $payload
+        );
+    }
+
+    private function emptyStats(string $filtre, array $periode): array
+    {
+        return [
+            'effectifs' => ['total' => 0, 'actifs' => 0, 'inactifs' => 0, 'nouveaux' => 0, 'departs' => 0],
+            'indicateurs' => ['anciennete_moyenne' => 0, 'turnover' => 0, 'absenteisme' => 0, 'performance_moyenne' => 0],
+            'repartitions' => ['departements' => [], 'types_contrat' => [], 'genres' => [], 'tranches_age' => []],
+            'tendances' => [],
+            'periode' => [
+                'filtre' => $filtre,
+                'debut' => $periode['debut']->format('Y-m-d'),
+                'fin' => $periode['fin']->format('Y-m-d'),
+            ],
+        ];
     }
 
     private function getStatistiquesPayload(string $filtre, array $periode): array

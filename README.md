@@ -70,6 +70,20 @@ Remarque :
 - `php artisan db:seed` est à lancer sur une base vide pour créer les données de démonstration et les comptes de connexion par défaut.
 - Si vous conservez les volumes Docker entre deux relances, il n'est généralement pas nécessaire de reseed.
 
+### Snapshots / tables de synthèse
+Le dashboard lit des snapshots dans `dashboard_stats`. Si une période n'est pas encore générée, l'API répond rapidement avec un statut `generating` et le service `queue` calcule le snapshot en arrière-plan.
+
+Commandes utiles en Docker :
+```bash
+docker compose exec backend php artisan dashboard:refresh --filtre=all --date=2026-05-01
+docker compose exec backend php artisan dashboard:refresh --filtre=periode --date_debut=2026-03-01 --date_fin=2026-03-31
+docker compose exec backend php artisan read-models:refresh --annee=2026
+docker compose exec backend php artisan queue:work --queue=dashboard,default --tries=2
+docker compose exec backend php artisan schedule:work
+```
+
+Avec `docker compose up`, les services `queue` et `scheduler` sont lancés séparément. Le scheduler exécute `read-models:refresh` toutes les 15 minutes pour maintenir les périodes courantes, et le worker traite les générations async déclenchées par l'API.
+
 ### Comptes de connexion de démonstration
 Après le seeding, l'écran de connexion accepte les comptes suivants.
 

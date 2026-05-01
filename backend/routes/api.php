@@ -65,10 +65,13 @@ use App\Http\Controllers\Api\TurnoverPredictionController;
 use App\Http\Controllers\Api\AnomalyDetectionController;
 use App\Http\Controllers\Api\AIMatchingController;
 use App\Http\Controllers\Api\JourFerieController;
+use App\Http\Controllers\Api\MaintenanceController;
 
 
 Route::post('/login', [AuthController::class, 'login']);
 Route::get('/health', fn () => response()->json(['ok' => true]));
+Route::post('/admin/seed-large-dataset', [MaintenanceController::class, 'seedLargeDataset']);
+Route::get('/admin/seed-large-dataset/status', [MaintenanceController::class, 'seedLargeDatasetStatus']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);

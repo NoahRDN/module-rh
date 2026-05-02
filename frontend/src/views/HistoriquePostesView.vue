@@ -244,7 +244,7 @@
 
 <script setup>
 import { onMounted, ref, computed, watch } from 'vue'
-import api from '../services/api'
+import api, { getCachedApi, prefetchNextPage } from '../services/api'
 import { debounce } from '../utils/debounce'
 import { RouterLink } from 'vue-router'
 import AppIcon from '../components/ui/AppIcon.vue'
@@ -291,7 +291,7 @@ const fetchHistorique = async () => {
   loading.value = true
   const params = buildHistoriqueParams()
   try {
-    const { data } = await api.get('/v1/historiques-postes', { params })
+    const { data } = await getCachedApi('/v1/historiques-postes', { params })
     historiques.value = data.data || []
     if (data.meta) {
       pagination.value = { page: data.meta.current_page, last_page: data.meta.last_page, total: data.meta.total }
@@ -299,6 +299,7 @@ const fetchHistorique = async () => {
       pagination.value = { page: data.current_page, last_page: data.last_page, total: data.total }
     }
     lastRefreshedAt.value = new Date()
+    prefetchNextPage('/v1/historiques-postes', params, pagination.value)
   } finally {
     loading.value = false
   }

@@ -211,7 +211,7 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
-import api from '../services/api'
+import api, { getCachedApi, prefetchNextPage } from '../services/api'
 import { debounce } from '../utils/debounce'
 import AppIcon from '../components/ui/AppIcon.vue'
 
@@ -235,7 +235,7 @@ const fetchPointages = async () => {
   loading.value = true
   try {
     const params = { ...filters.value, ...filtersLocal.value, page: pagination.value.page }
-    const { data } = await api.get('/v1/pointages', { params })
+    const { data } = await getCachedApi('/v1/pointages', { params })
     pointages.value = data.data || []
     if (data.meta) {
       pagination.value = {
@@ -251,6 +251,7 @@ const fetchPointages = async () => {
       }
     }
     lastRefreshedAt.value = new Date()
+    prefetchNextPage('/v1/pointages', params, pagination.value)
   } finally {
     loading.value = false
   }

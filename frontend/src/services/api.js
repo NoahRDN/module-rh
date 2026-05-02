@@ -69,6 +69,95 @@ const api = axios.create({
   baseURL: apiBaseUrl,
   timeout: 10000,
 })
+
+const pageCache = new Map()
+const PAGE_CACHE_TTL_MS = 30000
+
+const stableParams = (params = {}) => Object.keys(params)
+  .sort()
+  .reduce((acc, key) => {
+    const value = params[key]
+    if (value !== undefined && value !== null && value !== '') {
+      acc[key] = value
+    }
+    return acc
+  }, {})
+
+const cacheKey = (url, config = {}) =>
+  `${String(config.method || 'get').toLowerCase()}:${url}:${JSON.stringify(stableParams(config.params || {}))}`
+
+const cloneData = (data) => {
+  if (typeof structuredClone === 'function') {
+    return structuredClone(data)
+  }
+
+  return JSON.parse(JSON.stringify(data))
+}
+
+const cachedResponse = (data) => ({ data: cloneData(data), status: 200, statusText: 'OK', headers: {}, config: {} })
+
+export const getCachedApi = async (url, config = {}) => {
+  const key = cacheKey(url, config)
+  const entry = pageCache.get(key)
+
+  if (entry?.data && Date.now() - entry.cachedAt < PAGE_CACHE_TTL_MS) {
+    return cachedResponse(entry.data)
+  }
+
+  if (entry?.promise) {
+    return entry.promise.then((response) => cachedResponse(response.data))
+  }
+
+  const promise = api.get(url, config)
+    .then((response) => {
+      pageCache.set(key, { data: cloneData(response.data), cachedAt: Date.now() })
+      return response
+    })
+    .catch((error) => {
+      pageCache.delete(key)
+      throw error
+    })
+
+  pageCache.set(key, { promise })
+  return promise
+}
+
+export const prefetchApiGet = (url, config = {}) => {
+  const key = cacheKey(url, config)
+  const entry = pageCache.get(key)
+
+  if (entry?.data && Date.now() - entry.cachedAt < PAGE_CACHE_TTL_MS) return
+  if (entry?.promise) return
+
+  const promise = api.get(url, config)
+    .then((response) => {
+      pageCache.set(key, { data: cloneData(response.data), cachedAt: Date.now() })
+      return response
+    })
+    .catch(() => {
+      pageCache.delete(key)
+    })
+
+  pageCache.set(key, { promise })
+}
+
+export const prefetchNextPage = (url, params = {}, pagination = {}, config = {}) => {
+  const currentPage = Number(pagination.page ?? pagination.current_page ?? params.page ?? 1)
+  const lastPage = Number(pagination.last_page ?? 1)
+
+  if (!Number.isFinite(currentPage) || !Number.isFinite(lastPage) || currentPage >= lastPage) {
+    return
+  }
+
+  prefetchApiGet(url, {
+    ...config,
+    params: {
+      ...params,
+      page: currentPage + 1,
+    },
+  })
+}
+
 // injecter le token s’il existe
 api.interceptors.request.use(config => {
   const token = localStorage.getItem('token')
@@ -76,6 +165,14 @@ api.interceptors.request.use(config => {
     config.headers.Authorization = `Bearer ${token}`
   }
   return config
+})
+
+api.interceptors.response.use(response => {
+  if (String(response.config?.method || '').toLowerCase() !== 'get') {
+    pageCache.clear()
+  }
+
+  return response
 })
 
 export default api

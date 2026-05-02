@@ -189,7 +189,7 @@
 <script setup>
 import { onMounted, ref, computed, watch } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
-import api from '../services/api'
+import api, { getCachedApi, prefetchNextPage } from '../services/api'
 import { debounce } from '../utils/debounce'
 import AppIcon from '../components/ui/AppIcon.vue'
 
@@ -295,7 +295,7 @@ const fetchSoldes = async () => {
     type: filters.value.type || undefined,
     departement: filters.value.departement || undefined
   }
-  const { data } = await api.get('/v1/soldes-conges', { params })
+  const { data } = await getCachedApi('/v1/soldes-conges', { params })
   soldes.value = data.data || []
   if (data.meta) {
     pagination.value = {
@@ -311,6 +311,7 @@ const fetchSoldes = async () => {
     }
   }
   lastRefreshedAt.value = new Date()
+  prefetchNextPage('/v1/soldes-conges', params, pagination.value)
   loading.value = false
 }
 

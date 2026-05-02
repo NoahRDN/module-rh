@@ -210,7 +210,7 @@
 
 <script setup>
 import { onMounted, ref, computed, watch } from 'vue'
-import api, { resolveBackendAssetUrl } from '../services/api'
+import api, { getCachedApi, prefetchNextPage, resolveBackendAssetUrl } from '../services/api'
 import { debounce } from '../utils/debounce'
 import { RouterLink } from 'vue-router'
 import AppIcon from '../components/ui/AppIcon.vue'
@@ -241,7 +241,7 @@ const fetchDocs = async () => {
   loading.value = true
   try {
     const params = buildDocumentParams()
-    const { data } = await api.get('/v1/documents', { params })
+    const { data } = await getCachedApi('/v1/documents', { params })
     docs.value = data.data || data || []
     if (data.meta) {
       pagination.value = {
@@ -257,6 +257,7 @@ const fetchDocs = async () => {
       }
     }
     lastRefreshedAt.value = new Date()
+    prefetchNextPage('/v1/documents', params, pagination.value)
   } finally {
     loading.value = false
   }

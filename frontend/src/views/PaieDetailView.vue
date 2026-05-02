@@ -96,9 +96,14 @@
 
             <div class="overview-grid">
               <div class="overview-card">
-                <p class="overview-label">Salaire de base</p>
-                <p class="overview-value">{{ formatMoney(paie.salaire_base) }}</p>
+                <p class="overview-label">Salaire contractuel</p>
+                <p class="overview-value">{{ formatMoney(salaireBaseContractuel) }}</p>
                 <p class="overview-copy">Base contractuelle utilisée</p>
+              </div>
+              <div class="overview-card">
+                <p class="overview-label">Base paie calculée</p>
+                <p class="overview-value">{{ formatMoney(salaireBaseCalcule) }}</p>
+                <p class="overview-copy">Montant proratisé avant primes</p>
               </div>
               <div class="overview-card">
                 <p class="overview-label">Taux horaire</p>
@@ -192,7 +197,11 @@
                     <td>{{ formatHours(detail.heures_travaillees) }}</td>
                     <td>{{ formatHours(detail.heures_supplementaires) }}</td>
                     <td>{{ formatInteger(detail.retard_minutes) }} min</td>
-                    <td>{{ detail.absent ? 'Oui' : 'Non' }}</td>
+                    <td>
+                      <span class="chip absence-chip" :class="detail.absent ? 'danger' : 'success'">
+                        {{ detail.absent ? 'Oui' : 'Non' }}
+                      </span>
+                    </td>
                     <td>
                       <span class="chip source-chip" :class="detailSourceClass(detail)">
                         {{ detailSourceLabel(detail) }}
@@ -446,6 +455,12 @@ const joursOuvres = computed(() => Number(paie.value?.jours_ouvres || 0))
 const heuresMensuellesRequises = computed(() => Number(paie.value?.heures_mensuelles_requises || 0))
 const tauxHoraire = computed(() => Number(paie.value?.taux_horaire || 0))
 const tauxJournalier = computed(() => Number(paie.value?.taux_journalier || 0))
+const salaireBaseContractuel = computed(() =>
+  Number(paie.value?.salaire_base_contractuel ?? contrat.value?.salaire_base ?? paie.value?.salaire_base ?? 0)
+)
+const salaireBaseCalcule = computed(() =>
+  Number(paie.value?.salaire_base_calcule ?? paie.value?.salaire_base ?? 0)
+)
 const statusPillClass = computed(() => ({
   'pill-green': statutCode.value === 'paye',
   'pill-red': statutCode.value === 'non_paye',
@@ -621,6 +636,16 @@ onMounted(fetchDetail)
 .chip.success {
   background: var(--success-100);
   color: var(--success-500);
+}
+
+.chip.danger {
+  background: var(--danger-100);
+  color: var(--danger-500);
+}
+
+.absence-chip {
+  min-width: 48px;
+  justify-content: center;
 }
 
 .side-grid {

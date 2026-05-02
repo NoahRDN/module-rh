@@ -208,7 +208,7 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
-import api from '../services/api'
+import api, { getCachedApi, prefetchNextPage } from '../services/api'
 import AppIcon from '../components/ui/AppIcon.vue'
 
 const departements = ref([])
@@ -350,7 +350,7 @@ const fetchPostes = async () => {
       ...(filters.value.nom ? { nom: filters.value.nom } : {}),
       ...(filters.value.categorie ? { categorie: filters.value.categorie } : {}),
     }
-    const { data } = await api.get('/v1/postes', { params })
+    const { data } = await getCachedApi('/v1/postes', { params })
 
     postes.value = data.data || []
 
@@ -369,6 +369,7 @@ const fetchPostes = async () => {
     }
 
     lastRefreshedAt.value = new Date()
+    prefetchNextPage('/v1/postes', params, pagination.value)
   } finally {
     loading.value = false
   }

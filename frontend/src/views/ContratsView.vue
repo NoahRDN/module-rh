@@ -379,7 +379,7 @@
 
 <script setup>
 import { onMounted, ref, computed, watch } from 'vue'
-import api from '../services/api'
+import api, { getCachedApi, prefetchNextPage } from '../services/api'
 import { debounce } from '../utils/debounce'
 import { parseISO, intervalToDuration, formatDuration } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -620,7 +620,7 @@ const fetchContrats = async () => {
       ...(filters.value.departement ? { departement: filters.value.departement } : {}),
       ...(filters.value.poste ? { poste: filters.value.poste } : {}),
     }
-    const { data } = await api.get('/v1/contrats', { params })
+    const { data } = await getCachedApi('/v1/contrats', { params })
     contrats.value = data.data || []
     if (data.meta) {
       pagination.value = {
@@ -636,6 +636,7 @@ const fetchContrats = async () => {
       }
     }
     lastRefreshedAt.value = new Date()
+    prefetchNextPage('/v1/contrats', params, pagination.value)
   } finally {
     loading.value = false
   }

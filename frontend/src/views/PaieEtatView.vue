@@ -275,7 +275,7 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import api from '../services/api'
+import api, { getCachedApi, prefetchNextPage } from '../services/api'
 import AppIcon from '../components/ui/AppIcon.vue'
 import { formatDateValue, formatMoneyAmount } from '../utils/formatters'
 
@@ -524,7 +524,7 @@ const refresh = async () => {
       } : {}),
     }
 
-    const { data } = await api.get('/v1/paies/etat', { params })
+    const { data } = await getCachedApi('/v1/paies/etat', { params, timeout: 60000 })
     totaux.value = data.totaux || {}
     statusCounts.value = data.status_counts || {}
     cotisations.value = data.cotisations || {}
@@ -539,8 +539,13 @@ const refresh = async () => {
     detailsPagination.value = data.details_pagination || { current_page: 1, per_page: perPage.value, total: details.value.length, last_page: 1 }
     currentPage.value = detailsPagination.value.current_page || 1
     syncSelectedCaisses(details.value)
+    if (mode.value === 'mois') {
+      prefetchNextPage('/v1/paies/etat', params, detailsPagination.value, { timeout: 60000 })
+    }
   } catch (e) {
-    error.value = e.response?.data?.message || e.message || 'Erreur chargement état de paie'
+    error.value = e.code === 'ECONNABORTED'
+      ? 'Le calcul de l’état de paie prend plus de temps que prévu avec le grand jeu de données. Réessaie après le rafraîchissement des synthèses.'
+      : e.response?.data?.message || e.message || 'Erreur chargement état de paie'
   } finally {
     loading.value = false
   }

@@ -379,6 +379,7 @@ export default {
           per_page: response.data.per_page,
           total: response.data.total
         }
+        archiveService.prefetchDocuments(params, this.pagination)
       } catch (err) {
         console.error('Erreur chargement documents:', err)
       } finally {

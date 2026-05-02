@@ -1377,8 +1377,12 @@ class PaieController extends Controller
                 ];
             }
 
+            $paiePayload = $paie->toArray();
+            $paiePayload['salaire_base_contractuel'] = (float) ($contrat?->salaire_base ?? $paie->salaire_base);
+            $paiePayload['salaire_base_calcule'] = (float) $paie->salaire_base;
+
             return response()->json([
-                'paie' => $paie,
+                'paie' => $paiePayload,
                 'contrat' => $contrat,
                 'mouvement_paiement' => $mouvementPaiement,
                 'statut' => [
@@ -1432,6 +1436,8 @@ class PaieController extends Controller
                     'mois' => $validated['mois'],
                     'employe' => $contrat->employe,
                     'salaire_base' => $forecast['salaire_base'],
+                    'salaire_base_contractuel' => (float) $contrat->salaire_base,
+                    'salaire_base_calcule' => $forecast['salaire_base'],
                     'taux_horaire' => $forecast['taux_horaire_affiche'],
                     'taux_journalier' => $forecast['taux_journalier_affiche'],
                     'jours_ouvres' => $forecast['jours_ouvres'],

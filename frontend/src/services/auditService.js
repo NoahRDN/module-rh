@@ -1,4 +1,4 @@
-import api from './api'
+import api, { getCachedApi, prefetchNextPage } from './api'
 
 /**
  * Service pour la gestion des audits
@@ -8,7 +8,14 @@ export const auditService = {
    * Récupère les logs d'audit avec filtres
    */
   getLogs(filters = {}) {
-    return api.get('/v1/audit', { params: filters })
+    return getCachedApi('/v1/audit', { params: filters })
+  },
+
+  /**
+   * Précharge la page suivante des logs d'audit
+   */
+  prefetchLogs(filters = {}, pagination = {}) {
+    return prefetchNextPage('/v1/audit', filters, pagination)
   },
 
   /**

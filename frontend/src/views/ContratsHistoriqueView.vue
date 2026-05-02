@@ -358,7 +358,7 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
-import api from '../services/api'
+import api, { getCachedApi, prefetchNextPage } from '../services/api'
 import AppIcon from '../components/ui/AppIcon.vue'
 
 const historiques = ref([])
@@ -545,7 +545,8 @@ const lastSyncedLabel = computed(() => {
 const fetchHistoriques = async () => {
   loading.value = true
   try {
-    const { data } = await api.get('/v1/contrats-historiques', { params: buildHistoriqueContratParams() })
+    const params = buildHistoriqueContratParams()
+    const { data } = await getCachedApi('/v1/contrats-historiques', { params })
     historiques.value = data.data || []
 
     if (data.meta) {
@@ -563,6 +564,7 @@ const fetchHistoriques = async () => {
     }
 
     lastRefreshedAt.value = new Date()
+    prefetchNextPage('/v1/contrats-historiques', params, pagination.value)
   } finally {
     loading.value = false
   }

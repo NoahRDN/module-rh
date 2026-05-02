@@ -317,6 +317,7 @@ export default {
           per_page: response.data.per_page,
           total: response.data.total
         }
+        auditService.prefetchLogs(params, this.pagination)
       } catch (err) {
         console.error('Erreur chargement logs:', err)
       } finally {

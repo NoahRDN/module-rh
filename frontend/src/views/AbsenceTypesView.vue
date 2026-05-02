@@ -187,7 +187,7 @@
 <script setup>
 import { ref, onMounted, computed, watch } from 'vue'
 import { RouterLink } from 'vue-router'
-import api from '../services/api'
+import api, { getCachedApi, prefetchNextPage } from '../services/api'
 import AppIcon from '../components/ui/AppIcon.vue'
 
 const types = ref([])
@@ -205,7 +205,8 @@ const hasFilters = computed(() =>
 const fetchTypes = async () => {
   loading.value = true
   try {
-    const { data } = await api.get('/v1/types-conges', { params: buildTypeParams(), paramsSerializer: { indexes: null } })
+    const params = buildTypeParams()
+    const { data } = await getCachedApi('/v1/types-conges', { params, paramsSerializer: { indexes: null } })
     types.value = data.data || []
     if (data.meta) {
       pagination.value = { page: data.meta.current_page, last_page: data.meta.last_page, total: data.meta.total }
@@ -213,6 +214,7 @@ const fetchTypes = async () => {
       pagination.value = { page: data.current_page, last_page: data.last_page, total: data.total }
     }
     lastRefreshedAt.value = new Date()
+    prefetchNextPage('/v1/types-conges', params, pagination.value, { paramsSerializer: { indexes: null } })
   } finally {
     loading.value = false
   }

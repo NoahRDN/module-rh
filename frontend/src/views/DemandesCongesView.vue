@@ -199,7 +199,7 @@
 <script setup>
 import { ref, onMounted, computed, watch } from 'vue'
 import { RouterLink } from 'vue-router'
-import api from '../services/api'
+import api, { getCachedApi, prefetchNextPage } from '../services/api'
 import { debounce } from '../utils/debounce'
 import AppIcon from '../components/ui/AppIcon.vue'
 import { formatDateValue } from '../utils/formatters'
@@ -258,7 +258,7 @@ const fetchDemandes = async () => {
   loading.value = true
   try {
     const params = buildDemandeParams()
-    const { data } = await api.get('/v1/demandes-conges', { params })
+    const { data } = await getCachedApi('/v1/demandes-conges', { params })
     demandes.value = data.data || []
     if (data.meta) {
       pagination.value = { page: data.meta.current_page, last_page: data.meta.last_page, total: data.meta.total }
@@ -266,6 +266,7 @@ const fetchDemandes = async () => {
       pagination.value = { page: data.current_page, last_page: data.last_page, total: data.total }
     }
     lastRefreshedAt.value = new Date()
+    prefetchNextPage('/v1/demandes-conges', params, pagination.value)
   } finally {
     loading.value = false
   }

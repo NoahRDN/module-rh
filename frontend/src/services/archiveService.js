@@ -1,4 +1,4 @@
-import api from './api'
+import api, { getCachedApi, prefetchNextPage } from './api'
 
 /**
  * Service pour la gestion des archives
@@ -37,7 +37,14 @@ export const archiveService = {
    * Récupère les documents archivés
    */
   getDocuments(filters = {}) {
-    return api.get('/v1/archives', { params: filters })
+    return getCachedApi('/v1/archives', { params: filters })
+  },
+
+  /**
+   * Précharge la page suivante des documents archivés
+   */
+  prefetchDocuments(filters = {}, pagination = {}) {
+    return prefetchNextPage('/v1/archives', filters, pagination)
   },
 
   /**

@@ -310,7 +310,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
-import api from '../services/api'
+import api, { getCachedApi, prefetchNextPage } from '../services/api'
 import AppIcon from '../components/ui/AppIcon.vue'
 
 const employes = ref([])
@@ -471,9 +471,8 @@ const fetchEmployes = async () => {
   loading.value = true
 
   try {
-    const { data } = await api.get('/v1/employes', {
-      params: buildEmployeeParams(),
-    })
+    const params = buildEmployeeParams()
+    const { data } = await getCachedApi('/v1/employes', { params })
 
     employes.value = data.data || []
 
@@ -492,6 +491,7 @@ const fetchEmployes = async () => {
     }
 
     lastRefreshedAt.value = new Date()
+    prefetchNextPage('/v1/employes', params, pagination.value)
   } finally {
     loading.value = false
   }

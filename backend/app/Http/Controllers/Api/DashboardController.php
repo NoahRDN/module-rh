@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\GenerateDashboardSnapshotJob;
 use App\Models\Employe;
 use App\Models\Contrat;
 use App\Models\Departement;
@@ -220,7 +221,11 @@ class DashboardController extends Controller
         );
 
         if ($row->wasRecentlyCreated || $row->wasChanged('status')) {
-            $row->touch();
+            GenerateDashboardSnapshotJob::dispatch(
+                $filtre,
+                $periode['debut']->toDateString(),
+                $periode['fin']->toDateString(),
+            )->afterResponse();
         }
     }
 

@@ -531,7 +531,7 @@ const refresh = async () => {
     paymentSummary.value = data.payment_summary || {}
     paymentDue.value = data.payment_due || {}
     syntheseStatus.value = paieSyntheseStatus(data.synthese)
-    if (data.synthese?.status === 'generating') {
+    if (['generating', 'stale'].includes(data.synthese?.status)) {
       scheduleSynthesePolling()
     }
     parMois.value = data.par_mois || []
@@ -570,15 +570,7 @@ const paieSyntheseStatus = (synthese) => {
   }
 
   if (synthese?.status === 'stale') {
-    return { text: synthese.message || 'La synthèse de paie est affichée, mais une mise à jour est en cours.' }
-  }
-
-  if (synthese?.status === 'missing_snapshot') {
-    return { text: synthese.message || 'La synthèse de paie n’est pas encore générée pour cette période.' }
-  }
-
-  if (synthese?.status === 'error') {
-    return { text: synthese.error_message || synthese.message || 'La génération de la synthèse de paie a échoué.' }
+    return { text: withSyntheseRefreshDelay(synthese.message || 'La synthèse de paie est affichée, mais une mise à jour est en cours.') }
   }
 
   return { text: '' }

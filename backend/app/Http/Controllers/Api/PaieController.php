@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\GeneratePaieSyntheseMonthJob;
 use App\Models\Paie;
 use App\Models\PaieDetail;
 use App\Models\PaieParametre;
@@ -24,7 +25,6 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use DateInterval;
 use DatePeriod;
 use Carbon\Carbon;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
@@ -743,7 +743,6 @@ class PaieController extends Controller
         $matriculeFilter = $validated['matricule'] ?? null;
         $nomFilter = $validated['nom'] ?? null;
         $contratFilter = $validated['contrat'] ?? null;
-
         if (!$statut && ($validated['paiement'] ?? null) === 'paye') {
             $statut = 'paye';
         }
@@ -772,28 +771,50 @@ class PaieController extends Controller
             );
 
             $synthese = $this->paieSyntheseStateForMonths($months);
-            $filteredQuery = $this->applyEtatStatutFilterToQuery(
-                PaieSyntheseMensuelle::query()->whereIn('mois', $months),
-                $statut,
-            );
 
-            $parMois = $this->summarizeEtatRowsByMonth($filteredQuery)
-                ->filter(fn (array $summary) => $summary['bulletins'] > 0 || $summary['bulletins_non_payes'] > 0 || $summary['deja_paye'] > 0 || $summary['reste_a_payer'] > 0)
-                ->values();
+            $parMois = collect($months)->map(function (string $month) use ($statut) {
+                $rows = $this->filterEtatRows($this->etatPaieRowsFromSynthese($month), $statut);
 
-            $statusCounts = $this->statusCountsForQuery(clone $filteredQuery);
-            $aggregates = $this->aggregatePaieSyntheseQuery(clone $filteredQuery);
-            $summaryTotal = (int) $aggregates['employes_actifs'];
+                return $this->summarizeEtatRows($rows, $month);
+            })->filter(function (array $summary) {
+                return $summary['bulletins'] > 0
+                    || $summary['bulletins_non_payes'] > 0
+                    || $summary['deja_paye'] > 0
+                    || $summary['reste_a_payer'] > 0;
+            })->values();
+
+            $allRows = collect($months)->flatMap(function (string $month) use ($statut) {
+                return $this->filterEtatRows($this->etatPaieRowsFromSynthese($month), $statut)
+                    ->map(fn (array $row) => array_merge($row, ['periode_mois' => $month]));
+            })->values();
+
+            $statusCounts = $allRows->countBy('statut')->all();
+            $summaryTotal = $allRows->count();
             $summaryPaid = (int) ($statusCounts['paye'] ?? 0);
             $summaryUnpaid = max(0, $summaryTotal - $summaryPaid);
-
-            $paymentDue = [
-                'employes' => (float) $aggregates['payment_due_employes'],
-                'cnaps' => (float) $aggregates['payment_due_cnaps'],
-                'ostie' => (float) $aggregates['payment_due_ostie'],
-                'irsa' => (float) $aggregates['payment_due_irsa'],
+            $summaryPaymentDueRows = $allRows->filter(fn ($row) => in_array($row['statut'], ['non_genere', 'en_attente_validation', 'non_paye', 'paiement_en_validation'], true));
+            $summaryPaymentDue = [
+                'employes' => round($summaryPaymentDueRows->sum('net_a_payer'), 2),
+                'cnaps' => round($summaryPaymentDueRows->sum(fn ($row) => (float) $row['retenue_cnaps'] + (float) $row['cnaps_employeur']), 2),
+                'ostie' => round($summaryPaymentDueRows->sum(fn ($row) => (float) $row['retenue_ostie'] + (float) $row['ostie_employeur']), 2),
+                'irsa' => round($summaryPaymentDueRows->sum('retenue_irsa'), 2),
             ];
-            $paymentDue['total'] = round(array_sum($paymentDue), 2);
+            $summaryPaymentDue['total'] = round(array_sum($summaryPaymentDue), 2);
+
+            $totaux = [
+                'bulletins' => $allRows->whereNotNull('paie_id')->count(),
+                'net_a_payer' => round($allRows->sum('net_a_payer'), 2),
+                'total_brut' => round($allRows->sum('total_brut'), 2),
+                'total_retenues' => round($allRows->sum('total_retenues'), 2),
+                'retenue_cnaps' => round($allRows->sum('retenue_cnaps'), 2),
+                'retenue_ostie' => round($allRows->sum('retenue_ostie'), 2),
+                'retenue_irsa' => round($allRows->sum('retenue_irsa'), 2),
+                'prime_transport' => 0,
+                'prime_presence' => 0,
+                'autres_primes' => 0,
+                'reste_a_payer' => round($summaryPaymentDueRows->sum('net_a_payer'), 2),
+                'deja_paye' => round($allRows->where('statut', 'paye')->sum('net_a_payer'), 2),
+            ];
 
             return response()->json([
                 'periode' => [
@@ -804,24 +825,24 @@ class PaieController extends Controller
                     'statut' => $statut,
                 ],
                 'totaux' => [
-                    'bulletins' => (int) $aggregates['bulletins'],
-                    'net_a_payer' => (float) $aggregates['net_a_payer'],
-                    'total_brut' => (float) $aggregates['total_brut'],
-                    'total_retenues' => (float) $aggregates['total_retenues'],
-                    'retenue_cnaps' => (float) $aggregates['retenue_cnaps'],
-                    'retenue_ostie' => (float) $aggregates['retenue_ostie'],
-                    'retenue_irsa' => (float) $aggregates['retenue_irsa'],
+                    'bulletins' => (int) ($totaux['bulletins'] ?? 0),
+                    'net_a_payer' => (float) ($totaux['net_a_payer'] ?? 0),
+                    'total_brut' => (float) ($totaux['total_brut'] ?? 0),
+                    'total_retenues' => (float) ($totaux['total_retenues'] ?? 0),
+                    'retenue_cnaps' => (float) ($totaux['retenue_cnaps'] ?? 0),
+                    'retenue_ostie' => (float) ($totaux['retenue_ostie'] ?? 0),
+                    'retenue_irsa' => (float) ($totaux['retenue_irsa'] ?? 0),
                     'prime_transport' => 0,
                     'prime_presence' => 0,
                     'autres_primes' => 0,
-                    'reste_a_payer' => (float) $aggregates['reste_a_payer'],
-                    'deja_paye' => (float) $aggregates['deja_paye'],
+                    'reste_a_payer' => (float) ($totaux['reste_a_payer'] ?? 0),
+                    'deja_paye' => (float) ($totaux['deja_paye'] ?? 0),
                 ],
                 'cotisations' => [
-                    'cnaps_salarie' => (float) $aggregates['retenue_cnaps'],
-                    'cnaps_employeur' => (float) $aggregates['cnaps_employeur'],
-                    'ostie' => round((float) $aggregates['retenue_ostie'] + (float) $aggregates['ostie_employeur'], 2),
-                    'irsa' => (float) $aggregates['retenue_irsa'],
+                    'cnaps_salarie' => round($allRows->sum('retenue_cnaps'), 2),
+                    'cnaps_employeur' => round($allRows->sum('cnaps_employeur'), 2),
+                    'ostie' => round($allRows->sum('retenue_ostie') + $allRows->sum('ostie_employeur'), 2),
+                    'irsa' => round($allRows->sum('retenue_irsa'), 2),
                 ],
                 'status_counts' => [
                     'non_genere' => 0,
@@ -837,42 +858,72 @@ class PaieController extends Controller
                     'pourcentage_paye' => $summaryTotal > 0 ? round(($summaryPaid / $summaryTotal) * 100, 2) : 0,
                     'pourcentage_non_paye' => $summaryTotal > 0 ? round(($summaryUnpaid / $summaryTotal) * 100, 2) : 0,
                 ],
-                'payment_due' => $paymentDue,
+                'payment_due' => [
+                    'employes' => round($summaryPaymentDue['employes'], 2),
+                    'cnaps' => round($summaryPaymentDue['cnaps'], 2),
+                    'ostie' => round($summaryPaymentDue['ostie'], 2),
+                    'irsa' => round($summaryPaymentDue['irsa'], 2),
+                    'total' => round(array_sum($summaryPaymentDue), 2),
+                ],
                 'par_mois' => $parMois,
                 'synthese' => $synthese,
             ]);
         }
 
         $synthese = $this->paieSyntheseStateForMonths([$mois]);
-        $monthQuery = PaieSyntheseMensuelle::query()->where('mois', $mois);
-        $statusCounts = $this->statusCountsForQuery(clone $monthQuery);
+        $rows = $this->etatPaieRowsFromSynthese($mois);
+        $statusCounts = $rows->countBy('statut')->all();
 
-        $filteredQuery = $this->applyEtatDetailFiltersToQuery(
-            $this->applyEtatStatutFilterToQuery(clone $monthQuery, $statut),
-            $matriculeFilter,
-            $nomFilter,
-            $contratFilter,
-        );
+        if ($statut !== 'tous') {
+            $rows = $rows->filter(function ($row) use ($statut) {
+                if ($statut === 'non_paye') {
+                    return in_array($row['statut'], ['non_genere', 'non_paye', 'paiement_en_validation'], true);
+                }
 
-        $aggregates = $this->aggregatePaieSyntheseQuery(clone $filteredQuery);
-        $paginator = $filteredQuery
-            ->orderBy('employe_id')
-            ->paginate($perPage, ['*'], 'page', $page);
+                return $row['statut'] === $statut;
+            })->values();
+        }
+        $rows = $this->filterEtatRowsByDetails($rows, $matriculeFilter, $nomFilter, $contratFilter);
 
-        $details = collect($paginator->items())
-            ->map(fn (PaieSyntheseMensuelle $row) => $this->paieSyntheseRow($row))
-            ->values();
+        $resteAPayer = $rows->sum(function ($row) {
+            if (!in_array($row['statut'], ['non_genere', 'en_attente_validation', 'non_paye', 'paiement_en_validation'], true)) {
+                return 0;
+            }
 
-        $paymentTotal = (int) $aggregates['employes_actifs'];
-        $paymentPaid = (int) $aggregates['paid_count'];
+            return (float) $row['net_a_payer'];
+        });
+
+        $totaux = [
+            'employes_actifs' => $rows->count(),
+            'bulletins' => $rows->whereNotNull('paie_id')->count(),
+            'prevision_salaire_base' => round($rows->sum('net_a_payer'), 2),
+            'net_a_payer' => round($rows->sum('net_a_payer'), 2),
+            'total_brut' => round($rows->sum('total_brut'), 2),
+            'total_retenues' => round($rows->sum('total_retenues'), 2),
+            'retenue_cnaps' => round($rows->sum('retenue_cnaps'), 2),
+            'retenue_ostie' => round($rows->sum('retenue_ostie'), 2),
+            'retenue_irsa' => round($rows->sum('retenue_irsa'), 2),
+            'cnaps_employeur' => round($rows->sum('cnaps_employeur'), 2),
+            'ostie_employeur' => round($rows->sum('ostie_employeur'), 2),
+            'total_ostie' => round($rows->sum('retenue_ostie') + $rows->sum('ostie_employeur'), 2),
+            'reste_a_payer' => round($resteAPayer, 2),
+            'deja_paye' => round($rows->where('statut', 'paye')->sum('net_a_payer'), 2),
+        ];
+        $paymentTotal = $rows->count();
+        $paymentPaid = $rows->where('statut', 'paye')->count();
         $paymentUnpaid = max(0, $paymentTotal - $paymentPaid);
+        $paymentDueRows = $rows->filter(fn ($row) => in_array($row['statut'], ['non_genere', 'en_attente_validation', 'non_paye', 'paiement_en_validation'], true));
         $paymentDue = [
-            'employes' => (float) $aggregates['payment_due_employes'],
-            'cnaps' => (float) $aggregates['payment_due_cnaps'],
-            'ostie' => (float) $aggregates['payment_due_ostie'],
-            'irsa' => (float) $aggregates['payment_due_irsa'],
+            'employes' => round($paymentDueRows->sum('net_a_payer'), 2),
+            'cnaps' => round($paymentDueRows->sum(fn ($row) => (float) $row['retenue_cnaps'] + (float) $row['cnaps_employeur']), 2),
+            'ostie' => round($paymentDueRows->sum(fn ($row) => (float) $row['retenue_ostie'] + (float) $row['ostie_employeur']), 2),
+            'irsa' => round($paymentDueRows->sum('retenue_irsa'), 2),
         ];
         $paymentDue['total'] = round(array_sum($paymentDue), 2);
+        $detailsTotal = $rows->count();
+        $detailsLastPage = max(1, (int) ceil($detailsTotal / $perPage));
+        $page = min($page, $detailsLastPage);
+        $details = $rows->forPage($page, $perPage)->values();
 
         return response()->json([
             'periode' => [
@@ -882,22 +933,7 @@ class PaieController extends Controller
                 'fin' => null,
                 'statut' => $statut,
             ],
-            'totaux' => [
-                'employes_actifs' => (int) $aggregates['employes_actifs'],
-                'bulletins' => (int) $aggregates['bulletins'],
-                'prevision_salaire_base' => (float) $aggregates['net_a_payer'],
-                'net_a_payer' => (float) $aggregates['net_a_payer'],
-                'total_brut' => (float) $aggregates['total_brut'],
-                'total_retenues' => (float) $aggregates['total_retenues'],
-                'retenue_cnaps' => (float) $aggregates['retenue_cnaps'],
-                'retenue_ostie' => (float) $aggregates['retenue_ostie'],
-                'retenue_irsa' => (float) $aggregates['retenue_irsa'],
-                'cnaps_employeur' => (float) $aggregates['cnaps_employeur'],
-                'ostie_employeur' => (float) $aggregates['ostie_employeur'],
-                'total_ostie' => round((float) $aggregates['retenue_ostie'] + (float) $aggregates['ostie_employeur'], 2),
-                'reste_a_payer' => (float) $aggregates['reste_a_payer'],
-                'deja_paye' => (float) $aggregates['deja_paye'],
-            ],
+            'totaux' => $totaux,
             'status_counts' => [
                 'non_genere' => (int) ($statusCounts['non_genere'] ?? 0),
                 'en_attente_validation' => (int) ($statusCounts['en_attente_validation'] ?? 0),
@@ -906,10 +942,10 @@ class PaieController extends Controller
                 'paye' => (int) ($statusCounts['paye'] ?? 0),
             ],
             'cotisations' => [
-                'cnaps_salarie' => (float) $aggregates['retenue_cnaps'],
-                'cnaps_employeur' => (float) $aggregates['cnaps_employeur'],
-                'ostie' => round((float) $aggregates['retenue_ostie'] + (float) $aggregates['ostie_employeur'], 2),
-                'irsa' => (float) $aggregates['retenue_irsa'],
+                'cnaps_salarie' => round($rows->sum('retenue_cnaps'), 2),
+                'cnaps_employeur' => round($rows->sum('cnaps_employeur'), 2),
+                'ostie' => round($rows->sum('retenue_ostie') + $rows->sum('ostie_employeur'), 2),
+                'irsa' => round($rows->sum('retenue_irsa'), 2),
             ],
             'payment_summary' => [
                 'total' => $paymentTotal,
@@ -921,10 +957,10 @@ class PaieController extends Controller
             'payment_due' => $paymentDue,
             'details' => $details,
             'details_pagination' => [
-                'current_page' => $paginator->currentPage(),
-                'per_page' => $paginator->perPage(),
-                'total' => $paginator->total(),
-                'last_page' => $paginator->lastPage(),
+                'current_page' => $page,
+                'per_page' => $perPage,
+                'total' => $detailsTotal,
+                'last_page' => $detailsLastPage,
             ],
             'synthese' => $synthese,
         ]);
@@ -934,24 +970,15 @@ class PaieController extends Controller
     {
         $states = collect($months)->mapWithKeys(fn (string $month) => [$month => $this->paieSyntheseStateForMonth($month)]);
         $statuses = $states->pluck('status')->all();
-        $status = in_array('generating', $statuses, true)
-            ? 'generating'
-            : (in_array('error', $statuses, true)
-                ? 'error'
-                : (in_array('missing_snapshot', $statuses, true)
-                    ? 'missing_snapshot'
-                    : (in_array('stale', $statuses, true) ? 'stale' : 'available')));
+        $status = in_array('generating', $statuses, true) ? 'generating' : (in_array('stale', $statuses, true) ? 'stale' : 'available');
 
         return [
             'status' => $status,
             'message' => match ($status) {
-                'generating' => 'La synthese de paie est en cours de generation.',
-                'missing_snapshot' => 'La synthese de paie n\'a pas encore ete generee pour cette periode.',
-                'error' => 'La derniere generation de la synthese de paie a echoue.',
-                'stale' => 'La synthese de paie est affichee, mais une mise a jour est en cours.',
-                default => 'La synthese de paie est disponible.',
+                'generating' => 'La synthèse de paie est en cours de génération.',
+                'stale' => 'La synthèse de paie est affichée, mais une mise à jour est en cours.',
+                default => 'La synthèse de paie est disponible.',
             },
-            'error_message' => $states->firstWhere('status', 'error')['error_message'] ?? null,
             'months' => $states->values()->all(),
         ];
     }
@@ -961,37 +988,27 @@ class PaieController extends Controller
         $query = PaieSyntheseMensuelle::query()->where('mois', $month);
         $count = (clone $query)->count();
         $generatedAt = (clone $query)->max('generated_at');
-        $statusRow = (clone $query)
-            ->selectRaw('max(synthese_status) as synthese_status, max(error_message) as error_message')
-            ->first();
-        $isGenerating = Cache::has($this->paieSyntheseRunningCacheKey($month));
-        $refreshError = Cache::get($this->paieSyntheseErrorCacheKey($month));
+        $isGenerating = Cache::has($this->paieSyntheseCacheKey($month));
         $isStale = $generatedAt ? Carbon::parse($generatedAt)->lt(now()->subMinutes($this->readModelStaleMinutes())) : false;
 
         if ($isGenerating) {
             return $this->paieSyntheseMonthMeta($month, 'generating', $generatedAt, $count);
         }
 
-        if ($refreshError) {
-            return $this->paieSyntheseMonthMeta($month, 'error', $generatedAt, $count, (string) data_get($refreshError, 'message'));
-        }
-
         if ($count === 0) {
-            return $this->paieSyntheseMonthMeta($month, 'missing_snapshot', $generatedAt, $count);
-        }
-
-        if (($statusRow?->synthese_status ?? null) === 'error') {
-            return $this->paieSyntheseMonthMeta($month, 'error', $generatedAt, $count, (string) ($statusRow?->error_message ?? 'Erreur de generation'));
+            $this->queuePaieSyntheseMonth($month);
+            return $this->paieSyntheseMonthMeta($month, 'generating', $generatedAt, $count);
         }
 
         if ($isStale) {
+            $this->queuePaieSyntheseMonth($month);
             return $this->paieSyntheseMonthMeta($month, 'stale', $generatedAt, $count);
         }
 
         return $this->paieSyntheseMonthMeta($month, 'available', $generatedAt, $count);
     }
 
-    protected function paieSyntheseMonthMeta(string $month, string $status, ?string $generatedAt, int $count, ?string $errorMessage = null): array
+    protected function paieSyntheseMonthMeta(string $month, string $status, ?string $generatedAt, int $count): array
     {
         return [
             'mois' => $month,
@@ -1000,18 +1017,21 @@ class PaieController extends Controller
             'updated_at' => PaieSyntheseMensuelle::query()->where('mois', $month)->max('updated_at'),
             'is_stale' => $status === 'stale',
             'rows' => $count,
-            'error_message' => $errorMessage,
         ];
     }
 
-    protected function paieSyntheseRunningCacheKey(string $month): string
+    protected function queuePaieSyntheseMonth(string $month): void
     {
-        return "read-model:paie-synthese:{$month}:running";
+        if (!Cache::add($this->paieSyntheseCacheKey($month), 'generating', now()->addMinutes(10))) {
+            return;
+        }
+
+        GeneratePaieSyntheseMonthJob::dispatch($month)->afterResponse();
     }
 
-    protected function paieSyntheseErrorCacheKey(string $month): string
+    protected function paieSyntheseCacheKey(string $month): string
     {
-        return "read-model:paie-synthese:{$month}:error";
+        return "read-model:paie-synthese:{$month}";
     }
 
     protected function readModelStaleMinutes(): int
@@ -1019,42 +1039,41 @@ class PaieController extends Controller
         return max(1, (int) env('READ_MODEL_STALE_MINUTES', self::READ_MODEL_STALE_MINUTES));
     }
 
-    protected function applyEtatStatutFilterToQuery(Builder $query, string $statut): Builder
+    protected function filterEtatRows($rows, string $statut)
     {
         if ($statut === 'tous') {
-            return $query;
+            return $rows->values();
         }
 
-        if ($statut === 'non_paye') {
-            return $query->whereIn('statut', $this->paymentDueStatuses());
-        }
+        return $rows->filter(function ($row) use ($statut) {
+            if ($statut === 'non_paye') {
+                return in_array($row['statut'], ['non_genere', 'en_attente_validation', 'non_paye', 'paiement_en_validation'], true);
+            }
 
-        return $query->where('statut', $statut);
+            return $row['statut'] === $statut;
+        })->values();
     }
 
-    protected function applyEtatDetailFiltersToQuery(
-        Builder $query,
-        ?string $matricule,
-        ?string $nom,
-        ?string $contrat
-    ): Builder
+    protected function filterEtatRowsByDetails($rows, ?string $matricule, ?string $nom, ?string $contrat)
     {
-        if ($matricule) {
-            $query->whereRaw('LOWER(COALESCE(employe_matricule, \'\')) LIKE ?', ['%' . mb_strtolower($matricule) . '%']);
+        $needle = fn (?string $value) => mb_strtolower((string) $value);
+        $matricule = $needle($matricule);
+        $nom = $needle($nom);
+        $contrat = $needle($contrat);
+
+        if (!$matricule && !$nom && !$contrat) {
+            return $rows->values();
         }
 
-        if ($nom) {
-            $query->whereRaw(
-                'LOWER(TRIM(CONCAT(COALESCE(employe_nom, \'\'), \' \', COALESCE(employe_prenom, \'\')))) LIKE ?',
-                ['%' . mb_strtolower($nom) . '%']
-            );
-        }
+        return $rows->filter(function (array $row) use ($matricule, $nom, $contrat, $needle) {
+            $employe = $row['employe'] ?? [];
+            $fullName = trim(($employe['nom'] ?? '') . ' ' . ($employe['prenom'] ?? ''));
+            $contratLabel = $row['contrat_numero'] ?? (!empty($row['contrat_id']) ? "#{$row['contrat_id']}" : '');
 
-        if ($contrat) {
-            $query->whereRaw('LOWER(COALESCE(contrat_numero, \'\')) LIKE ?', ['%' . mb_strtolower($contrat) . '%']);
-        }
-
-        return $query;
+            return (!$matricule || str_contains($needle($employe['matricule'] ?? ''), $matricule))
+                && (!$nom || str_contains($needle($fullName), $nom))
+                && (!$contrat || str_contains($needle($contratLabel), $contrat));
+        })->values();
     }
 
     protected function listEtatMonths(string $debut, string $fin): array
@@ -1071,94 +1090,22 @@ class PaieController extends Controller
         return $months;
     }
 
-    protected function summarizeEtatRowsByMonth(Builder $query)
+    protected function summarizeEtatRows($rows, string $month): array
     {
-        return (clone $query)
-            ->selectRaw(
-                "mois,
-                COUNT(paie_id) as bulletins,
-                SUM(CASE WHEN statut = 'paye' THEN 1 ELSE 0 END) as bulletins_payes,
-                SUM(CASE WHEN statut IN ('non_genere','en_attente_validation','non_paye','paiement_en_validation') THEN 1 ELSE 0 END) as bulletins_non_payes,
-                COALESCE(SUM(net_a_payer), 0) as net_a_payer,
-                COALESCE(SUM(CASE WHEN statut = 'paye' THEN net_a_payer ELSE 0 END), 0) as deja_paye,
-                COALESCE(SUM(CASE WHEN statut IN ('non_genere','en_attente_validation','non_paye','paiement_en_validation') THEN net_a_payer ELSE 0 END), 0) as reste_a_payer,
-                COALESCE(SUM(total_brut), 0) as total_brut,
-                COALESCE(SUM(total_retenues), 0) as total_retenues"
-            )
-            ->groupBy('mois')
-            ->orderBy('mois')
-            ->get()
-            ->map(fn ($row) => [
-                'mois' => $row->mois,
-                'bulletins' => (int) $row->bulletins,
-                'bulletins_payes' => (int) $row->bulletins_payes,
-                'bulletins_non_payes' => (int) $row->bulletins_non_payes,
-                'net_a_payer' => round((float) $row->net_a_payer, 2),
-                'deja_paye' => round((float) $row->deja_paye, 2),
-                'reste_a_payer' => round((float) $row->reste_a_payer, 2),
-                'total_brut' => round((float) $row->total_brut, 2),
-                'total_retenues' => round((float) $row->total_retenues, 2),
-            ]);
-    }
-
-    protected function statusCountsForQuery(Builder $query): array
-    {
-        return (clone $query)
-            ->selectRaw('statut, COUNT(*) as total')
-            ->groupBy('statut')
-            ->pluck('total', 'statut')
-            ->map(fn ($count) => (int) $count)
-            ->all();
-    }
-
-    protected function aggregatePaieSyntheseQuery(Builder $query): array
-    {
-        $row = (clone $query)
-            ->selectRaw(
-                "COUNT(*) as employes_actifs,
-                COUNT(paie_id) as bulletins,
-                COALESCE(SUM(net_a_payer), 0) as net_a_payer,
-                COALESCE(SUM(total_brut), 0) as total_brut,
-                COALESCE(SUM(total_retenues), 0) as total_retenues,
-                COALESCE(SUM(retenue_cnaps), 0) as retenue_cnaps,
-                COALESCE(SUM(retenue_ostie), 0) as retenue_ostie,
-                COALESCE(SUM(retenue_irsa), 0) as retenue_irsa,
-                COALESCE(SUM(cnaps_employeur), 0) as cnaps_employeur,
-                COALESCE(SUM(ostie_employeur), 0) as ostie_employeur,
-                COALESCE(SUM(CASE WHEN statut IN ('non_genere','en_attente_validation','non_paye','paiement_en_validation') THEN net_a_payer ELSE 0 END), 0) as reste_a_payer,
-                COALESCE(SUM(CASE WHEN statut = 'paye' THEN net_a_payer ELSE 0 END), 0) as deja_paye,
-                SUM(CASE WHEN statut = 'paye' THEN 1 ELSE 0 END) as paid_count,
-                COALESCE(SUM(CASE WHEN statut IN ('non_genere','en_attente_validation','non_paye','paiement_en_validation') THEN net_a_payer ELSE 0 END), 0) as payment_due_employes,
-                COALESCE(SUM(CASE WHEN statut IN ('non_genere','en_attente_validation','non_paye','paiement_en_validation') THEN retenue_cnaps + cnaps_employeur ELSE 0 END), 0) as payment_due_cnaps,
-                COALESCE(SUM(CASE WHEN statut IN ('non_genere','en_attente_validation','non_paye','paiement_en_validation') THEN retenue_ostie + ostie_employeur ELSE 0 END), 0) as payment_due_ostie,
-                COALESCE(SUM(CASE WHEN statut IN ('non_genere','en_attente_validation','non_paye','paiement_en_validation') THEN retenue_irsa ELSE 0 END), 0) as payment_due_irsa"
-            )
-            ->first();
+        $paidRows = $rows->where('statut', 'paye');
+        $unpaidRows = $rows->filter(fn ($row) => in_array($row['statut'], ['non_genere', 'en_attente_validation', 'non_paye', 'paiement_en_validation'], true));
 
         return [
-            'employes_actifs' => (int) ($row->employes_actifs ?? 0),
-            'bulletins' => (int) ($row->bulletins ?? 0),
-            'net_a_payer' => round((float) ($row->net_a_payer ?? 0), 2),
-            'total_brut' => round((float) ($row->total_brut ?? 0), 2),
-            'total_retenues' => round((float) ($row->total_retenues ?? 0), 2),
-            'retenue_cnaps' => round((float) ($row->retenue_cnaps ?? 0), 2),
-            'retenue_ostie' => round((float) ($row->retenue_ostie ?? 0), 2),
-            'retenue_irsa' => round((float) ($row->retenue_irsa ?? 0), 2),
-            'cnaps_employeur' => round((float) ($row->cnaps_employeur ?? 0), 2),
-            'ostie_employeur' => round((float) ($row->ostie_employeur ?? 0), 2),
-            'reste_a_payer' => round((float) ($row->reste_a_payer ?? 0), 2),
-            'deja_paye' => round((float) ($row->deja_paye ?? 0), 2),
-            'paid_count' => (int) ($row->paid_count ?? 0),
-            'payment_due_employes' => round((float) ($row->payment_due_employes ?? 0), 2),
-            'payment_due_cnaps' => round((float) ($row->payment_due_cnaps ?? 0), 2),
-            'payment_due_ostie' => round((float) ($row->payment_due_ostie ?? 0), 2),
-            'payment_due_irsa' => round((float) ($row->payment_due_irsa ?? 0), 2),
+            'mois' => $month,
+            'bulletins' => $rows->whereNotNull('paie_id')->count(),
+            'bulletins_payes' => $paidRows->count(),
+            'bulletins_non_payes' => $unpaidRows->count(),
+            'net_a_payer' => round($rows->sum('net_a_payer'), 2),
+            'deja_paye' => round($paidRows->sum('net_a_payer'), 2),
+            'reste_a_payer' => round($unpaidRows->sum('net_a_payer'), 2),
+            'total_brut' => round($rows->sum('total_brut'), 2),
+            'total_retenues' => round($rows->sum('total_retenues'), 2),
         ];
-    }
-
-    protected function paymentDueStatuses(): array
-    {
-        return ['non_genere', 'en_attente_validation', 'non_paye', 'paiement_en_validation'];
     }
 
     protected function percentage(int|float $value, int|float $total): float
@@ -1178,60 +1125,43 @@ class PaieController extends Controller
         $debut = $validated['debut'] ?? "{$annee}-01";
         $fin = $validated['fin'] ?? "{$annee}-12";
         $months = $this->listEtatMonths($debut, $fin);
-        $synthese = $this->paieSyntheseStateForMonths($months);
 
-        $rows = PaieSyntheseMensuelle::query()
-            ->whereIn('mois', $months)
-            ->selectRaw(
-                "mois,
-                COUNT(*) as employes,
-                SUM(CASE WHEN statut = 'non_genere' THEN 1 ELSE 0 END) as a_generer,
-                SUM(CASE WHEN statut = 'en_attente_validation' THEN 1 ELSE 0 END) as attente_validation_generer,
-                SUM(CASE WHEN statut = 'non_paye' THEN 1 ELSE 0 END) as non_paye,
-                SUM(CASE WHEN statut = 'paiement_en_validation' THEN 1 ELSE 0 END) as attente_validation_paye,
-                SUM(CASE WHEN statut = 'paye' THEN 1 ELSE 0 END) as paye,
-                COALESCE(SUM(net_a_payer), 0) as net_total,
-                COALESCE(SUM(CASE WHEN statut = 'paye' THEN net_a_payer ELSE 0 END), 0) as net_paye,
-                COALESCE(SUM(CASE WHEN statut <> 'paye' THEN net_a_payer ELSE 0 END), 0) as net_restant,
-                COALESCE(SUM(total_brut), 0) as brut_total"
-            )
-            ->groupBy('mois')
-            ->orderBy('mois')
-            ->get()
-            ->map(function ($row) {
-                $origine = $this->sourceMontantsForForecastMonth($row->mois);
-                $total = (int) $row->employes;
-                $aGenerer = (int) $row->a_generer;
-                $attenteValidationGenerer = (int) $row->attente_validation_generer;
-                $nonPaye = (int) $row->non_paye;
-                $attenteValidationPaye = (int) $row->attente_validation_paye;
-                $paye = (int) $row->paye;
+        $rows = collect($months)->map(function (string $month) {
+            $monthRows = $this->etatPaieRowsFromSynthese($month);
+            $total = $monthRows->count();
+            $origine = $this->sourceMontantsForForecastMonth($month);
+            $aGenerer = $monthRows->where('statut', 'non_genere')->count();
+            $attenteValidationGenerer = $monthRows->where('statut', 'en_attente_validation')->count();
+            $nonPaye = $monthRows->where('statut', 'non_paye')->count();
+            $attenteValidationPaye = $monthRows->where('statut', 'paiement_en_validation')->count();
+            $paye = $monthRows->where('statut', 'paye')->count();
 
-                return [
-                    'mois' => $row->mois,
-                    'annee' => (int) substr($row->mois, 0, 4),
-                    'mois_numero' => (int) substr($row->mois, 5, 2),
-                    'origine_code' => $origine['code'],
-                    'origine_label' => $origine['label'],
-                    'origine_description' => $origine['description'],
-                    'employes' => $total,
-                    'a_generer' => $aGenerer,
-                    'attente_validation_generer' => $attenteValidationGenerer,
-                    'non_paye' => $nonPaye,
-                    'attente_validation_paye' => $attenteValidationPaye,
-                    'paye' => $paye,
-                    'pourcentage_a_generer' => $this->percentage($aGenerer, $total),
-                    'pourcentage_attente_validation_generer' => $this->percentage($attenteValidationGenerer, $total),
-                    'pourcentage_non_paye' => $this->percentage($nonPaye, $total),
-                    'pourcentage_attente_validation_paye' => $this->percentage($attenteValidationPaye, $total),
-                    'pourcentage_paye' => $this->percentage($paye, $total),
-                    'net_total' => round((float) $row->net_total, 2),
-                    'net_paye' => round((float) $row->net_paye, 2),
-                    'net_restant' => round((float) $row->net_restant, 2),
-                    'brut_total' => round((float) $row->brut_total, 2),
-                ];
-            })
-            ->values();
+            return [
+                'mois' => $month,
+                'annee' => (int) substr($month, 0, 4),
+                'mois_numero' => (int) substr($month, 5, 2),
+                'origine_code' => $origine['code'],
+                'origine_label' => $origine['label'],
+                'origine_description' => $origine['description'],
+                'employes' => $total,
+                'a_generer' => $aGenerer,
+                'attente_validation_generer' => $attenteValidationGenerer,
+                'non_paye' => $nonPaye,
+                'attente_validation_paye' => $attenteValidationPaye,
+                'paye' => $paye,
+                'pourcentage_a_generer' => $this->percentage($aGenerer, $total),
+                'pourcentage_attente_validation_generer' => $this->percentage($attenteValidationGenerer, $total),
+                'pourcentage_non_paye' => $this->percentage($nonPaye, $total),
+                'pourcentage_attente_validation_paye' => $this->percentage($attenteValidationPaye, $total),
+                'pourcentage_paye' => $this->percentage($paye, $total),
+                'net_total' => round($monthRows->sum('net_a_payer'), 2),
+                'net_paye' => round($monthRows->where('statut', 'paye')->sum('net_a_payer'), 2),
+                'net_restant' => round($monthRows
+                    ->filter(fn ($row) => $row['statut'] !== 'paye')
+                    ->sum('net_a_payer'), 2),
+                'brut_total' => round($monthRows->sum('total_brut'), 2),
+            ];
+        })->values();
 
         $totalEmployesMois = max(0, (int) $rows->sum('employes'));
         $totaux = [
@@ -1260,7 +1190,6 @@ class PaieController extends Controller
             ],
             'totaux' => $totaux,
             'mois' => $rows,
-            'synthese' => $synthese,
         ]);
     }
 
@@ -1610,123 +1539,23 @@ class PaieController extends Controller
         $employeIds = $employeIds
             ? array_values(array_unique(array_map('intval', $employeIds)))
             : null;
-        $start = Carbon::createFromFormat('Y-m', $mois)->startOfMonth();
-        $end = $start->copy()->endOfMonth();
-        $param = PaieParametre::first();
-        $count = 0;
-        $refreshedEmployeIds = [];
+        $rows = $this->buildEtatPaieRows($mois, $employeIds);
         $now = now();
+        $payloads = $rows->map(fn (array $row) => $this->paieSynthesePayload($row, $mois, $now))->all();
 
-        Cache::put($this->paieSyntheseRunningCacheKey($mois), true, now()->addHour());
-        Cache::forget($this->paieSyntheseErrorCacheKey($mois));
-
-        try {
-            Employe::query()
-                ->select('id')
-                ->when($employeIds, fn (Builder $query) => $query->whereIn('id', $employeIds))
-                ->whereHas('contrats', function (Builder $query) use ($start, $end) {
-                    $query
-                        ->whereDate('date_debut', '<=', $end->toDateString())
-                        ->where(function (Builder $subQuery) use ($start) {
-                            $subQuery->whereNull('date_fin')->orWhereDate('date_fin', '>=', $start->toDateString());
-                        });
-                })
-                ->orderBy('id')
-                ->chunkById(500, function ($employesChunk) use ($mois, $param, $now, &$count, &$refreshedEmployeIds) {
-                    $chunkEmployeIds = $employesChunk->pluck('id')->all();
-                    $rows = $this->buildEtatPaieRows($mois, $chunkEmployeIds, $param);
-                    $payloads = $rows->map(fn (array $row) => $this->paieSynthesePayload($row, $mois, $now))->all();
-
-                    if (!$payloads) {
-                        return;
-                    }
-
-                    PaieSyntheseMensuelle::query()->upsert(
-                        $payloads,
-                        ['mois', 'employe_id'],
-                        [
-                            'contrat_id',
-                            'paie_id',
-                            'statut',
-                            'statut_label',
-                            'contrat_numero',
-                            'contrat_debut',
-                            'contrat_fin',
-                            'employe_matricule',
-                            'employe_nom',
-                            'employe_prenom',
-                            'source_montants',
-                            'source_montants_label',
-                            'source_montants_description',
-                            'est_prevision',
-                            'salaire_base',
-                            'total_brut',
-                            'total_retenues',
-                            'net_a_payer',
-                            'retenue_cnaps',
-                            'retenue_ostie',
-                            'retenue_irsa',
-                            'cnaps_employeur',
-                            'ostie_employeur',
-                            'charges_patronales',
-                            'cotisations_a_reverser',
-                            'salaire_previsionnel',
-                            'net_a_payer_previsionnel',
-                            'brut_previsionnel',
-                            'paye_le',
-                            'demande_validation_le',
-                            'valide_le',
-                            'paiement_mouvement_id',
-                            'paiement_demande_le',
-                            'paiement_valide_le',
-                            'caisse_nom',
-                            'details_paie',
-                            'generated_at',
-                            'synthese_status',
-                            'refreshed_by',
-                            'error_message',
-                            'updated_at',
-                        ]
-                    );
-
-                    $count += count($payloads);
-                    array_push($refreshedEmployeIds, ...array_column($payloads, 'employe_id'));
-                });
-
-            $cleanupIds = array_values(array_unique(array_map('intval', $employeIds ?? $refreshedEmployeIds)));
-            $cleanupQuery = PaieSyntheseMensuelle::query()->where('mois', $mois);
-
-            if ($cleanupIds) {
-                $cleanupQuery->whereIn('employe_id', $cleanupIds);
+        DB::transaction(function () use ($mois, $employeIds, $payloads) {
+            $query = PaieSyntheseMensuelle::query()->where('mois', $mois);
+            if ($employeIds) {
+                $query->whereIn('employe_id', $employeIds);
             }
+            $query->delete();
 
-            if ($refreshedEmployeIds) {
-                $cleanupQuery->whereNotIn('employe_id', array_values(array_unique($refreshedEmployeIds)));
+            if ($payloads) {
+                PaieSyntheseMensuelle::query()->insert($payloads);
             }
+        });
 
-            $cleanupQuery->delete();
-        } catch (\Throwable $e) {
-            Cache::put($this->paieSyntheseErrorCacheKey($mois), [
-                'message' => $e->getMessage(),
-                'failed_at' => now()->toIso8601String(),
-            ], now()->addHours(6));
-
-            PaieSyntheseMensuelle::query()
-                ->where('mois', $mois)
-                ->when($employeIds, fn (Builder $query) => $query->whereIn('employe_id', $employeIds))
-                ->update([
-                    'synthese_status' => 'error',
-                    'refreshed_by' => app()->runningInConsole() ? 'command' : 'http',
-                    'error_message' => $e->getMessage(),
-                    'updated_at' => now(),
-                ]);
-
-            throw $e;
-        } finally {
-            Cache::forget($this->paieSyntheseRunningCacheKey($mois));
-        }
-
-        return $count;
+        return count($payloads);
     }
 
     protected function etatPaieRowsFromSynthese(string $mois)
@@ -1836,13 +1665,16 @@ class PaieController extends Controller
         ];
     }
 
-    protected function buildEtatPaieRows(string $mois, ?array $employeIds = null, ?PaieParametre $param = null)
+    protected function buildEtatPaieRows(string $mois, ?array $employeIds = null)
     {
         $start = Carbon::createFromFormat('Y-m', $mois)->startOfMonth();
         $end = $start->copy()->endOfMonth();
-        $param = $param ?: PaieParametre::first();
+        $param = PaieParametre::first();
+        $primeTransport = (float) ($param?->prime_transport ?? 0);
+        $primePresence = (float) ($param?->prime_presence ?? 0);
 
         $contrats = Contrat::with(['employe.poste', 'employe.departement'])
+            ->where('statut', 'en_cours')
             ->when($employeIds, fn ($query) => $query->whereIn('employe_id', $employeIds))
             ->whereDate('date_debut', '<=', $end->toDateString())
             ->where(function ($query) use ($start) {
@@ -1868,11 +1700,11 @@ class PaieController extends Controller
             ->groupBy('paie_id')
             ->map(fn ($items) => $items->first());
 
-        return $contrats->map(function (Contrat $contrat) use ($paies, $paiementMouvements, $mois, $param) {
+        return $contrats->map(function (Contrat $contrat) use ($paies, $paiementMouvements, $mois, $primeTransport, $primePresence) {
             $paie = $paies->get($contrat->employe_id);
             $statut = $this->statutPaie($paie);
             $mouvementPaiement = $paie ? $paiementMouvements->get($paie->id) : null;
-            $forecast = $this->buildPaieForecast($contrat, $mois, $param, false, true);
+            $forecast = $this->buildPaieForecast($contrat, $mois, null, false, true);
             $forecastSourceMontants = $this->sourceMontantsForForecastMonth($mois);
             $isMixedCurrentPeriod = $forecastSourceMontants['code'] === 'mixte';
             $usesValidatedPayroll = $this->usesValidatedPayrollForEtat($statut) && !$isMixedCurrentPeriod;

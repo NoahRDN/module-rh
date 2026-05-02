@@ -52,10 +52,6 @@
             <span class="status-dot"></span>
             <span>{{ error }}</span>
           </div>
-          <div v-if="syntheseStatus.text" class="status-banner warning">
-            <span class="status-dot"></span>
-            <span>{{ syntheseStatus.text }}</span>
-          </div>
         </div>
       </div>
     </section>
@@ -146,7 +142,7 @@
 </template>
 
 <script setup>
-import { computed, defineComponent, h, onMounted, onUnmounted, ref } from 'vue'
+import { computed, defineComponent, h, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import api from '../services/api'
 import AppIcon from '../components/ui/AppIcon.vue'
@@ -181,9 +177,6 @@ const rows = ref([])
 const totals = ref({})
 const loading = ref(false)
 const error = ref('')
-const syntheseStatus = ref({ text: '' })
-let synthesePollingTimer = null
-const SYNTHESE_POLLING_SECONDS = 7
 
 const titleLabel = computed(() => {
   if (mode.value === 'annee') return `Suivi ${year.value}`
@@ -244,8 +237,6 @@ const sourceClass = (source) => ({
 const refresh = async () => {
   loading.value = true
   error.value = ''
-  syntheseStatus.value = { text: '' }
-  clearSynthesePolling()
   try {
     const params = mode.value === 'annee'
       ? { annee: String(year.value) }
@@ -253,10 +244,6 @@ const refresh = async () => {
     const { data } = await api.get('/v1/paies/suivi', { params })
     rows.value = data.mois || []
     totals.value = data.totaux || {}
-    syntheseStatus.value = paieSyntheseStatus(data.synthese)
-    if (data.synthese?.status === 'generating') {
-      scheduleSynthesePolling()
-    }
   } catch (e) {
     error.value = e.response?.data?.message || e.message || 'Erreur chargement suivi de paie'
   } finally {
@@ -264,44 +251,7 @@ const refresh = async () => {
   }
 }
 
-const scheduleSynthesePolling = () => {
-  clearSynthesePolling()
-  synthesePollingTimer = window.setTimeout(() => {
-    refresh()
-  }, SYNTHESE_POLLING_SECONDS * 1000)
-}
-
-const clearSynthesePolling = () => {
-  if (!synthesePollingTimer) return
-  window.clearTimeout(synthesePollingTimer)
-  synthesePollingTimer = null
-}
-
-const paieSyntheseStatus = (synthese) => {
-  if (synthese?.status === 'generating') {
-    return { text: withSyntheseRefreshDelay(synthese.message || 'La synthèse de paie est en cours de génération.') }
-  }
-
-  if (synthese?.status === 'stale') {
-    return { text: synthese.message || 'La synthèse de paie est affichée, mais une mise à jour est en cours.' }
-  }
-
-  if (synthese?.status === 'missing_snapshot') {
-    return { text: synthese.message || 'La synthèse de paie n’est pas encore générée pour cette période.' }
-  }
-
-  if (synthese?.status === 'error') {
-    return { text: synthese.error_message || synthese.message || 'La génération de la synthèse de paie a échoué.' }
-  }
-
-  return { text: '' }
-}
-
-const withSyntheseRefreshDelay = (message) =>
-  `${message} Rafraîchissement automatique dans ${SYNTHESE_POLLING_SECONDS} secondes.`
-
 onMounted(refresh)
-onUnmounted(clearSynthesePolling)
 </script>
 
 <style scoped>

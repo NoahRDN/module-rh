@@ -13,7 +13,8 @@ class RefreshReadModels extends Command
     protected $signature = 'read-models:refresh
         {--mois= : Mois de paie à rafraîchir au format YYYY-MM}
         {--annee= : Année complète de paie à rafraîchir}
-        {--date= : Jour de synthèse caisse au format YYYY-MM-DD}';
+        {--date= : Jour de synthèse caisse au format YYYY-MM-DD}
+        {--only=all : all ou caisse}';
 
     protected $description = 'Rafraîchit les tables de synthèse utilisées par les pages critiques';
 
@@ -22,15 +23,23 @@ class RefreshReadModels extends Command
         $date = $this->option('date') ?: now()->format('Y-m-d');
         $mois = $this->option('mois');
         $annee = $this->option('annee');
+        $only = (string) $this->option('only');
 
-        $dashboard->refreshSnapshot('annee', $date);
-        $dashboard->refreshSnapshot('mois', $date);
-        $this->info('dashboard_stats rafraîchi.');
+        if (!in_array($only, ['all', 'caisse'], true)) {
+            $this->error('L’option --only doit être all ou caisse.');
+            return self::FAILURE;
+        }
 
-        $months = $this->monthsToRefresh($mois, $annee);
-        foreach ($months as $month) {
-            $count = $paie->refreshPaieSyntheseMonth($month);
-            $this->info("paie_synthese_mensuelle {$month}: {$count} ligne(s).");
+        if ($only === 'all') {
+            $dashboard->refreshSnapshot('annee', $date);
+            $dashboard->refreshSnapshot('mois', $date);
+            $this->info('dashboard_stats rafraîchi.');
+
+            $months = $this->monthsToRefresh($mois, $annee);
+            foreach ($months as $month) {
+                $count = $paie->refreshPaieSyntheseMonth($month);
+                $this->info("paie_synthese_mensuelle {$month}: {$count} ligne(s).");
+            }
         }
 
         $count = $caisse->refreshCaisseSyntheseDay($date);

@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Jobs\GenerateCaisseSyntheseDayJob;
 use App\Models\Caisse;
 use App\Models\CaisseMouvement;
 use App\Models\CaisseSyntheseJournaliere;
@@ -373,11 +372,7 @@ class CaisseController extends Controller
 
     private function queueCaisseSyntheseDay(string $day): void
     {
-        if (!Cache::add($this->caisseSyntheseCacheKey($day), 'generating', now()->addMinutes(10))) {
-            return;
-        }
-
-        GenerateCaisseSyntheseDayJob::dispatch($day)->afterResponse();
+        Cache::put($this->caisseSyntheseCacheKey($day), 'generating', now()->addMinutes(10));
     }
 
     private function caisseSyntheseCacheKey(string $day): string

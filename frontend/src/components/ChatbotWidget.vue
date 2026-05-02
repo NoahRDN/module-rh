@@ -409,7 +409,9 @@ export default {
         console.error('Erreur chatbot:', error)
         console.error('Error details:', error.response?.data)
 
-        const errorMessage = error.response?.data?.reponse 
+        const errorMessage = error.code === 'ECONNABORTED'
+          ? "La réponse du chatbot prend trop de temps. Vérifie la configuration IA ou réessaie dans quelques secondes."
+          : error.response?.data?.reponse 
           || error.response?.data?.erreur 
           || "Désolé, une erreur s'est produite. Veuillez réessayer."
 

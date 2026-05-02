@@ -273,7 +273,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import api from '../services/api'
 import AppIcon from '../components/ui/AppIcon.vue'
@@ -513,7 +513,14 @@ const refresh = async () => {
       statut: statusFilter.value,
       ...(mode.value === 'annee' ? { annee: String(year.value) } : {}),
       ...(mode.value === 'periode' ? { debut: periodStart.value, fin: periodEnd.value } : {}),
-      ...(mode.value === 'mois' ? { mois: selectedMonth.value, page: currentPage.value, per_page: perPage.value } : {}),
+      ...(mode.value === 'mois' ? {
+        mois: selectedMonth.value,
+        page: currentPage.value,
+        per_page: perPage.value,
+        ...(detailFilters.value.matricule ? { matricule: detailFilters.value.matricule } : {}),
+        ...(detailFilters.value.nom ? { nom: detailFilters.value.nom } : {}),
+        ...(detailFilters.value.contrat ? { contrat: detailFilters.value.contrat } : {}),
+      } : {}),
     }
 
     const { data } = await api.get('/v1/paies/etat', { params })
@@ -569,13 +576,13 @@ const resetAndRefresh = () => {
 }
 
 const previousPage = () => {
-  if (currentPage.value <= 1) return
+  if (loading.value || currentPage.value <= 1) return
   currentPage.value -= 1
   refresh()
 }
 
 const nextPage = () => {
-  if (currentPage.value >= detailsPagination.value.last_page) return
+  if (loading.value || currentPage.value >= detailsPagination.value.last_page) return
   currentPage.value += 1
   refresh()
 }
@@ -661,6 +668,12 @@ onMounted(() => {
   refresh()
   loadCaisses()
 })
+
+watch(detailFilters, () => {
+  if (mode.value !== 'mois') return
+  currentPage.value = 1
+  refresh()
+}, { deep: true })
 
 onUnmounted(clearSynthesePolling)
 </script>

@@ -29,6 +29,8 @@ class DemandeCongeController extends Controller
             $emp = $request->query('employe_id');
             $from = $request->query('from');
             $to = $request->query('to');
+            $dateDebut = $request->query('date_debut');
+            $dateFin = $request->query('date_fin');
             $perPage = min(100, max(1, (int) $request->query('per_page', 10)));
             $query = DemandeConge::query()
                 ->select([
@@ -58,6 +60,30 @@ class DemandeCongeController extends Controller
             }
             if ($to) {
                 $query->whereDate('date_fin', '<=', $to);
+            }
+            if ($dateDebut) {
+                $query->whereDate('date_debut', '>=', $dateDebut);
+            }
+            if ($dateFin) {
+                $query->whereDate('date_fin', '<=', $dateFin);
+            }
+            if ($request->filled('matricule')) {
+                $term = $request->query('matricule');
+                $query->whereHas('employe', fn ($q) => $q->where('matricule', 'ILIKE', "%{$term}%"));
+            }
+            if ($request->filled('nom')) {
+                $term = $request->query('nom');
+                $query->whereHas('employe', function ($q) use ($term) {
+                    $q->where('nom', 'ILIKE', "%{$term}%")
+                      ->orWhere('prenom', 'ILIKE', "%{$term}%");
+                });
+            }
+            if ($request->filled('type')) {
+                $term = $request->query('type');
+                $query->whereHas('typeConge', fn ($q) => $q->where('libelle', 'ILIKE', "%{$term}%")->orWhere('code', 'ILIKE', "%{$term}%"));
+            }
+            if ($request->filled('statut')) {
+                $query->where('statut', 'ILIKE', '%' . $request->query('statut') . '%');
             }
             return response()->json($query->paginate($perPage));
         } catch (\Throwable $e) {

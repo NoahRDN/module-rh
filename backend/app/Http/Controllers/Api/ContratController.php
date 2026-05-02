@@ -48,6 +48,31 @@ class ContratController extends Controller
             if ($employe) {
                 $query->where('employe_id', $employe);
             }
+            if ($request->filled('numero')) {
+                $query->where('numero', 'ILIKE', '%' . $request->query('numero') . '%');
+            }
+            if ($request->filled('type')) {
+                $query->where('type_contrat', 'ILIKE', '%' . $request->query('type') . '%');
+            }
+            if ($request->filled('statut')) {
+                $query->where('statut', 'ILIKE', '%' . $request->query('statut') . '%');
+            }
+            if ($request->filled('matricule')) {
+                $term = $request->query('matricule');
+                $query->whereHas('employe', fn ($q) => $q->where('matricule', 'ILIKE', "%{$term}%"));
+            }
+            if ($request->filled('nom')) {
+                $term = $request->query('nom');
+                $query->whereHas('employe', fn ($q) => $q->where('nom', 'ILIKE', "%{$term}%")->orWhere('prenom', 'ILIKE', "%{$term}%"));
+            }
+            if ($request->filled('departement')) {
+                $term = $request->query('departement');
+                $query->whereHas('employe.departement', fn ($q) => $q->where('nom', 'ILIKE', "%{$term}%"));
+            }
+            if ($request->filled('poste')) {
+                $term = $request->query('poste');
+                $query->whereHas('employe.poste', fn ($q) => $q->where('nom', 'ILIKE', "%{$term}%"));
+            }
 
             if ($request->filled('date_debut')) {
                 $dateDebut = Carbon::parse($request->query('date_debut'))->toDateString();

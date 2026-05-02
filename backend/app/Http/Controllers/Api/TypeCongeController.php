@@ -23,6 +23,15 @@ class TypeCongeController extends Controller
                         ->orWhere('code', 'like', "%{$search}%");
                 });
             }
+            if ($request->filled('payant')) {
+                $query->where('paye', $request->query('payant') === 'oui');
+            }
+            if ($request->filled('jours_min')) {
+                $query->where('jours_forfait', '>=', (float) $request->query('jours_min'));
+            }
+            if ($request->filled('jours_max')) {
+                $query->where('jours_forfait', '<=', (float) $request->query('jours_max'));
+            }
 
             $page = $query->paginate(10);
 

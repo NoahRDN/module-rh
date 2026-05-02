@@ -112,7 +112,9 @@ class Employe extends Model
         return $query->where(function ($q) use ($term) {
             $q->where('nom', 'LIKE', "%{$term}%")
                 ->orWhere('prenom', 'LIKE', "%{$term}%")
-                ->orWhere('matricule', 'LIKE', "%{$term}%");
+                ->orWhere('matricule', 'LIKE', "%{$term}%")
+                ->orWhere('email', 'LIKE', "%{$term}%")
+                ->orWhereHas('poste', fn ($poste) => $poste->where('nom', 'LIKE', "%{$term}%"));
         });
     }
 

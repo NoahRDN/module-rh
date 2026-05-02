@@ -185,13 +185,13 @@
             </p>
 
             <div class="table-actions">
-              <button class="btn btn-secondary btn-sm" type="button" :disabled="pagination.page <= 1" @click="prevPage">
+              <button class="btn btn-secondary btn-sm" type="button" :disabled="loading || pagination.page <= 1" @click="prevPage">
                 Précédent
               </button>
               <button
                 class="btn btn-secondary btn-sm"
                 type="button"
-                :disabled="pagination.page >= pagination.last_page"
+                :disabled="loading || pagination.page >= pagination.last_page"
                 @click="nextPage"
               >
                 Suivant
@@ -206,7 +206,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import api from '../services/api'
 import AppIcon from '../components/ui/AppIcon.vue'
@@ -347,6 +347,8 @@ const fetchPostes = async () => {
     const params = {
       page: pagination.value.page,
       ...(filterDep.value ? { departement_id: filterDep.value } : {}),
+      ...(filters.value.nom ? { nom: filters.value.nom } : {}),
+      ...(filters.value.categorie ? { categorie: filters.value.categorie } : {}),
     }
     const { data } = await api.get('/v1/postes', { params })
 
@@ -425,14 +427,14 @@ const resetFilters = () => {
 }
 
 const nextPage = () => {
-  if (pagination.value.page < pagination.value.last_page) {
+  if (!loading.value && pagination.value.page < pagination.value.last_page) {
     pagination.value.page += 1
     fetchPostes()
   }
 }
 
 const prevPage = () => {
-  if (pagination.value.page > 1) {
+  if (!loading.value && pagination.value.page > 1) {
     pagination.value.page -= 1
     fetchPostes()
   }
@@ -464,6 +466,11 @@ onMounted(async () => {
   await fetchCategories()
   await fetchPostes()
 })
+
+watch(filters, () => {
+  pagination.value.page = 1
+  fetchPostes()
+}, { deep: true })
 </script>
 
 <style scoped>

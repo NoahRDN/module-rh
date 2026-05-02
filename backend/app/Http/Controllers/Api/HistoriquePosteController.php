@@ -24,6 +24,31 @@ class HistoriquePosteController extends Controller
             if ($emp) {
                 $query->where('employe_id', $emp);
             }
+            if ($request->filled('matricule')) {
+                $term = $request->query('matricule');
+                $query->whereHas('employe', fn ($q) => $q->where('matricule', 'ILIKE', "%{$term}%"));
+            }
+            if ($request->filled('nom')) {
+                $term = $request->query('nom');
+                $query->whereHas('employe', fn ($q) => $q->where('nom', 'ILIKE', "%{$term}%")->orWhere('prenom', 'ILIKE', "%{$term}%"));
+            }
+            if ($request->filled('poste')) {
+                $term = $request->query('poste');
+                $query->whereHas('poste', fn ($q) => $q->where('nom', 'ILIKE', "%{$term}%"));
+            }
+            if ($request->filled('departement')) {
+                $term = $request->query('departement');
+                $query->whereHas('departement', fn ($q) => $q->where('nom', 'ILIKE', "%{$term}%"));
+            }
+            if ($request->filled('motif')) {
+                $query->where('motif', 'ILIKE', '%' . $request->query('motif') . '%');
+            }
+            if ($request->filled('from')) {
+                $query->whereDate('date_changement', '>=', $request->query('from'));
+            }
+            if ($request->filled('to')) {
+                $query->whereDate('date_changement', '<=', $request->query('to'));
+            }
 
             return response()->json($query->paginate(10));
         } catch (\Throwable $e) {

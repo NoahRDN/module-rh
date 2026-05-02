@@ -26,6 +26,26 @@ class DocumentEmployeController extends Controller
             if ($emp) {
                 $query->where('employe_id', $emp);
             }
+            if ($request->filled('matricule')) {
+                $term = $request->query('matricule');
+                $query->whereHas('employe', fn ($q) => $q->where('matricule', 'ILIKE', "%{$term}%"));
+            }
+            if ($request->filled('nom')) {
+                $term = $request->query('nom');
+                $query->whereHas('employe', function ($q) use ($term) {
+                    $q->where('nom', 'ILIKE', "%{$term}%")
+                      ->orWhere('prenom', 'ILIKE', "%{$term}%");
+                });
+            }
+            if ($request->filled('type')) {
+                $query->where('type_document', 'ILIKE', '%' . $request->query('type') . '%');
+            }
+            if ($request->filled('fichier')) {
+                $query->where('fichier', 'ILIKE', '%' . $request->query('fichier') . '%');
+            }
+            if ($request->filled('date_expiration')) {
+                $query->whereDate('date_expiration', $request->query('date_expiration'));
+            }
 
             return response()->json($query->paginate(10));
         } catch (\Throwable $e) {

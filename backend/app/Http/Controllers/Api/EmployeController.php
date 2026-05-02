@@ -59,6 +59,31 @@ class EmployeController extends Controller
                         });
                 }])
                 ->search($search)
+                ->when($request->filled('matricule'), function ($q) use ($request) {
+                    $q->where('matricule', 'ILIKE', '%' . $request->query('matricule') . '%');
+                })
+                ->when($request->filled('nom'), function ($q) use ($request) {
+                    $term = $request->query('nom');
+                    $q->where(function ($w) use ($term) {
+                        $w->where('nom', 'ILIKE', "%{$term}%")
+                          ->orWhere('prenom', 'ILIKE', "%{$term}%");
+                    });
+                })
+                ->when($request->filled('email'), function ($q) use ($request) {
+                    $q->where('email', 'ILIKE', '%' . $request->query('email') . '%');
+                })
+                ->when($request->filled('poste'), function ($q) use ($request) {
+                    $term = $request->query('poste');
+                    $q->whereHas('poste', fn ($poste) => $poste->where('nom', 'ILIKE', "%{$term}%"));
+                })
+                ->when($request->filled('categorie'), function ($q) use ($request) {
+                    $term = $request->query('categorie');
+                    $q->whereHas('poste', fn ($poste) => $poste->where('categorie', 'ILIKE', "%{$term}%"));
+                })
+                ->when($request->filled('departement'), function ($q) use ($request) {
+                    $term = $request->query('departement');
+                    $q->whereHas('departement', fn ($departement) => $departement->where('nom', 'ILIKE', "%{$term}%"));
+                })
                 ->when($activeOnly, function ($q) use ($now) {
                     $q->whereHas('contrats', function ($c) use ($now) {
                         $c->whereDate('date_debut', '<=', $now)

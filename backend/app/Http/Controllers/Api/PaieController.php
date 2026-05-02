@@ -726,6 +726,9 @@ class PaieController extends Controller
             'fin' => 'nullable|date_format:Y-m|after_or_equal:debut',
             'paiement' => 'nullable|in:prevision,paye',
             'statut' => 'nullable|in:tous,non_genere,en_attente_validation,non_paye,paiement_en_validation,paye',
+            'matricule' => 'nullable|string',
+            'nom' => 'nullable|string',
+            'contrat' => 'nullable|string',
             'page' => 'nullable|integer|min:1',
             'per_page' => 'nullable|integer|min:10|max:100',
         ]);
@@ -737,6 +740,9 @@ class PaieController extends Controller
         $page = (int) ($validated['page'] ?? 1);
         $perPage = (int) ($validated['per_page'] ?? 50);
         $statut = $validated['statut'] ?? null;
+        $matriculeFilter = $validated['matricule'] ?? null;
+        $nomFilter = $validated['nom'] ?? null;
+        $contratFilter = $validated['contrat'] ?? null;
         if (!$statut && ($validated['paiement'] ?? null) === 'paye') {
             $statut = 'paye';
         }
@@ -877,6 +883,7 @@ class PaieController extends Controller
                 return $row['statut'] === $statut;
             })->values();
         }
+        $rows = $this->filterEtatRowsByDetails($rows, $matriculeFilter, $nomFilter, $contratFilter);
 
         $resteAPayer = $rows->sum(function ($row) {
             if (!in_array($row['statut'], ['non_genere', 'en_attente_validation', 'non_paye', 'paiement_en_validation'], true)) {
@@ -1044,6 +1051,28 @@ class PaieController extends Controller
             }
 
             return $row['statut'] === $statut;
+        })->values();
+    }
+
+    protected function filterEtatRowsByDetails($rows, ?string $matricule, ?string $nom, ?string $contrat)
+    {
+        $needle = fn (?string $value) => mb_strtolower((string) $value);
+        $matricule = $needle($matricule);
+        $nom = $needle($nom);
+        $contrat = $needle($contrat);
+
+        if (!$matricule && !$nom && !$contrat) {
+            return $rows->values();
+        }
+
+        return $rows->filter(function (array $row) use ($matricule, $nom, $contrat, $needle) {
+            $employe = $row['employe'] ?? [];
+            $fullName = trim(($employe['nom'] ?? '') . ' ' . ($employe['prenom'] ?? ''));
+            $contratLabel = $row['contrat_numero'] ?? (!empty($row['contrat_id']) ? "#{$row['contrat_id']}" : '');
+
+            return (!$matricule || str_contains($needle($employe['matricule'] ?? ''), $matricule))
+                && (!$nom || str_contains($needle($fullName), $nom))
+                && (!$contrat || str_contains($needle($contratLabel), $contrat));
         })->values();
     }
 

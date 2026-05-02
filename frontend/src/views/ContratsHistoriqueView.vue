@@ -334,13 +334,13 @@
               </p>
 
               <div class="table-actions">
-                <button class="btn btn-secondary btn-sm" type="button" :disabled="pagination.page <= 1" @click="prevPage">
+                <button class="btn btn-secondary btn-sm" type="button" :disabled="loading || pagination.page <= 1" @click="prevPage">
                   Précédent
                 </button>
                 <button
                   class="btn btn-secondary btn-sm"
                   type="button"
-                  :disabled="pagination.page >= pagination.last_page"
+                  :disabled="loading || pagination.page >= pagination.last_page"
                   @click="nextPage"
                 >
                   Suivant
@@ -356,7 +356,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import api from '../services/api'
 import AppIcon from '../components/ui/AppIcon.vue'
@@ -545,7 +545,7 @@ const lastSyncedLabel = computed(() => {
 const fetchHistoriques = async () => {
   loading.value = true
   try {
-    const { data } = await api.get('/v1/contrats-historiques', { params: { page: pagination.value.page } })
+    const { data } = await api.get('/v1/contrats-historiques', { params: buildHistoriqueContratParams() })
     historiques.value = data.data || []
 
     if (data.meta) {
@@ -567,6 +567,18 @@ const fetchHistoriques = async () => {
     loading.value = false
   }
 }
+
+const buildHistoriqueContratParams = () => ({
+  page: pagination.value.page,
+  ...(filters.value.numero ? { numero: filters.value.numero } : {}),
+  ...(filters.value.matricule ? { matricule: filters.value.matricule } : {}),
+  ...(filters.value.nom ? { nom: filters.value.nom } : {}),
+  ...(filters.value.type ? { type: filters.value.type } : {}),
+  ...(filters.value.departement ? { departement: filters.value.departement } : {}),
+  ...(filters.value.poste ? { poste: filters.value.poste } : {}),
+  ...(filters.value.from ? { from: filters.value.from } : {}),
+  ...(filters.value.to ? { to: filters.value.to } : {}),
+})
 
 const refreshData = async () => {
   await fetchHistoriques()
@@ -687,17 +699,19 @@ const sortLabel = (key) => (sortKey.value === key ? (sortDir.value === 'asc' ? '
 
 const resetFilters = () => {
   filters.value = { numero: '', matricule: '', nom: '', type: '', departement: '', poste: '', from: '', to: '' }
+  pagination.value.page = 1
+  fetchHistoriques()
 }
 
 const nextPage = () => {
-  if (pagination.value.page < pagination.value.last_page) {
+  if (!loading.value && pagination.value.page < pagination.value.last_page) {
     pagination.value.page += 1
     fetchHistoriques()
   }
 }
 
 const prevPage = () => {
-  if (pagination.value.page > 1) {
+  if (!loading.value && pagination.value.page > 1) {
     pagination.value.page -= 1
     fetchHistoriques()
   }
@@ -706,6 +720,11 @@ const prevPage = () => {
 const formatInteger = (value) => new Intl.NumberFormat('fr-FR').format(Number(value || 0))
 
 onMounted(fetchHistoriques)
+
+watch(filters, () => {
+  pagination.value.page = 1
+  fetchHistoriques()
+}, { deep: true })
 </script>
 
 <style scoped>

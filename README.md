@@ -78,11 +78,11 @@ Commandes utiles en Docker :
 docker compose exec backend php artisan dashboard:refresh --filtre=all --date=2026-05-01
 docker compose exec backend php artisan dashboard:refresh --filtre=periode --date_debut=2026-03-01 --date_fin=2026-03-31
 docker compose exec backend php artisan read-models:refresh --annee=2026
-docker compose exec backend php artisan queue:work --queue=dashboard,default --tries=2
+docker compose exec backend php artisan queue:work --queue=dashboard,read-models,default --tries=2
 docker compose exec backend php artisan schedule:work
 ```
 
-Avec `docker compose up`, les services `queue` et `scheduler` sont lancés séparément. Le scheduler exécute `read-models:refresh` toutes les 15 minutes pour maintenir les périodes courantes, et le worker traite les générations async déclenchées par l'API.
+Avec `docker compose up`, les services `queue` et `scheduler` sont lancés séparément. Le scheduler exécute `read-models:refresh` toutes les 15 minutes pour maintenir les périodes courantes, et le worker traite les générations async déclenchées par l'API. Par défaut, un snapshot/read model est considéré ancien après 30 minutes (`DASHBOARD_SNAPSHOT_STALE_MINUTES`, `READ_MODEL_STALE_MINUTES`).
 
 ### Comptes de connexion de démonstration
 Après le seeding, l'écran de connexion accepte les comptes suivants.

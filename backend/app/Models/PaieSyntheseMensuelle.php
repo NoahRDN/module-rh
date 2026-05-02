@@ -48,6 +48,9 @@ class PaieSyntheseMensuelle extends Model
         'caisse_nom',
         'details_paie',
         'generated_at',
+        'synthese_status',
+        'refreshed_by',
+        'error_message',
     ];
 
     protected $casts = [

@@ -69,6 +69,10 @@
             <span class="status-dot"></span>
             <span>{{ error }}</span>
           </div>
+          <div v-if="syntheseStatus.text" class="status-banner warning">
+            <span class="status-dot"></span>
+            <span>{{ syntheseStatus.text }}</span>
+          </div>
         </div>
       </div>
     </section>
@@ -174,7 +178,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import api from '../services/api'
 import AppIcon from '../components/ui/AppIcon.vue'
@@ -182,6 +186,8 @@ import { formatMoneyAmount } from '../utils/formatters'
 
 const loading = ref(false)
 const error = ref('')
+const syntheseStatus = ref({ text: '' })
+let synthesePollingTimer = null
 const caisses = ref([])
 const mouvements = ref([])
 const categories = ref({ entree: [], sortie: [] })
@@ -250,17 +256,43 @@ const statusClass = (statut) => ({
 const fetchData = async () => {
   loading.value = true
   error.value = ''
+  clearSynthesePolling()
   try {
     const params = Object.fromEntries(Object.entries(filters.value).filter(([, value]) => value))
     const { data } = await api.get('/v1/caisses', { params })
     caisses.value = data.caisses || []
     mouvements.value = data.mouvements?.data || data.mouvements || []
     categories.value = data.categories || { entree: [], sortie: [] }
+    syntheseStatus.value = caisseSyntheseStatus(data.synthese_status)
+    if (['generating', 'stale'].includes(data.synthese_status?.status)) {
+      scheduleSynthesePolling()
+    }
   } catch (e) {
     error.value = e.response?.data?.message || e.message || 'Erreur chargement caisse'
   } finally {
     loading.value = false
   }
+}
+
+const scheduleSynthesePolling = () => {
+  clearSynthesePolling()
+  synthesePollingTimer = window.setTimeout(() => {
+    fetchData()
+  }, 7000)
+}
+
+const clearSynthesePolling = () => {
+  if (!synthesePollingTimer) return
+  window.clearTimeout(synthesePollingTimer)
+  synthesePollingTimer = null
+}
+
+const caisseSyntheseStatus = (synthese) => {
+  if (synthese?.status === 'generating' || synthese?.status === 'stale') {
+    return { text: synthese.message || 'La synthèse de caisse est en cours de mise à jour.' }
+  }
+
+  return { text: '' }
 }
 
 watch(() => filters.value.type, (type) => {
@@ -271,6 +303,7 @@ watch(() => filters.value.type, (type) => {
 })
 
 onMounted(fetchData)
+onUnmounted(clearSynthesePolling)
 </script>
 
 <style scoped>

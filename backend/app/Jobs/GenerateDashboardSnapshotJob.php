@@ -5,16 +5,18 @@ namespace App\Jobs;
 use App\Http\Controllers\Api\DashboardController;
 use App\Models\DashboardStat;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 
-class GenerateDashboardSnapshotJob implements ShouldQueue
+class GenerateDashboardSnapshotJob implements ShouldQueue, ShouldBeUnique
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 2;
+    public int $uniqueFor = 600;
 
     public function __construct(
         public string $periodType,

@@ -287,9 +287,9 @@ const metricCards = computed(() => [
     tag: 'Categories',
   },
   {
-    label: 'Résultats visibles',
-    value: formatInteger(postesFiltrees.value.length),
-    caption: 'Nombre affiché après filtres actifs',
+    label: 'Résultats retournés',
+    value: formatInteger(pagination.value.total || postes.value.length),
+    caption: 'Total correspondant aux filtres, toutes pages incluses',
     tag: 'View',
   },
 ])

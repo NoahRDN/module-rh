@@ -283,6 +283,7 @@ const loading = ref(false)
 const error = ref('')
 const syntheseStatus = ref({ text: '' })
 let synthesePollingTimer = null
+const SYNTHESE_POLLING_SECONDS = 7
 const route = useRoute()
 const mode = ref('mois')
 const statusFilter = ref('tous')
@@ -549,7 +550,7 @@ const scheduleSynthesePolling = () => {
   clearSynthesePolling()
   synthesePollingTimer = window.setTimeout(() => {
     refresh()
-  }, 7000)
+  }, SYNTHESE_POLLING_SECONDS * 1000)
 }
 
 const clearSynthesePolling = () => {
@@ -560,15 +561,18 @@ const clearSynthesePolling = () => {
 
 const paieSyntheseStatus = (synthese) => {
   if (synthese?.status === 'generating') {
-    return { text: synthese.message || 'La synthèse de paie est en cours de génération.' }
+    return { text: withSyntheseRefreshDelay(synthese.message || 'La synthèse de paie est en cours de génération.') }
   }
 
   if (synthese?.status === 'stale') {
-    return { text: synthese.message || 'La synthèse de paie est affichée, mais une mise à jour est en cours.' }
+    return { text: withSyntheseRefreshDelay(synthese.message || 'La synthèse de paie est affichée, mais une mise à jour est en cours.') }
   }
 
   return { text: '' }
 }
+
+const withSyntheseRefreshDelay = (message) =>
+  `${message} Rafraîchissement automatique dans ${SYNTHESE_POLLING_SECONDS} secondes.`
 
 const resetAndRefresh = () => {
   currentPage.value = 1

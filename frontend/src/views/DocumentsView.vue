@@ -390,9 +390,9 @@ const expiringSoonCount = computed(() => {
 
 const metricCards = computed(() => [
   {
-    label: 'Documents visibles',
-    value: formatInteger(docsFiltres.value.length),
-    caption: 'Résultats sur la page courante après filtres',
+    label: 'Documents retournés',
+    value: formatInteger(pagination.value.total || docs.value.length),
+    caption: 'Total correspondant aux filtres, toutes pages incluses',
     tag: 'Files',
   },
   {

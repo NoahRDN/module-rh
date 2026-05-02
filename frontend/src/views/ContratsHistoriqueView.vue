@@ -472,7 +472,7 @@ const metricCards = computed(() => [
   {
     label: 'Historiques',
     value: formatInteger(pagination.value.total || historiques.value.length),
-    caption: 'Versions contractuelles chargées',
+    caption: 'Total correspondant aux filtres, toutes pages incluses',
     tag: 'Versions',
   },
   {

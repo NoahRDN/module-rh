@@ -337,7 +337,7 @@
                       <p class="inline-title">Clôturer ce contrat</p>
                       <label class="field-card compact">
                         <span class="field-label">Date de fin</span>
-                        <input class="input" type="date" v-model="clotureDate" />
+                        <input class="input" type="date" v-model="clotureDate" :min="formatDate(c.date_debut)" />
                       </label>
                       <div class="row-actions inline-actions">
                         <button class="btn btn-secondary btn-xs" @click="confirmerCloture(c)">Clore</button>
@@ -644,6 +644,9 @@ const fetchContrats = async () => {
 const debouncedFetchContrats = debounce(fetchContrats, 300)
 
 const handleDateFilterChange = () => {
+  if (filters.value.date_debut && filters.value.date_fin && filters.value.date_debut > filters.value.date_fin) {
+    filters.value.date_fin = filters.value.date_debut
+  }
   pagination.value.page = 1
   debouncedFetchContrats()
 }
@@ -711,6 +714,10 @@ const annulerCloture = () => {
 const confirmerCloture = async (c) => {
   if (!clotureDate.value) {
     messageCloture.value = 'Date de fin requise'
+    return
+  }
+  if (formatDate(c.date_debut) && clotureDate.value < formatDate(c.date_debut)) {
+    messageCloture.value = 'La date de fin doit être supérieure ou égale à la date de début.'
     return
   }
   try {
@@ -881,9 +888,9 @@ const expiringSoonCount = computed(() => {
 
 const metricCards = computed(() => [
   {
-    label: 'Contrats actifs',
-    value: formatInteger(actifsCount.value),
-    caption: `${formatInteger(Math.max(contrats.value.length - actifsCount.value, 0))} hors statut en cours`,
+    label: 'Contrats retournés',
+    value: formatInteger(pagination.value.total || contrats.value.length),
+    caption: 'Total correspondant aux filtres, toutes pages incluses',
     tag: 'Active',
   },
   {

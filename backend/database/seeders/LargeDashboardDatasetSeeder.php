@@ -111,6 +111,10 @@ class LargeDashboardDatasetSeeder extends Seeder
             $dateFin = $today->copy()->addDays($index % 30 === 0 ? 0 : mt_rand(1, 180));
         }
 
+        if ($dateFin && $dateFin->lt($dateEmbauche)) {
+            $dateFin = $dateEmbauche->copy();
+        }
+
         Contrat::create([
             'numero' => 'LOAD-CTR-' . str_pad((string) $index, 5, '0', STR_PAD_LEFT),
             'employe_id' => $employe->id,

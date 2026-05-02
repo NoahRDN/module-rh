@@ -405,7 +405,7 @@ const metricCards = computed(() => [
   {
     label: 'Collaborateurs',
     value: formatInteger(pagination.value.total || employes.value.length),
-    caption: `${formatInteger(filteredEmployes.value.length)} visibles sur la page courante`,
+    caption: 'Total correspondant aux filtres, toutes pages incluses',
     tag: 'Directory',
   },
   {

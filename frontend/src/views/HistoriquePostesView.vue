@@ -414,9 +414,9 @@ const thisYearMoves = computed(() => {
 
 const metricCards = computed(() => [
   {
-    label: 'Mouvements visibles',
-    value: formatInteger(historiquesFiltres.value.length),
-    caption: 'Résultats sur la page courante après filtres',
+    label: 'Mouvements retournés',
+    value: formatInteger(pagination.value.total || historiques.value.length),
+    caption: 'Total correspondant aux filtres, toutes pages incluses',
     tag: 'Mobility',
   },
   {

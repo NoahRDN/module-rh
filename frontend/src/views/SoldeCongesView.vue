@@ -432,9 +432,9 @@ const withContractInfo = computed(() => soldes.value.filter((s) => Boolean(s.con
 
 const metricCards = computed(() => [
   {
-    label: 'Soldes visibles',
-    value: formatInteger(soldesFiltres.value.length),
-    caption: 'Résultats après application des filtres',
+    label: 'Soldes retournés',
+    value: formatInteger(pagination.value.total || soldes.value.length),
+    caption: 'Total correspondant aux filtres, toutes pages incluses',
     tag: 'Balance',
   },
   {

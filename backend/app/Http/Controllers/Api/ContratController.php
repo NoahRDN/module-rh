@@ -10,6 +10,7 @@ use App\Models\ContratHistorique;
 use App\Models\Employe;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Carbon\Carbon;
 
 class ContratController extends Controller
@@ -102,6 +103,7 @@ class ContratController extends Controller
                 $data['numero'] = $this->genererNumero();
             }
             $data['statut'] = $data['statut'] ?? 'en_cours';
+            $this->ensureDateOrder($data);
 
             $this->cloreContratsActifs($data['employe_id'] ?? $request->employe_id, $data['date_debut'] ?? null);
 
@@ -114,6 +116,8 @@ class ContratController extends Controller
                 Log::warning('Accrual soldes après création contrat a échoué', ['error' => $e->getMessage()]);
             }
             return response()->json($contrat, 201);
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (\Throwable $e) {
             Log::error('Erreur creation contrat', ['error' => $e->getMessage()]);
             return response()->json(['message' => 'Erreur serveur'], 500);
@@ -136,6 +140,7 @@ class ContratController extends Controller
             $contrat = Contrat::findOrFail($id);
             $data = $request->validated();
             $data = $this->computeDates($data, $contrat);
+            $this->ensureDateOrder($data);
             if (empty($data['numero'])) {
                 unset($data['numero']);
             }
@@ -144,6 +149,8 @@ class ContratController extends Controller
             $this->historiser($contrat);
 
             return response()->json($contrat);
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (\Throwable $e) {
             Log::error('Erreur update contrat', ['id' => $id, 'error' => $e->getMessage()]);
             return response()->json(['message' => 'Erreur serveur'], 500);
@@ -223,6 +230,21 @@ class ContratController extends Controller
         return $data;
     }
 
+    protected function ensureDateOrder(array $data): void
+    {
+        if (!empty($data['date_debut']) && !empty($data['date_fin']) && Carbon::parse($data['date_debut'])->gt(Carbon::parse($data['date_fin']))) {
+            throw ValidationException::withMessages([
+                'date_fin' => 'La date de fin doit être supérieure ou égale à la date de début.',
+            ]);
+        }
+
+        if (!empty($data['periode_essai_debut']) && !empty($data['periode_essai_fin']) && Carbon::parse($data['periode_essai_debut'])->gt(Carbon::parse($data['periode_essai_fin']))) {
+            throw ValidationException::withMessages([
+                'periode_essai_fin' => 'La fin de période d’essai doit être supérieure ou égale au début.',
+            ]);
+        }
+    }
+
     protected function hasEssaiDuration(array $data): bool
     {
         return !empty($data['essai_jours']) || !empty($data['essai_mois']) || !empty($data['essai_ans']);
@@ -241,7 +263,11 @@ class ContratController extends Controller
         foreach ($contratsActifs as $c) {
             $fin = $c->date_fin;
             if (!$fin || $fin->toDateString() >= $start) {
-                $c->date_fin = Carbon::parse($start)->subDay()->toDateString();
+                $newEnd = Carbon::parse($start)->subDay();
+                $contractStart = Carbon::parse($c->date_debut);
+                $c->date_fin = $newEnd->lt($contractStart)
+                    ? $contractStart->toDateString()
+                    : $newEnd->toDateString();
             }
             $c->statut = 'termine';
             $c->save();

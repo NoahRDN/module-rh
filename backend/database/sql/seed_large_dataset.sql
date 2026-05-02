@@ -196,6 +196,10 @@ BEGIN
             END;
         END IF;
 
+        IF date_fin_value IS NOT NULL AND date_fin_value < date_embauche_value THEN
+            date_fin_value := date_embauche_value;
+        END IF;
+
         INSERT INTO contrats (
             numero,
             employe_id,

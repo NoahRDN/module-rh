@@ -376,12 +376,13 @@ const lastSyncedLabel = computed(() => {
 const pendingCount = computed(() => demandes.value.filter((d) => d.statut === 'en_attente').length)
 const managerValidatedCount = computed(() => demandes.value.filter((d) => d.statut === 'manager_valide').length)
 const rejectedCount = computed(() => demandes.value.filter((d) => d.statut === 'rejete').length)
+const totalDemandesRetournees = computed(() => pagination.value.total || demandes.value.length)
 
 const metricCards = computed(() => [
   {
-    label: 'Demandes visibles',
-    value: formatInteger(demandesFiltrees.value.length),
-    caption: 'Résultats de la page après filtres',
+    label: 'Demandes retournées',
+    value: formatInteger(totalDemandesRetournees.value),
+    caption: 'Total correspondant aux filtres, toutes pages incluses',
     tag: 'Flow',
   },
   {

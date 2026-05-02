@@ -314,6 +314,7 @@ const loading = ref(false)
 const loadStatus = ref({ type: '', text: '' })
 const lastRefreshedAt = ref(null)
 const BRANDING_CACHE_KEY = 'rh_entreprise_branding'
+const SNAPSHOT_POLLING_SECONDS = 7
 let snapshotPollingTimer = null
 
 const chartDepartements = ref(null)
@@ -528,25 +529,28 @@ const dashboardSnapshotStatus = (snapshot) => {
   if (snapshot?.status === 'generating' || snapshot?.status === 'missing_snapshot') {
     return {
       type: 'warning',
-      text: snapshot.message || 'Les statistiques pour cette période sont en cours de génération.',
+      text: withRefreshDelay(snapshot.message || 'Les statistiques pour cette période sont en cours de génération.'),
     }
   }
 
   if (snapshot?.status === 'stale') {
     return {
       type: 'warning',
-      text: snapshot.message || 'Données affichées avec une mise à jour en arrière-plan.',
+      text: withRefreshDelay(snapshot.message || 'Données affichées avec une mise à jour en arrière-plan.'),
     }
   }
 
   return { type: '', text: '' }
 }
 
+const withRefreshDelay = (message) =>
+  `${message} Rafraîchissement automatique dans ${SNAPSHOT_POLLING_SECONDS} secondes.`
+
 const scheduleSnapshotPolling = () => {
   clearSnapshotPolling()
   snapshotPollingTimer = window.setTimeout(() => {
     loadData()
-  }, 7000)
+  }, SNAPSHOT_POLLING_SECONDS * 1000)
 }
 
 const clearSnapshotPolling = () => {

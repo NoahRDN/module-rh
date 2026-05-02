@@ -292,12 +292,13 @@ const lastSyncedLabel = computed(() => {
 const payantsCount = computed(() => types.value.filter((t) => Boolean(t.paye)).length)
 const cumulablesCount = computed(() => types.value.filter((t) => Boolean(t.cumulable)).length)
 const withLimitCount = computed(() => types.value.filter((t) => Number(t.limite) > 0).length)
+const totalTypesRetournes = computed(() => pagination.value.total || types.value.length)
 
 const metricCards = computed(() => [
   {
-    label: 'Types visibles',
-    value: formatInteger(typesFiltres.value.length),
-    caption: 'Résultats après recherche et filtres',
+    label: 'Types retournés',
+    value: formatInteger(totalTypesRetournes.value),
+    caption: 'Total correspondant aux filtres, toutes pages incluses',
     tag: 'Types',
   },
   {

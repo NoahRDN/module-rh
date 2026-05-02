@@ -325,9 +325,9 @@ const sourceSummary = computed(() => {
 
 const metricCards = computed(() => [
   {
-    label: 'Pointages visibles',
-    value: formatInteger(pointagesFiltres.value.length),
-    caption: 'Résultats après filtres',
+    label: 'Pointages retournés',
+    value: formatInteger(pagination.value.total || pointages.value.length),
+    caption: 'Total correspondant aux filtres, toutes pages incluses',
     tag: 'Rows',
   },
   {

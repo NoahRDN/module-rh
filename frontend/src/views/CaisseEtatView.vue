@@ -188,6 +188,7 @@ const loading = ref(false)
 const error = ref('')
 const syntheseStatus = ref({ text: '' })
 let synthesePollingTimer = null
+const SYNTHESE_POLLING_SECONDS = 7
 const caisses = ref([])
 const mouvements = ref([])
 const categories = ref({ entree: [], sortie: [] })
@@ -278,7 +279,7 @@ const scheduleSynthesePolling = () => {
   clearSynthesePolling()
   synthesePollingTimer = window.setTimeout(() => {
     fetchData()
-  }, 7000)
+  }, SYNTHESE_POLLING_SECONDS * 1000)
 }
 
 const clearSynthesePolling = () => {
@@ -289,11 +290,14 @@ const clearSynthesePolling = () => {
 
 const caisseSyntheseStatus = (synthese) => {
   if (synthese?.status === 'generating' || synthese?.status === 'stale') {
-    return { text: synthese.message || 'La synthèse de caisse est en cours de mise à jour.' }
+    return { text: withSyntheseRefreshDelay(synthese.message || 'La synthèse de caisse est en cours de mise à jour.') }
   }
 
   return { text: '' }
 }
+
+const withSyntheseRefreshDelay = (message) =>
+  `${message} Rafraîchissement automatique dans ${SYNTHESE_POLLING_SECONDS} secondes.`
 
 watch(() => filters.value.type, (type) => {
   const options = type ? (categories.value[type] || []) : filterCategories.value

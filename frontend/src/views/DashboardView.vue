@@ -314,6 +314,7 @@ const loading = ref(false)
 const loadStatus = ref({ type: '', text: '' })
 const lastRefreshedAt = ref(null)
 const BRANDING_CACHE_KEY = 'rh_entreprise_branding'
+let snapshotPollingTimer = null
 
 const chartDepartements = ref(null)
 const chartContrats = ref(null)
@@ -473,17 +474,24 @@ const destroyCharts = () => {
 const loadData = async () => {
   loading.value = true
   loadStatus.value = { type: '', text: '' }
+  clearSnapshotPolling()
 
   try {
     const { data } = await api.get('/dashboard/bootstrap', {
       params: buildStatsParams(),
     })
+    const snapshot = data?.snapshot || { status: 'available' }
 
     statsData.value = data?.statistiques || emptyStats()
     alertes.value = Array.isArray(data?.alertes_recentes) ? data.alertes_recentes : []
     derniersEmployes.value = Array.isArray(data?.donnees_rapides?.derniers_employes)
       ? data.donnees_rapides.derniers_employes
       : []
+    loadStatus.value = dashboardSnapshotStatus(snapshot)
+
+    if (['generating', 'missing_snapshot'].includes(snapshot.status) || snapshot?.meta?.is_refreshing) {
+      scheduleSnapshotPolling()
+    }
 
     if (Array.isArray(data?.devises)) {
       setCurrencyCatalog(data.devises)
@@ -498,7 +506,7 @@ const loadData = async () => {
       window.dispatchEvent(new CustomEvent('rh:entreprise-branding', { detail: data.entreprise }))
     }
 
-    lastRefreshedAt.value = new Date()
+    lastRefreshedAt.value = snapshot?.meta?.generated_at ? new Date(snapshot.meta.generated_at) : null
   } catch (error) {
     console.error('Erreur chargement dashboard:', error)
     loadStatus.value = {
@@ -514,6 +522,37 @@ const loadData = async () => {
     await nextTick()
     updateCharts()
   }
+}
+
+const dashboardSnapshotStatus = (snapshot) => {
+  if (snapshot?.status === 'generating' || snapshot?.status === 'missing_snapshot') {
+    return {
+      type: 'warning',
+      text: snapshot.message || 'Les statistiques pour cette période sont en cours de génération.',
+    }
+  }
+
+  if (snapshot?.status === 'stale') {
+    return {
+      type: 'warning',
+      text: snapshot.message || 'Données affichées avec une mise à jour en arrière-plan.',
+    }
+  }
+
+  return { type: '', text: '' }
+}
+
+const scheduleSnapshotPolling = () => {
+  clearSnapshotPolling()
+  snapshotPollingTimer = window.setTimeout(() => {
+    loadData()
+  }, 7000)
+}
+
+const clearSnapshotPolling = () => {
+  if (!snapshotPollingTimer) return
+  window.clearTimeout(snapshotPollingTimer)
+  snapshotPollingTimer = null
 }
 
 const emptyStats = () => ({
@@ -843,6 +882,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   destroyCharts()
+  clearSnapshotPolling()
   themeObserver?.disconnect()
 })
 </script>

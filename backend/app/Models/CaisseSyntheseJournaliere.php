@@ -21,6 +21,9 @@ class CaisseSyntheseJournaliere extends Model
         'mouvements_rejetes',
         'par_categorie',
         'generated_at',
+        'synthese_status',
+        'refreshed_by',
+        'error_message',
     ];
 
     protected $casts = [

@@ -3,16 +3,20 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\GenerateCaisseSyntheseDayJob;
 use App\Models\Caisse;
 use App\Models\CaisseMouvement;
 use App\Models\CaisseSyntheseJournaliere;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class CaisseController extends Controller
 {
+    private const READ_MODEL_STALE_MINUTES = 30;
+
     public function index(Request $request)
     {
         $validated = $request->validate([
@@ -46,6 +50,7 @@ class CaisseController extends Controller
             'mouvements' => $mouvements,
             'categories' => $categories,
             'synthese' => $this->caisseSynthesePayload(now()->toDateString()),
+            'synthese_status' => $this->caisseSyntheseState(now()->toDateString()),
         ]);
     }
 
@@ -280,6 +285,9 @@ class CaisseController extends Controller
                 'mouvements_rejetes' => $items->where('statut', 'rejete')->count(),
                 'par_categorie' => json_encode($parCategorie, JSON_UNESCAPED_UNICODE),
                 'generated_at' => now(),
+                'synthese_status' => 'available',
+                'refreshed_by' => app()->runningInConsole() ? 'command' : 'http',
+                'error_message' => null,
                 'created_at' => now(),
                 'updated_at' => now(),
             ];
@@ -319,6 +327,67 @@ class CaisseController extends Controller
             'mouvements_rejetes' => (int) $rows->sum('mouvements_rejetes'),
             'updated_at' => $generatedAt ? Carbon::parse($generatedAt)->toIso8601String() : null,
         ];
+    }
+
+    private function caisseSyntheseState(string $date): array
+    {
+        $day = Carbon::parse($date)->toDateString();
+        $rows = CaisseSyntheseJournaliere::query()->whereDate('jour', $day)->get();
+        $generatedAt = $rows->max('generated_at');
+        $isGenerating = Cache::has($this->caisseSyntheseCacheKey($day));
+        $isStale = $generatedAt ? Carbon::parse($generatedAt)->lt(now()->subMinutes($this->readModelStaleMinutes())) : false;
+
+        if ($isGenerating) {
+            return $this->caisseSyntheseMeta($day, 'generating', $generatedAt, $rows->count());
+        }
+
+        if ($rows->isEmpty() && Caisse::query()->exists()) {
+            $this->queueCaisseSyntheseDay($day);
+            return $this->caisseSyntheseMeta($day, 'generating', $generatedAt, 0);
+        }
+
+        if ($isStale) {
+            $this->queueCaisseSyntheseDay($day);
+            return $this->caisseSyntheseMeta($day, 'stale', $generatedAt, $rows->count());
+        }
+
+        return $this->caisseSyntheseMeta($day, 'available', $generatedAt, $rows->count());
+    }
+
+    private function caisseSyntheseMeta(string $day, string $status, ?string $generatedAt, int $count): array
+    {
+        return [
+            'jour' => $day,
+            'status' => $status,
+            'message' => match ($status) {
+                'generating' => 'La synthèse de caisse est en cours de génération.',
+                'stale' => 'La synthèse de caisse est affichée, mais une mise à jour est en cours.',
+                default => 'La synthèse de caisse est disponible.',
+            },
+            'generated_at' => $generatedAt ? Carbon::parse($generatedAt)->toIso8601String() : null,
+            'updated_at' => CaisseSyntheseJournaliere::query()->whereDate('jour', $day)->max('updated_at'),
+            'is_stale' => $status === 'stale',
+            'rows' => $count,
+        ];
+    }
+
+    private function queueCaisseSyntheseDay(string $day): void
+    {
+        if (!Cache::add($this->caisseSyntheseCacheKey($day), 'generating', now()->addMinutes(10))) {
+            return;
+        }
+
+        GenerateCaisseSyntheseDayJob::dispatch($day)->afterResponse();
+    }
+
+    private function caisseSyntheseCacheKey(string $day): string
+    {
+        return "read-model:caisse-synthese:{$day}";
+    }
+
+    private function readModelStaleMinutes(): int
+    {
+        return max(1, (int) env('READ_MODEL_STALE_MINUTES', self::READ_MODEL_STALE_MINUTES));
     }
 
     private function refreshCaisseSyntheseForMouvement(CaisseMouvement $mouvement): void

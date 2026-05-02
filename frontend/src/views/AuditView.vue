@@ -34,7 +34,7 @@
       <div class="filters">
         <div class="filter-group">
           <label>Action</label>
-          <select v-model="filters.action" @change="loadLogs">
+          <select v-model="filters.action" @change="applyFilters">
             <option value="">Toutes</option>
             <option v-for="(label, key) in actions" :key="key" :value="key">
               {{ label }}
@@ -43,7 +43,7 @@
         </div>
         <div class="filter-group">
           <label>Type d'entité</label>
-          <select v-model="filters.type" @change="loadLogs">
+          <select v-model="filters.type" @change="applyFilters">
             <option value="">Tous</option>
             <option v-for="type in types" :key="type.value" :value="type.value">
               {{ type.label }}
@@ -52,7 +52,7 @@
         </div>
         <div class="filter-group">
           <label>Utilisateur</label>
-          <select v-model="filters.user_id" @change="loadLogs">
+          <select v-model="filters.user_id" @change="applyFilters">
             <option value="">Tous</option>
             <option v-for="user in users" :key="user.id" :value="user.id">
               {{ user.name }} ({{ user.role }})
@@ -61,11 +61,11 @@
         </div>
         <div class="filter-group">
           <label>Du</label>
-          <input type="date" v-model="filters.from" @change="loadLogs" />
+          <input type="date" v-model="filters.from" @change="applyFilters" />
         </div>
         <div class="filter-group">
           <label>Au</label>
-          <input type="date" v-model="filters.to" @change="loadLogs" />
+          <input type="date" v-model="filters.to" @change="applyFilters" />
         </div>
         <div class="filter-group">
           <label>Recherche</label>
@@ -73,10 +73,10 @@
             type="text" 
             v-model="filters.search" 
             placeholder="Description, IP..."
-            @keyup.enter="loadLogs"
+            @keyup.enter="applyFilters"
           />
         </div>
-        <button class="btn btn-primary" @click="loadLogs">
+        <button class="btn btn-primary" @click="applyFilters" :disabled="loading">
           🔍 Filtrer
         </button>
         <button class="btn btn-secondary" @click="resetFilters">
@@ -149,7 +149,7 @@
       <div class="pagination" v-if="pagination.total > pagination.per_page">
         <button 
           class="btn btn-sm" 
-          :disabled="pagination.current_page <= 1"
+          :disabled="loading || pagination.current_page <= 1"
           @click="changePage(pagination.current_page - 1)"
         >
           ← Précédent
@@ -160,7 +160,7 @@
         </span>
         <button 
           class="btn btn-sm" 
-          :disabled="pagination.current_page >= pagination.last_page"
+          :disabled="loading || pagination.current_page >= pagination.last_page"
           @click="changePage(pagination.current_page + 1)"
         >
           Suivant →
@@ -381,7 +381,12 @@ export default {
       this.pagination.current_page = 1
       this.loadLogs()
     },
+    applyFilters() {
+      this.pagination.current_page = 1
+      this.loadLogs()
+    },
     changePage(page) {
+      if (this.loading || page < 1 || page > this.pagination.last_page) return
       this.pagination.current_page = page
       this.loadLogs()
     },

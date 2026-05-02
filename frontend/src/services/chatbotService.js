@@ -15,7 +15,7 @@ const chatbotService = {
    * @returns {Promise}
    */
   ask(question, context = null) {
-    return api.post('/v1/chatbot/ask', { question, context })
+    return api.post('/v1/chatbot/ask', { question, context }, { timeout: 60000 })
   },
 
   /**

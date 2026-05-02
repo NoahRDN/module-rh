@@ -188,8 +188,8 @@
           · {{ formatInteger(pagination.total) }} lignes
         </p>
         <div class="table-actions">
-          <button class="btn btn-secondary btn-sm" :disabled="pagination.page <= 1" @click="prevPage">Précédent</button>
-          <button class="btn btn-secondary btn-sm" :disabled="pagination.page >= pagination.last_page" @click="nextPage">Suivant</button>
+          <button class="btn btn-secondary btn-sm" :disabled="loading || pagination.page <= 1" @click="prevPage">Précédent</button>
+          <button class="btn btn-secondary btn-sm" :disabled="loading || pagination.page >= pagination.last_page" @click="nextPage">Suivant</button>
         </div>
       </div>
     </section>
@@ -197,7 +197,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import api from '../services/api'
 import { debounce } from '../utils/debounce'
@@ -257,7 +257,7 @@ const badgeClass = (statut) => {
 const fetchDemandes = async () => {
   loading.value = true
   try {
-    const params = filterEmploye.value ? { employe_id: filterEmploye.value, page: pagination.value.page } : { page: pagination.value.page }
+    const params = buildDemandeParams()
     const { data } = await api.get('/v1/demandes-conges', { params })
     demandes.value = data.data || []
     if (data.meta) {
@@ -270,6 +270,17 @@ const fetchDemandes = async () => {
     loading.value = false
   }
 }
+
+const buildDemandeParams = () => ({
+  page: pagination.value.page,
+  ...(filterEmploye.value ? { employe_id: filterEmploye.value } : {}),
+  ...(filters.value.matricule ? { matricule: filters.value.matricule } : {}),
+  ...(filters.value.nom ? { nom: filters.value.nom } : {}),
+  ...(filters.value.type ? { type: filters.value.type } : {}),
+  ...(filters.value.statut ? { statut: filters.value.statut } : {}),
+  ...(filters.value.date_debut ? { date_debut: filters.value.date_debut } : {}),
+  ...(filters.value.date_fin ? { date_fin: filters.value.date_fin } : {}),
+})
 
 const debouncedFetchDemandes = debounce(fetchDemandes, 300)
 
@@ -331,6 +342,8 @@ const sortLabel = (key) => (sortKey.value === key ? (sortDir.value === 'asc' ? '
 const resetFilters = () => {
   filterEmploye.value = ''
   filters.value = { matricule: '', nom: '', type: '', statut: '', date_debut: '', date_fin: '' }
+  pagination.value.page = 1
+  fetchDemandes()
 }
 
 const canAct = (demande) => demande.statut === 'en_attente' || demande.statut === 'manager_valide'
@@ -392,13 +405,13 @@ const metricCards = computed(() => [
 ])
 
 const nextPage = () => {
-  if (pagination.value.page < pagination.value.last_page) {
+  if (!loading.value && pagination.value.page < pagination.value.last_page) {
     pagination.value.page++
     fetchDemandes()
   }
 }
 const prevPage = () => {
-  if (pagination.value.page > 1) {
+  if (!loading.value && pagination.value.page > 1) {
     pagination.value.page--
     fetchDemandes()
   }
@@ -408,6 +421,11 @@ onMounted(async () => {
   await fetchRefs()
   await fetchDemandes()
 })
+
+watch(filters, () => {
+  pagination.value.page = 1
+  debouncedFetchDemandes()
+}, { deep: true })
 </script>
 
 <style scoped>

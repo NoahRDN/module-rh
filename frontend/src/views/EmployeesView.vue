@@ -287,13 +287,13 @@
             </p>
 
             <div class="table-actions">
-              <button class="btn btn-secondary btn-sm" type="button" :disabled="pagination.page <= 1" @click="prevPage">
+              <button class="btn btn-secondary btn-sm" type="button" :disabled="loading || pagination.page <= 1" @click="prevPage">
                 Précédent
               </button>
               <button
                 class="btn btn-secondary btn-sm"
                 type="button"
-                :disabled="pagination.page >= pagination.last_page"
+                :disabled="loading || pagination.page >= pagination.last_page"
                 @click="nextPage"
               >
                 Suivant
@@ -308,7 +308,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import api from '../services/api'
 import AppIcon from '../components/ui/AppIcon.vue'
@@ -472,10 +472,7 @@ const fetchEmployes = async () => {
 
   try {
     const { data } = await api.get('/v1/employes', {
-      params: {
-        search: search.value,
-        page: pagination.value.page,
-      },
+      params: buildEmployeeParams(),
     })
 
     employes.value = data.data || []
@@ -500,11 +497,32 @@ const fetchEmployes = async () => {
   }
 }
 
+const buildEmployeeParams = () => {
+  const params = {
+    search: search.value,
+    page: pagination.value.page,
+  }
+
+  Object.entries(filters.value).forEach(([key, value]) => {
+    if (value) {
+      params[key] = value
+    }
+  })
+
+  return params
+}
+
 const refreshData = async () => {
   await fetchEmployes()
 }
 
 const handleSearch = () => {
+  clearTimeout(searchTimer)
+  pagination.value.page = 1
+  searchTimer = setTimeout(fetchEmployes, 300)
+}
+
+const handleFiltersChange = () => {
   clearTimeout(searchTimer)
   pagination.value.page = 1
   searchTimer = setTimeout(fetchEmployes, 300)
@@ -574,14 +592,14 @@ const resetFilters = async () => {
 }
 
 const nextPage = async () => {
-  if (pagination.value.page < pagination.value.last_page) {
+  if (!loading.value && pagination.value.page < pagination.value.last_page) {
     pagination.value.page += 1
     await fetchEmployes()
   }
 }
 
 const prevPage = async () => {
-  if (pagination.value.page > 1) {
+  if (!loading.value && pagination.value.page > 1) {
     pagination.value.page -= 1
     await fetchEmployes()
   }
@@ -613,6 +631,8 @@ const formatInteger = (value) => new Intl.NumberFormat('fr-FR').format(Number(va
 onMounted(async () => {
   await fetchEmployes()
 })
+
+watch(filters, handleFiltersChange, { deep: true })
 
 onBeforeUnmount(() => {
   clearTimeout(searchTimer)

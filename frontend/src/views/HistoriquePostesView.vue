@@ -222,13 +222,13 @@
             </p>
 
             <div class="table-actions">
-              <button class="btn btn-secondary btn-sm" type="button" :disabled="pagination.page <= 1" @click="prevPage">
+              <button class="btn btn-secondary btn-sm" type="button" :disabled="loading || pagination.page <= 1" @click="prevPage">
                 Précédent
               </button>
               <button
                 class="btn btn-secondary btn-sm"
                 type="button"
-                :disabled="pagination.page >= pagination.last_page"
+                :disabled="loading || pagination.page >= pagination.last_page"
                 @click="nextPage"
               >
                 Suivant
@@ -243,7 +243,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref, computed } from 'vue'
+import { onMounted, ref, computed, watch } from 'vue'
 import api from '../services/api'
 import { debounce } from '../utils/debounce'
 import { RouterLink } from 'vue-router'
@@ -289,7 +289,7 @@ const optionsDepartements = computed(() =>
 
 const fetchHistorique = async () => {
   loading.value = true
-  const params = filterEmploye.value ? { employe_id: filterEmploye.value, page: pagination.value.page } : { page: pagination.value.page }
+  const params = buildHistoriqueParams()
   try {
     const { data } = await api.get('/v1/historiques-postes', { params })
     historiques.value = data.data || []
@@ -303,6 +303,18 @@ const fetchHistorique = async () => {
     loading.value = false
   }
 }
+
+const buildHistoriqueParams = () => ({
+  page: pagination.value.page,
+  ...(filterEmploye.value ? { employe_id: filterEmploye.value } : {}),
+  ...(filters.value.matricule ? { matricule: filters.value.matricule } : {}),
+  ...(filters.value.nom ? { nom: filters.value.nom } : {}),
+  ...(filters.value.poste ? { poste: filters.value.poste } : {}),
+  ...(filters.value.departement ? { departement: filters.value.departement } : {}),
+  ...(filters.value.motif ? { motif: filters.value.motif } : {}),
+  ...(filters.value.from ? { from: filters.value.from } : {}),
+  ...(filters.value.to ? { to: filters.value.to } : {}),
+})
 
 const debouncedFetchHistorique = debounce(fetchHistorique, 300)
 
@@ -473,13 +485,13 @@ const refreshData = async () => {
 }
 
 const nextPage = () => {
-  if (pagination.value.page < pagination.value.last_page) {
+  if (!loading.value && pagination.value.page < pagination.value.last_page) {
     pagination.value.page++
     fetchHistorique()
   }
 }
 const prevPage = () => {
-  if (pagination.value.page > 1) {
+  if (!loading.value && pagination.value.page > 1) {
     pagination.value.page--
     fetchHistorique()
   }
@@ -489,6 +501,11 @@ onMounted(async () => {
   await fetchEmployes()
   await fetchHistorique()
 })
+
+watch(filters, () => {
+  pagination.value.page = 1
+  debouncedFetchHistorique()
+}, { deep: true })
 </script>
 
 <style scoped>

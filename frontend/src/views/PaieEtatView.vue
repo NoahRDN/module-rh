@@ -93,6 +93,10 @@
             <span class="status-dot"></span>
             <span>{{ error }}</span>
           </div>
+          <div v-if="syntheseStatus.text" class="status-banner warning">
+            <span class="status-dot"></span>
+            <span>{{ syntheseStatus.text }}</span>
+          </div>
 
           <datalist id="paie-etat-matricules">
             <option v-for="matricule in optionsMatricules" :key="matricule" :value="matricule" />
@@ -269,7 +273,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import api from '../services/api'
 import AppIcon from '../components/ui/AppIcon.vue'
@@ -277,6 +281,8 @@ import { formatDateValue, formatMoneyAmount } from '../utils/formatters'
 
 const loading = ref(false)
 const error = ref('')
+const syntheseStatus = ref({ text: '' })
+let synthesePollingTimer = null
 const route = useRoute()
 const mode = ref('mois')
 const statusFilter = ref('tous')
@@ -497,6 +503,8 @@ const syncSelectedCaisses = (rows) => {
 const refresh = async () => {
   loading.value = true
   error.value = ''
+  syntheseStatus.value = { text: '' }
+  clearSynthesePolling()
   details.value = []
   parMois.value = []
 
@@ -505,7 +513,14 @@ const refresh = async () => {
       statut: statusFilter.value,
       ...(mode.value === 'annee' ? { annee: String(year.value) } : {}),
       ...(mode.value === 'periode' ? { debut: periodStart.value, fin: periodEnd.value } : {}),
-      ...(mode.value === 'mois' ? { mois: selectedMonth.value, page: currentPage.value, per_page: perPage.value } : {}),
+      ...(mode.value === 'mois' ? {
+        mois: selectedMonth.value,
+        page: currentPage.value,
+        per_page: perPage.value,
+        ...(detailFilters.value.matricule ? { matricule: detailFilters.value.matricule } : {}),
+        ...(detailFilters.value.nom ? { nom: detailFilters.value.nom } : {}),
+        ...(detailFilters.value.contrat ? { contrat: detailFilters.value.contrat } : {}),
+      } : {}),
     }
 
     const { data } = await api.get('/v1/paies/etat', { params })
@@ -514,6 +529,10 @@ const refresh = async () => {
     cotisations.value = data.cotisations || {}
     paymentSummary.value = data.payment_summary || {}
     paymentDue.value = data.payment_due || {}
+    syntheseStatus.value = paieSyntheseStatus(data.synthese)
+    if (['generating', 'stale'].includes(data.synthese?.status)) {
+      scheduleSynthesePolling()
+    }
     parMois.value = data.par_mois || []
     details.value = data.details || []
     detailsPagination.value = data.details_pagination || { current_page: 1, per_page: perPage.value, total: details.value.length, last_page: 1 }
@@ -526,19 +545,44 @@ const refresh = async () => {
   }
 }
 
+const scheduleSynthesePolling = () => {
+  clearSynthesePolling()
+  synthesePollingTimer = window.setTimeout(() => {
+    refresh()
+  }, 7000)
+}
+
+const clearSynthesePolling = () => {
+  if (!synthesePollingTimer) return
+  window.clearTimeout(synthesePollingTimer)
+  synthesePollingTimer = null
+}
+
+const paieSyntheseStatus = (synthese) => {
+  if (synthese?.status === 'generating') {
+    return { text: synthese.message || 'La synthèse de paie est en cours de génération.' }
+  }
+
+  if (synthese?.status === 'stale') {
+    return { text: synthese.message || 'La synthèse de paie est affichée, mais une mise à jour est en cours.' }
+  }
+
+  return { text: '' }
+}
+
 const resetAndRefresh = () => {
   currentPage.value = 1
   refresh()
 }
 
 const previousPage = () => {
-  if (currentPage.value <= 1) return
+  if (loading.value || currentPage.value <= 1) return
   currentPage.value -= 1
   refresh()
 }
 
 const nextPage = () => {
-  if (currentPage.value >= detailsPagination.value.last_page) return
+  if (loading.value || currentPage.value >= detailsPagination.value.last_page) return
   currentPage.value += 1
   refresh()
 }
@@ -624,6 +668,14 @@ onMounted(() => {
   refresh()
   loadCaisses()
 })
+
+watch(detailFilters, () => {
+  if (mode.value !== 'mois') return
+  currentPage.value = 1
+  refresh()
+}, { deep: true })
+
+onUnmounted(clearSynthesePolling)
 </script>
 
 <style scoped>

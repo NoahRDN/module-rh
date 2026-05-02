@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\GenerateDashboardSnapshotJob;
 use App\Models\Employe;
 use App\Models\Contrat;
 use App\Models\Departement;
@@ -25,6 +26,8 @@ use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
+    private const SNAPSHOT_STALE_MINUTES = 30;
+
     public function bootstrap(Request $request)
     {
         $filtre = $request->get('filtre', 'annee');
@@ -48,6 +51,7 @@ class DashboardController extends Controller
             'statistiques' => $dashboard['statistiques'],
             'alertes_recentes' => $dashboard['alertes_recentes'],
             'donnees_rapides' => $dashboard['donnees_rapides'],
+            'snapshot' => $dashboard['snapshot'],
         ]);
     }
 
@@ -66,7 +70,14 @@ class DashboardController extends Controller
             $request->query('date_fin')
         );
 
-        return response()->json($this->dashboardStatPayload($filtre, $periode)['statistiques']);
+        $dashboard = $this->dashboardStatPayload($filtre, $periode);
+
+        return response()->json([
+            'status' => $dashboard['snapshot']['status'],
+            'message' => $dashboard['snapshot']['message'],
+            'data' => $dashboard['statistiques'],
+            'meta' => $dashboard['snapshot']['meta'],
+        ]);
     }
 
     public function refreshSnapshot(string $filtre = 'annee', ?string $date = null, ?string $dateDebut = null, ?string $dateFin = null): DashboardStat
@@ -79,11 +90,14 @@ class DashboardController extends Controller
     private function dashboardStatPayload(string $filtre, array $periode): array
     {
         $snapshot = $this->findDashboardSnapshot($filtre, $periode);
+        $state = $this->snapshotState($snapshot, $filtre, $periode);
+        $hasData = in_array($state['status'], ['available', 'stale'], true);
 
         return [
-            'statistiques' => $snapshot?->statistiques ?: $this->emptyStats($filtre, $periode),
-            'alertes_recentes' => $snapshot?->alertes_recentes ?: [],
-            'donnees_rapides' => $snapshot?->donnees_rapides ?: [],
+            'statistiques' => $hasData ? $snapshot?->statistiques : null,
+            'alertes_recentes' => $hasData ? ($snapshot?->alertes_recentes ?: []) : [],
+            'donnees_rapides' => $hasData ? ($snapshot?->donnees_rapides ?: []) : [],
+            'snapshot' => $state,
         ];
     }
 
@@ -96,13 +110,136 @@ class DashboardController extends Controller
             ->first();
     }
 
+    private function snapshotState(?DashboardStat $snapshot, string $filtre, array $periode): array
+    {
+        $meta = $this->snapshotMeta($snapshot, $filtre, $periode);
+
+        if (!$snapshot) {
+            $this->queueSnapshotGeneration($filtre, $periode);
+
+            return [
+                'status' => 'generating',
+                'message' => 'Les statistiques pour cette période sont en cours de génération.',
+                'meta' => $meta,
+            ];
+        }
+
+        if ($snapshot->status === 'generating') {
+            return [
+                'status' => 'generating',
+                'message' => 'Les statistiques pour cette période sont en cours de génération.',
+                'meta' => $meta,
+            ];
+        }
+
+        if ($snapshot->status === 'stale') {
+            return [
+                'status' => 'stale',
+                'message' => 'Les statistiques sont affichées, mais une mise à jour est en cours.',
+                'meta' => array_merge($meta, [
+                    'is_stale' => true,
+                    'is_refreshing' => !$snapshot->error_message,
+                ]),
+            ];
+        }
+
+        if ($snapshot->status === 'failed') {
+            $this->queueSnapshotGeneration($filtre, $periode, $snapshot);
+
+            return [
+                'status' => 'missing_snapshot',
+                'message' => 'Les statistiques pour cette période ne sont pas encore disponibles.',
+                'meta' => $meta,
+            ];
+        }
+
+        if ($this->isSnapshotStale($snapshot)) {
+            $this->queueSnapshotGeneration($filtre, $periode, $snapshot);
+
+            return [
+                'status' => 'stale',
+                'message' => 'Les statistiques sont affichées, mais une mise à jour est en cours.',
+                'meta' => array_merge($meta, ['is_stale' => true, 'is_refreshing' => true]),
+            ];
+        }
+
+        return [
+            'status' => 'available',
+            'message' => 'Les statistiques sont disponibles.',
+            'meta' => $meta,
+        ];
+    }
+
+    private function snapshotMeta(?DashboardStat $snapshot, string $filtre, array $periode): array
+    {
+        return [
+            'period_type' => $filtre,
+            'date_debut' => $periode['debut']->toDateString(),
+            'date_fin' => $periode['fin']->toDateString(),
+            'generated_at' => $snapshot?->generated_at?->toIso8601String(),
+            'updated_at' => $snapshot?->updated_at?->toIso8601String(),
+            'is_stale' => $snapshot ? $this->isSnapshotStale($snapshot) : false,
+            'is_refreshing' => false,
+            'error_message' => $snapshot?->error_message,
+        ];
+    }
+
+    private function isSnapshotStale(DashboardStat $snapshot): bool
+    {
+        $generatedAt = $snapshot->generated_at ?: $snapshot->updated_at;
+
+        return !$generatedAt || $generatedAt->lt(now()->subMinutes($this->snapshotStaleMinutes()));
+    }
+
+    private function snapshotStaleMinutes(): int
+    {
+        return max(1, (int) env('DASHBOARD_SNAPSHOT_STALE_MINUTES', self::SNAPSHOT_STALE_MINUTES));
+    }
+
+    private function queueSnapshotGeneration(string $filtre, array $periode, ?DashboardStat $snapshot = null): void
+    {
+        if ($snapshot?->status === 'generating') {
+            return;
+        }
+
+        $nextStatus = $snapshot && ($snapshot->generated_at || $snapshot->statistiques) ? 'stale' : 'generating';
+
+        $row = DashboardStat::query()->updateOrCreate(
+            [
+                'filtre' => $filtre,
+                'date_debut' => $periode['debut']->toDateString(),
+                'date_fin' => $periode['fin']->toDateString(),
+            ],
+            [
+                'period_type' => $filtre,
+                'statistiques' => $snapshot?->statistiques ?: [],
+                'donnees_rapides' => $snapshot?->donnees_rapides ?: [],
+                'alertes_recentes' => $snapshot?->alertes_recentes ?: [],
+                'status' => $nextStatus,
+                'error_message' => null,
+            ],
+        );
+
+        if ($row->wasRecentlyCreated || $row->wasChanged('status')) {
+            GenerateDashboardSnapshotJob::dispatch(
+                $filtre,
+                $periode['debut']->toDateString(),
+                $periode['fin']->toDateString(),
+            )->afterResponse();
+        }
+    }
+
     private function storeDashboardSnapshot(string $filtre, array $periode): DashboardStat
     {
         $payload = [
+            'period_type' => $filtre,
             'statistiques' => $this->getStatistiquesPayload($filtre, $periode),
             'donnees_rapides' => $this->getDonneesRapides($periode),
             'alertes_recentes' => app(AlerteController::class)->recent(6),
             'generated_at' => now(),
+            'refreshed_by' => app()->runningInConsole() ? 'command' : 'http',
+            'status' => 'available',
+            'error_message' => null,
         ];
 
         return DashboardStat::query()->updateOrCreate(
@@ -113,21 +250,6 @@ class DashboardController extends Controller
             ],
             $payload
         );
-    }
-
-    private function emptyStats(string $filtre, array $periode): array
-    {
-        return [
-            'effectifs' => ['total' => 0, 'actifs' => 0, 'inactifs' => 0, 'nouveaux' => 0, 'departs' => 0],
-            'indicateurs' => ['anciennete_moyenne' => 0, 'turnover' => 0, 'absenteisme' => 0, 'performance_moyenne' => 0],
-            'repartitions' => ['departements' => [], 'types_contrat' => [], 'genres' => [], 'tranches_age' => []],
-            'tendances' => [],
-            'periode' => [
-                'filtre' => $filtre,
-                'debut' => $periode['debut']->format('Y-m-d'),
-                'fin' => $periode['fin']->format('Y-m-d'),
-            ],
-        ];
     }
 
     private function getStatistiquesPayload(string $filtre, array $periode): array

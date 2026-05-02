@@ -60,7 +60,7 @@
       <div class="filters">
         <div class="filter-group">
           <label>Type</label>
-          <select v-model="filters.type" @change="loadDocuments">
+          <select v-model="filters.type" @change="applyFilters">
             <option value="">Tous</option>
             <option v-for="type in documentTypes" :key="type" :value="type">
               {{ type }}
@@ -69,7 +69,7 @@
         </div>
         <div class="filter-group">
           <label>Statut</label>
-          <select v-model="filters.status" @change="loadDocuments">
+          <select v-model="filters.status" @change="applyFilters">
             <option value="">Tous</option>
             <option value="valid">Valide</option>
             <option value="expiring">Expire bientôt</option>
@@ -82,10 +82,10 @@
             type="text" 
             v-model="filters.search" 
             placeholder="Nom, référence..."
-            @keyup.enter="loadDocuments"
+            @keyup.enter="applyFilters"
           />
         </div>
-        <button class="btn btn-primary" @click="loadDocuments">
+        <button class="btn btn-primary" @click="applyFilters" :disabled="loading">
           🔍 Filtrer
         </button>
       </div>
@@ -167,7 +167,7 @@
       <div class="pagination" v-if="pagination.total > pagination.per_page">
         <button 
           class="btn btn-sm" 
-          :disabled="pagination.current_page <= 1"
+          :disabled="loading || pagination.current_page <= 1"
           @click="changePage(pagination.current_page - 1)"
         >
           ← Précédent
@@ -177,7 +177,7 @@
         </span>
         <button 
           class="btn btn-sm" 
-          :disabled="pagination.current_page >= pagination.last_page"
+          :disabled="loading || pagination.current_page >= pagination.last_page"
           @click="changePage(pagination.current_page + 1)"
         >
           Suivant →
@@ -487,12 +487,17 @@ export default {
       // Peut supprimer si expiré
       return doc.is_expired
     },
+    applyFilters() {
+      this.pagination.current_page = 1
+      this.loadDocuments()
+    },
     getExpirationClass(doc) {
       if (doc.is_expired) return 'expired'
       if (doc.is_expiring_soon) return 'expiring'
       return ''
     },
     changePage(page) {
+      if (this.loading || page < 1 || page > this.pagination.last_page) return
       this.pagination.current_page = page
       this.loadDocuments()
     },

@@ -8,12 +8,16 @@ class DashboardStat extends Model
 {
     protected $fillable = [
         'filtre',
+        'period_type',
         'date_debut',
         'date_fin',
         'statistiques',
         'donnees_rapides',
         'alertes_recentes',
         'generated_at',
+        'refreshed_by',
+        'status',
+        'error_message',
     ];
 
     protected $casts = [

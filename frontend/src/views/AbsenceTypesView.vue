@@ -175,8 +175,8 @@
             · {{ formatInteger(pagination.total) }} lignes
           </p>
           <div class="table-actions">
-            <button class="btn btn-secondary btn-sm" :disabled="pagination.page <= 1" @click="prevPage">Précédent</button>
-            <button class="btn btn-secondary btn-sm" :disabled="pagination.page >= pagination.last_page" @click="nextPage">Suivant</button>
+            <button class="btn btn-secondary btn-sm" :disabled="loading || pagination.page <= 1" @click="prevPage">Précédent</button>
+            <button class="btn btn-secondary btn-sm" :disabled="loading || pagination.page >= pagination.last_page" @click="nextPage">Suivant</button>
           </div>
         </div>
       </article>
@@ -185,7 +185,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import api from '../services/api'
 import AppIcon from '../components/ui/AppIcon.vue'
@@ -205,7 +205,7 @@ const hasFilters = computed(() =>
 const fetchTypes = async () => {
   loading.value = true
   try {
-    const { data } = await api.get('/v1/types-conges', { params: { page: pagination.value.page }, paramsSerializer: { indexes: null } })
+    const { data } = await api.get('/v1/types-conges', { params: buildTypeParams(), paramsSerializer: { indexes: null } })
     types.value = data.data || []
     if (data.meta) {
       pagination.value = { page: data.meta.current_page, last_page: data.meta.last_page, total: data.meta.total }
@@ -217,6 +217,14 @@ const fetchTypes = async () => {
     loading.value = false
   }
 }
+
+const buildTypeParams = () => ({
+  page: pagination.value.page,
+  ...(filters.value.nom ? { search: filters.value.nom } : {}),
+  ...(filters.value.payant ? { payant: filters.value.payant } : {}),
+  ...(filters.value.jours_min !== '' ? { jours_min: filters.value.jours_min } : {}),
+  ...(filters.value.jours_max !== '' ? { jours_max: filters.value.jours_max } : {}),
+})
 
 onMounted(async () => {
   await fetchTypes()
@@ -262,7 +270,11 @@ const setSort = (key) => {
   else { sortKey.value = key; sortDir.value = 'asc' }
 }
 const sortLabel = (key) => (sortKey.value === key ? (sortDir.value === 'asc' ? '▲' : '▼') : '')
-const resetFilters = () => { filters.value = { nom: '', payant: '', jours_min: '', jours_max: '' } }
+const resetFilters = () => {
+  filters.value = { nom: '', payant: '', jours_min: '', jours_max: '' }
+  pagination.value.page = 1
+  fetchTypes()
+}
 
 const formatInteger = (value) =>
   new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(Number(value) || 0)
@@ -331,17 +343,22 @@ const cumulableFreq = (t) => {
   return '—'
 }
 const nextPage = () => {
-  if (pagination.value.page < pagination.value.last_page) {
+  if (!loading.value && pagination.value.page < pagination.value.last_page) {
     pagination.value.page++
     fetchTypes()
   }
 }
 const prevPage = () => {
-  if (pagination.value.page > 1) {
+  if (!loading.value && pagination.value.page > 1) {
     pagination.value.page--
     fetchTypes()
   }
 }
+
+watch(filters, () => {
+  pagination.value.page = 1
+  fetchTypes()
+}, { deep: true })
 </script>
 
 <style scoped>

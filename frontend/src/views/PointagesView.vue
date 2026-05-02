@@ -194,10 +194,10 @@
           </p>
 
           <div class="table-actions">
-            <button class="btn btn-secondary btn-sm" :disabled="pagination.page <= 1" @click="prevPage">
+            <button class="btn btn-secondary btn-sm" :disabled="loading || pagination.page <= 1" @click="prevPage">
               Précédent
             </button>
-            <button class="btn btn-secondary btn-sm" :disabled="pagination.page >= pagination.last_page" @click="nextPage">
+            <button class="btn btn-secondary btn-sm" :disabled="loading || pagination.page >= pagination.last_page" @click="nextPage">
               Suivant
             </button>
           </div>
@@ -209,7 +209,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import api from '../services/api'
 import { debounce } from '../utils/debounce'
@@ -234,7 +234,7 @@ const pagination = ref({ page: 1, last_page: 1, total: 0 })
 const fetchPointages = async () => {
   loading.value = true
   try {
-    const params = { ...filters.value, page: pagination.value.page }
+    const params = { ...filters.value, ...filtersLocal.value, page: pagination.value.page }
     const { data } = await api.get('/v1/pointages', { params })
     pointages.value = data.data || []
     if (data.meta) {
@@ -420,14 +420,14 @@ const resetFilters = () => {
 }
 
 const nextPage = () => {
-  if (pagination.value.page < pagination.value.last_page) {
+  if (!loading.value && pagination.value.page < pagination.value.last_page) {
     pagination.value.page += 1
     fetchPointages()
   }
 }
 
 const prevPage = () => {
-  if (pagination.value.page > 1) {
+  if (!loading.value && pagination.value.page > 1) {
     pagination.value.page -= 1
     fetchPointages()
   }
@@ -454,6 +454,11 @@ onMounted(async () => {
   await fetchEmployes()
   await fetchPointages()
 })
+
+watch(filtersLocal, () => {
+  pagination.value.page = 1
+  debouncedFetchPointages()
+}, { deep: true })
 </script>
 
 <style scoped>

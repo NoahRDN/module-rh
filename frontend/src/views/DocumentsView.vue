@@ -197,8 +197,8 @@
               · {{ formatInteger(pagination.total) }} lignes
             </p>
             <div class="table-actions">
-              <button class="btn btn-secondary btn-sm" :disabled="pagination.page <= 1" @click="prevPage">Précédent</button>
-              <button class="btn btn-secondary btn-sm" :disabled="pagination.page >= pagination.last_page" @click="nextPage">Suivant</button>
+              <button class="btn btn-secondary btn-sm" :disabled="loading || pagination.page <= 1" @click="prevPage">Précédent</button>
+              <button class="btn btn-secondary btn-sm" :disabled="loading || pagination.page >= pagination.last_page" @click="nextPage">Suivant</button>
             </div>
           </div>
         </article>
@@ -209,7 +209,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref, computed } from 'vue'
+import { onMounted, ref, computed, watch } from 'vue'
 import api, { resolveBackendAssetUrl } from '../services/api'
 import { debounce } from '../utils/debounce'
 import { RouterLink } from 'vue-router'
@@ -240,7 +240,7 @@ const hasFilters = computed(() =>
 const fetchDocs = async () => {
   loading.value = true
   try {
-    const params = filterEmploye.value ? { employe_id: filterEmploye.value, page: pagination.value.page } : { page: pagination.value.page }
+    const params = buildDocumentParams()
     const { data } = await api.get('/v1/documents', { params })
     docs.value = data.data || data || []
     if (data.meta) {
@@ -261,6 +261,16 @@ const fetchDocs = async () => {
     loading.value = false
   }
 }
+
+const buildDocumentParams = () => ({
+  page: pagination.value.page,
+  ...(filterEmploye.value ? { employe_id: filterEmploye.value } : {}),
+  ...(filters.value.matricule ? { matricule: filters.value.matricule } : {}),
+  ...(filters.value.nom ? { nom: filters.value.nom } : {}),
+  ...(filters.value.type ? { type: filters.value.type } : {}),
+  ...(filters.value.fichier ? { fichier: filters.value.fichier } : {}),
+  ...(filters.value.date_expiration ? { date_expiration: filters.value.date_expiration } : {}),
+})
 
 const debouncedFetchDocs = debounce(fetchDocs, 300)
 
@@ -341,6 +351,8 @@ const resetFilters = () => {
   filters.value = { matricule: '', nom: '', type: '', fichier: '', date_expiration: '' }
   sortKey.value = 'employe'
   sortDir.value = 'asc'
+  pagination.value.page = 1
+  fetchDocs()
 }
 
 const formatInteger = (value) =>
@@ -448,17 +460,22 @@ const refreshData = async () => {
   await fetchDocs()
 }
 const nextPage = () => {
-  if (pagination.value.page < pagination.value.last_page) {
+  if (!loading.value && pagination.value.page < pagination.value.last_page) {
     pagination.value.page++
     fetchDocs()
   }
 }
 const prevPage = () => {
-  if (pagination.value.page > 1) {
+  if (!loading.value && pagination.value.page > 1) {
     pagination.value.page--
     fetchDocs()
   }
 }
+
+watch(filters, () => {
+  pagination.value.page = 1
+  debouncedFetchDocs()
+}, { deep: true })
 </script>
 
 <style scoped>

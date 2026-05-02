@@ -21,6 +21,12 @@ class PosteController extends Controller
             if ($dep) {
                 $query->where('departement_id', $dep);
             }
+            if ($request->filled('nom')) {
+                $query->where('nom', 'ILIKE', '%' . $request->query('nom') . '%');
+            }
+            if ($request->filled('categorie')) {
+                $query->where('categorie', 'ILIKE', '%' . $request->query('categorie') . '%');
+            }
 
             return response()->json($all ? $query->get() : $query->paginate(10));
         } catch (\Throwable $e) {

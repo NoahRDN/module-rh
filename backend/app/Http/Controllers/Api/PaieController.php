@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\GeneratePaieSyntheseMonthJob;
 use App\Models\Paie;
 use App\Models\PaieDetail;
 use App\Models\PaieParametre;
@@ -26,10 +27,13 @@ use DatePeriod;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class PaieController extends Controller
 {
+    private const READ_MODEL_STALE_MINUTES = 30;
+
     protected CongeService $congeService;
     protected RemunerationItemService $remunerationItemService;
     protected PayrollRateService $payrollRateService;
@@ -722,6 +726,9 @@ class PaieController extends Controller
             'fin' => 'nullable|date_format:Y-m|after_or_equal:debut',
             'paiement' => 'nullable|in:prevision,paye',
             'statut' => 'nullable|in:tous,non_genere,en_attente_validation,non_paye,paiement_en_validation,paye',
+            'matricule' => 'nullable|string',
+            'nom' => 'nullable|string',
+            'contrat' => 'nullable|string',
             'page' => 'nullable|integer|min:1',
             'per_page' => 'nullable|integer|min:10|max:100',
         ]);
@@ -733,6 +740,9 @@ class PaieController extends Controller
         $page = (int) ($validated['page'] ?? 1);
         $perPage = (int) ($validated['per_page'] ?? 50);
         $statut = $validated['statut'] ?? null;
+        $matriculeFilter = $validated['matricule'] ?? null;
+        $nomFilter = $validated['nom'] ?? null;
+        $contratFilter = $validated['contrat'] ?? null;
         if (!$statut && ($validated['paiement'] ?? null) === 'paye') {
             $statut = 'paye';
         }
@@ -759,6 +769,8 @@ class PaieController extends Controller
                 $debut && $fin ? $debut : "{$annee}-01",
                 $debut && $fin ? $fin : "{$annee}-12"
             );
+
+            $synthese = $this->paieSyntheseStateForMonths($months);
 
             $parMois = collect($months)->map(function (string $month) use ($statut) {
                 $rows = $this->filterEtatRows($this->etatPaieRowsFromSynthese($month), $statut);
@@ -854,9 +866,11 @@ class PaieController extends Controller
                     'total' => round(array_sum($summaryPaymentDue), 2),
                 ],
                 'par_mois' => $parMois,
+                'synthese' => $synthese,
             ]);
         }
 
+        $synthese = $this->paieSyntheseStateForMonths([$mois]);
         $rows = $this->etatPaieRowsFromSynthese($mois);
         $statusCounts = $rows->countBy('statut')->all();
 
@@ -869,6 +883,7 @@ class PaieController extends Controller
                 return $row['statut'] === $statut;
             })->values();
         }
+        $rows = $this->filterEtatRowsByDetails($rows, $matriculeFilter, $nomFilter, $contratFilter);
 
         $resteAPayer = $rows->sum(function ($row) {
             if (!in_array($row['statut'], ['non_genere', 'en_attente_validation', 'non_paye', 'paiement_en_validation'], true)) {
@@ -947,7 +962,81 @@ class PaieController extends Controller
                 'total' => $detailsTotal,
                 'last_page' => $detailsLastPage,
             ],
+            'synthese' => $synthese,
         ]);
+    }
+
+    protected function paieSyntheseStateForMonths(array $months): array
+    {
+        $states = collect($months)->mapWithKeys(fn (string $month) => [$month => $this->paieSyntheseStateForMonth($month)]);
+        $statuses = $states->pluck('status')->all();
+        $status = in_array('generating', $statuses, true) ? 'generating' : (in_array('stale', $statuses, true) ? 'stale' : 'available');
+
+        return [
+            'status' => $status,
+            'message' => match ($status) {
+                'generating' => 'La synthèse de paie est en cours de génération.',
+                'stale' => 'La synthèse de paie est affichée, mais une mise à jour est en cours.',
+                default => 'La synthèse de paie est disponible.',
+            },
+            'months' => $states->values()->all(),
+        ];
+    }
+
+    protected function paieSyntheseStateForMonth(string $month): array
+    {
+        $query = PaieSyntheseMensuelle::query()->where('mois', $month);
+        $count = (clone $query)->count();
+        $generatedAt = (clone $query)->max('generated_at');
+        $isGenerating = Cache::has($this->paieSyntheseCacheKey($month));
+        $isStale = $generatedAt ? Carbon::parse($generatedAt)->lt(now()->subMinutes($this->readModelStaleMinutes())) : false;
+
+        if ($isGenerating) {
+            return $this->paieSyntheseMonthMeta($month, 'generating', $generatedAt, $count);
+        }
+
+        if ($count === 0) {
+            $this->queuePaieSyntheseMonth($month);
+            return $this->paieSyntheseMonthMeta($month, 'generating', $generatedAt, $count);
+        }
+
+        if ($isStale) {
+            $this->queuePaieSyntheseMonth($month);
+            return $this->paieSyntheseMonthMeta($month, 'stale', $generatedAt, $count);
+        }
+
+        return $this->paieSyntheseMonthMeta($month, 'available', $generatedAt, $count);
+    }
+
+    protected function paieSyntheseMonthMeta(string $month, string $status, ?string $generatedAt, int $count): array
+    {
+        return [
+            'mois' => $month,
+            'status' => $status,
+            'generated_at' => $generatedAt ? Carbon::parse($generatedAt)->toIso8601String() : null,
+            'updated_at' => PaieSyntheseMensuelle::query()->where('mois', $month)->max('updated_at'),
+            'is_stale' => $status === 'stale',
+            'rows' => $count,
+        ];
+    }
+
+    protected function queuePaieSyntheseMonth(string $month): void
+    {
+        if (!Cache::add($this->paieSyntheseCacheKey($month), 'generating', now()->addMinutes(10))) {
+            return;
+        }
+
+        GeneratePaieSyntheseMonthJob::dispatch($month)->afterResponse();
+    }
+
+    protected function paieSyntheseCacheKey(string $month): string
+    {
+        return "read-model:paie-synthese:{$month}";
+    }
+
+    protected function readModelStaleMinutes(): int
+    {
+        return max(1, (int) env('READ_MODEL_STALE_MINUTES', self::READ_MODEL_STALE_MINUTES));
     }
 
     protected function filterEtatRows($rows, string $statut)
@@ -962,6 +1051,28 @@ class PaieController extends Controller
             }
 
             return $row['statut'] === $statut;
+        })->values();
+    }
+
+    protected function filterEtatRowsByDetails($rows, ?string $matricule, ?string $nom, ?string $contrat)
+    {
+        $needle = fn (?string $value) => mb_strtolower((string) $value);
+        $matricule = $needle($matricule);
+        $nom = $needle($nom);
+        $contrat = $needle($contrat);
+
+        if (!$matricule && !$nom && !$contrat) {
+            return $rows->values();
+        }
+
+        return $rows->filter(function (array $row) use ($matricule, $nom, $contrat, $needle) {
+            $employe = $row['employe'] ?? [];
+            $fullName = trim(($employe['nom'] ?? '') . ' ' . ($employe['prenom'] ?? ''));
+            $contratLabel = $row['contrat_numero'] ?? (!empty($row['contrat_id']) ? "#{$row['contrat_id']}" : '');
+
+            return (!$matricule || str_contains($needle($employe['matricule'] ?? ''), $matricule))
+                && (!$nom || str_contains($needle($fullName), $nom))
+                && (!$contrat || str_contains($needle($contratLabel), $contrat));
         })->values();
     }
 
@@ -1494,6 +1605,9 @@ class PaieController extends Controller
             'caisse_nom' => $row['caisse_nom'] ?? null,
             'details_paie' => json_encode($row['details_paie'] ?? [], JSON_UNESCAPED_UNICODE),
             'generated_at' => $now,
+            'synthese_status' => 'available',
+            'refreshed_by' => app()->runningInConsole() ? 'command' : 'http',
+            'error_message' => null,
             'created_at' => $now,
             'updated_at' => $now,
         ];

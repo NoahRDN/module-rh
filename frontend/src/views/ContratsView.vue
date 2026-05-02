@@ -366,8 +366,8 @@
             </p>
 
             <div class="table-actions">
-              <button class="btn btn-secondary btn-sm" :disabled="pagination.page <= 1" @click="prevPage">Précédent</button>
-              <button class="btn btn-secondary btn-sm" :disabled="pagination.page >= pagination.last_page" @click="nextPage">Suivant</button>
+              <button class="btn btn-secondary btn-sm" :disabled="loading || pagination.page <= 1" @click="prevPage">Précédent</button>
+              <button class="btn btn-secondary btn-sm" :disabled="loading || pagination.page >= pagination.last_page" @click="nextPage">Suivant</button>
             </div>
           </div>
         </article>
@@ -378,7 +378,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref, computed } from 'vue'
+import { onMounted, ref, computed, watch } from 'vue'
 import api from '../services/api'
 import { debounce } from '../utils/debounce'
 import { parseISO, intervalToDuration, formatDuration } from 'date-fns'
@@ -610,8 +610,15 @@ const fetchContrats = async () => {
     const params = {
       page: pagination.value.page,
       ...(filterEmploye.value ? { employe_id: filterEmploye.value } : {}),
+      ...(filters.value.numero ? { numero: filters.value.numero } : {}),
+      ...(filters.value.matricule ? { matricule: filters.value.matricule } : {}),
+      ...(filters.value.nom ? { nom: filters.value.nom } : {}),
+      ...(filters.value.type ? { type: filters.value.type } : {}),
+      ...(filters.value.statut ? { statut: filters.value.statut } : {}),
       ...(filters.value.date_debut ? { date_debut: filters.value.date_debut } : {}),
       ...(filters.value.date_fin ? { date_fin: filters.value.date_fin } : {}),
+      ...(filters.value.departement ? { departement: filters.value.departement } : {}),
+      ...(filters.value.poste ? { poste: filters.value.poste } : {}),
     }
     const { data } = await api.get('/v1/contrats', { params })
     contrats.value = data.data || []
@@ -945,13 +952,13 @@ const refreshData = async () => {
 }
 
 const nextPage = () => {
-  if (pagination.value.page < pagination.value.last_page) {
+  if (!loading.value && pagination.value.page < pagination.value.last_page) {
     pagination.value.page++
     fetchContrats()
   }
 }
 const prevPage = () => {
-  if (pagination.value.page > 1) {
+  if (!loading.value && pagination.value.page > 1) {
     pagination.value.page--
     fetchContrats()
   }
@@ -961,6 +968,11 @@ onMounted(async () => {
   await fetchEmployes()
   await fetchContrats()
 })
+
+watch(filters, () => {
+  pagination.value.page = 1
+  debouncedFetchContrats()
+}, { deep: true })
 </script>
 
 <style scoped>

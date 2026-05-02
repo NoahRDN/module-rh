@@ -35,6 +35,16 @@ class PointageController extends Controller
                 ->with('employe:id,matricule,nom,prenom,poste_id,departement_id')
                 ->forEmploye($employeId)
                 ->between($from, $to)
+                ->when($request->filled('matricule'), function ($q) use ($request) {
+                    $term = $request->query('matricule');
+                    $q->whereHas('employe', fn ($emp) => $emp->where('matricule', 'ILIKE', "%{$term}%"));
+                })
+                ->when($request->filled('nom'), function ($q) use ($request) {
+                    $term = $request->query('nom');
+                    $q->whereHas('employe', fn ($emp) => $emp->where('nom', 'ILIKE', "%{$term}%")->orWhere('prenom', 'ILIKE', "%{$term}%"));
+                })
+                ->when($request->filled('type'), fn ($q) => $q->where('type', 'ILIKE', '%' . $request->query('type') . '%'))
+                ->when($request->filled('source'), fn ($q) => $q->where('source', 'ILIKE', '%' . $request->query('source') . '%'))
                 ->orderBy('pointe_a', 'asc')
                 ->paginate($perPage);
 

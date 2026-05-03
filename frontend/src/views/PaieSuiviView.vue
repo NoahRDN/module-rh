@@ -7,6 +7,11 @@
         <p class="hero-subtitle">
           Suivez l’avancement mensuel des paies entre prévision, attente de validation, validation et paiement.
         </p>
+        <p class="hero-subtitle" style="
+            font-style: italic;
+        ">
+          Remarque : les données de prévision sont basées sur les états de paie actualisés, donc pour être sûr de voir les prévisions mises à jour, pensez à actualiser la période cible des etats de paie avant de consulter ce suivi.
+        </p>
 
         <div class="hero-pills">
           <span class="pill">Prévision</span>

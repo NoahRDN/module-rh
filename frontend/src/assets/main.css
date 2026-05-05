@@ -984,6 +984,28 @@ body[data-theme='dark'] .status-banner {
   min-width: 0;
 }
 
+/* Employee detail specific fixes to avoid sidebar/main overlap */
+.employee-detail-page .content-grid {
+  /* keep a stable sidebar width so columns won't overlap */
+  grid-template-columns: minmax(0, 1.6fr) minmax(320px, 420px);
+  gap: 20px;
+  align-items: start;
+}
+
+.employee-detail-page .sidebar-column {
+  min-width: 320px;
+  max-width: 420px;
+}
+
+.employee-detail-page .content-grid > * {
+  position: relative;
+  z-index: 0;
+}
+
+.employee-detail-page .hero-actions {
+  z-index: 2;
+}
+
 .rh-side-card,
 .side-card,
 .insights-card {

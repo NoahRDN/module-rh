@@ -513,10 +513,15 @@ class DashboardController extends Controller
                   ->orWhereBetween('date_fin', [$periodeAbsenteisme['debut'], $periodeAbsenteisme['fin']]);
             })
             ->get()
-            ->sum(function ($demande) use ($periodeAbsenteisme) {
-                $debut = Carbon::parse($demande->date_debut)->max($periodeAbsenteisme['debut']);
-                $fin = Carbon::parse($demande->date_fin)->min($periodeAbsenteisme['fin']);
-                return max(0, $debut->diffInWeekdays($fin) + 1);
+            ->sum(function ($demande) use ($periodeAbsenteisme, $settingsPresence) {
+                $debut = Carbon::parse($demande->date_debut)->max($periodeAbsenteisme['debut'])->startOfDay();
+                $fin = Carbon::parse($demande->date_fin)->min($periodeAbsenteisme['fin'])->startOfDay();
+
+                if ($fin->lt($debut)) {
+                    return 0;
+                }
+
+                return $this->calculerJoursOuvresPresence($debut, $fin, $settingsPresence);
             });
         $joursAbsencesPointage = $this->calculerJoursAbsencePointage(
             $periodeAbsenteisme,

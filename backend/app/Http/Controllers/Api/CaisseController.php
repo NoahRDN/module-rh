@@ -62,6 +62,33 @@ class CaisseController extends Controller
         ]);
     }
 
+    public function storeType(Request $request)
+    {
+        $data = $request->validate([
+            'nom' => 'required|string|max:120|unique:caisses,nom',
+            'description' => 'nullable|string|max:500',
+            'solde' => 'nullable|numeric|min:0',
+            'active' => 'nullable|boolean',
+        ]);
+
+        try {
+            $caisse = Caisse::create([
+                'nom' => trim($data['nom']),
+                'description' => $data['description'] ?? null,
+                'solde' => $data['solde'] ?? 0,
+                'active' => $data['active'] ?? true,
+            ]);
+
+            return response()->json([
+                'message' => 'Type de caisse créé',
+                'caisse' => $caisse,
+            ], 201);
+        } catch (\Throwable $e) {
+            Log::error('Erreur création type caisse', ['error' => $e->getMessage()]);
+            return response()->json(['message' => 'Erreur serveur'], 500);
+        }
+    }
+
     public function toggleActive($id)
     {
         try {

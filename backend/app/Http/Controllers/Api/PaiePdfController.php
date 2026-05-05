@@ -78,17 +78,20 @@ class PaiePdfController extends Controller
             $enfants_charge = $employe->enfants_a_charge ?? 0;
             $sourceMontants = $this->sourceMontantsForMonth($paie->mois);
             $forcePrevision = $request->boolean('prevision');
-            $isPrevisionPdf = $forcePrevision || $paie->type === 'mixte' || $paie->type === 'prevision';
-            
-            // Determine watermark text based on payroll type
-            // Only show watermark for forecast types (prevision and mixte), not for validated actual
+            $sourceCode = (string) ($sourceMontants['code'] ?? '');
+            $isPrevisionPdf = $forcePrevision || in_array($sourceCode, ['mixte', 'prevision'], true);
+
+            // Filigrane métier:
+            // - Réel + prévision
+            // - Prévision présence
+            // Pas de filigrane pour le réel calculé.
             $watermarkText = null;
-            if ($paie->type === 'prevision') {
-                $watermarkText = 'PRÉVISION';
-            } elseif ($paie->type === 'mixte') {
-                $watermarkText = 'PRÉVISION + RÉEL';
+            if ($sourceCode === 'mixte') {
+                $watermarkText = 'RÉEL + PRÉVISION';
+            } elseif ($sourceCode === 'prevision' || $forcePrevision) {
+                $watermarkText = 'PRÉVISION PRÉSENCE';
             }
-            // No watermark for validated actual payrolls
+
             $entreprise = EntrepriseSetting::firstOrCreate(
                 [],
                 ['nom' => config('app.name', 'Module RH')]

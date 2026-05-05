@@ -1,6 +1,6 @@
 <template>
   <div class="rh-page employee-detail-page">
-    <section class="hero hero-band hero-shared hero-compact">
+    <section class="hero hero-band hero-shared">
       <div class="hero-copy">
         <div class="employee-title">
           <img v-if="employe.photo" class="employee-avatar employee-photo" :src="employe.photo" alt="Employé" />
@@ -38,6 +38,15 @@
           </div>
         </div>
       </div>
+    </section>
+
+    <section class="metric-grid">
+      <article v-for="metric in metrics" :key="metric.label" class="metric-card">
+        <span class="metric-chip">{{ metric.tag }}</span>
+        <p class="metric-label">{{ metric.label }}</p>
+        <p class="metric-value">{{ metric.value }}</p>
+        <p class="metric-caption">{{ metric.caption }}</p>
+      </article>
     </section>
 
     <section class="content-grid">
@@ -568,6 +577,32 @@ const joursOuvresContrat = computed(() => Number(contratActuel.value?.jours_ouvr
 const heuresMensuellesContrat = computed(() => Number(contratActuel.value?.heures_mensuelles_requises || 0))
 const tauxHoraireContrat = computed(() => Number(contratActuel.value?.taux_horaire || 0))
 const tauxJournalierContrat = computed(() => Number(contratActuel.value?.taux_journalier || 0))
+const metrics = computed(() => [
+  {
+    tag: 'Profil',
+    label: 'Statut employé',
+    value: isActif.value ? 'Actif' : 'Inactif',
+    caption: `${posteLabel.value} • ${departementLabel.value}`,
+  },
+  {
+    tag: 'Contrat',
+    label: 'Contrat courant',
+    value: contratActuel.value?.type_contrat || 'Aucun',
+    caption: contratActuel.value?.numero ? `N° ${contratActuel.value.numero}` : 'Aucun contrat rattaché',
+  },
+  {
+    tag: 'Docs',
+    label: 'Documents',
+    value: String(documentGroups.value.length),
+    caption: `${documentsEmploye.value.length} fichier(s) au total`,
+  },
+  {
+    tag: 'Congés',
+    label: 'Demandes',
+    value: String(demandes.value.length),
+    caption: `${soldes.value.length} type(s) de solde disponible(s)`,
+  },
+])
 
 const fetchEmploye = async () => {
   const { data } = await api.get(`/v1/employes/${route.params.id}`)
@@ -1052,6 +1087,24 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.employee-detail-page .hero-copy,
+.employee-detail-page .hero-actions,
+.employee-detail-page .filters-panel,
+.employee-detail-page .main-column,
+.employee-detail-page .sidebar-column {
+  min-width: 0;
+}
+
+.employee-detail-page .hero-meta strong {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.employee-detail-page .sidebar-column {
+  width: 100%;
+  max-width: 100%;
+}
+
 .employee-title {
   display: flex;
   align-items: center;
@@ -1317,5 +1370,10 @@ onMounted(async () => {
 
 .pointage-grid {
   grid-template-columns: 1fr;
+}
+
+.sidebar-column > .section-card,
+.pointage-grid .overview-card {
+  width: 100%;
 }
 </style>

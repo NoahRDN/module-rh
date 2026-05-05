@@ -221,6 +221,7 @@ Route::prefix('v1')->group(function () {
     Route::get('paies/{id}/pdf', [PaiePdfController::class, 'telecharger']);
     Route::get('caisses', [CaisseController::class, 'index']);
     Route::get('caisses/types', [CaisseController::class, 'types']);
+    Route::post('caisses/types', [CaisseController::class, 'storeType']);
     Route::get('caisses/en-attente-validation', [CaisseController::class, 'enAttente']);
     Route::post('caisses/mouvements', [CaisseController::class, 'storeMouvement']);
     Route::patch('caisses/{id}/toggle-active', [CaisseController::class, 'toggleActive']);

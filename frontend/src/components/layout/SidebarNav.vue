@@ -7,9 +7,7 @@
           <AppIcon name="grid" :size="18" />
         </div>
         <div>
-          <p class="brand-eyebrow">Executive Layer</p>
           <p class="brand-name">{{ entreprise.nom || 'Module RH' }}</p>
-          <p class="brand-sub">People ops and payroll</p>
         </div>
       </div>
 

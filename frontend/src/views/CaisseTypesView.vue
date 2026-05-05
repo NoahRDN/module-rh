@@ -53,9 +53,14 @@
           <p class="section-kicker">Configuration</p>
           <h2>Liste des types de caisse</h2>
         </div>
-        <button class="btn btn-secondary btn-xs" type="button" :disabled="loading" @click="fetchTypes">
-          Actualiser
-        </button>
+        <div class="action-row">
+          <button class="btn btn-xs" type="button" :disabled="loading" @click="openCreateModal">
+            Ajouter type
+          </button>
+          <button class="btn btn-secondary btn-xs" type="button" :disabled="loading" @click="fetchTypes">
+            Actualiser
+          </button>
+        </div>
       </div>
 
       <div class="table-shell">
@@ -103,6 +108,48 @@
         </table>
       </div>
     </section>
+
+    <div v-if="showCreateModal" class="modal-overlay" @click.self="closeCreateModal">
+      <article class="card section-card create-modal">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Nouveau type</p>
+            <h2>Ajouter un type de caisse</h2>
+          </div>
+          <button class="btn btn-secondary btn-xs" type="button" @click="closeCreateModal">Fermer</button>
+        </div>
+
+        <div class="fields-grid">
+          <label class="field-card">
+            <span class="field-label">Nom</span>
+            <input class="input" v-model.trim="createForm.nom" type="text" maxlength="120" />
+          </label>
+
+          <label class="field-card full">
+            <span class="field-label">Description</span>
+            <textarea class="textarea" v-model.trim="createForm.description" maxlength="500"></textarea>
+          </label>
+
+          <label class="field-card">
+            <span class="field-label">Solde initial</span>
+            <input class="input" v-model.number="createForm.solde" type="number" min="0" step="0.01" />
+          </label>
+
+          <label class="field-card">
+            <span class="field-label">Statut</span>
+            <select class="select" v-model="createForm.active">
+              <option :value="true">Actif</option>
+              <option :value="false">Inactif</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="action-row">
+          <button class="btn btn-secondary" type="button" :disabled="loading" @click="closeCreateModal">Annuler</button>
+          <button class="btn" type="button" :disabled="loading" @click="createType">Créer</button>
+        </div>
+      </article>
+    </div>
   </div>
 </template>
 
@@ -116,6 +163,13 @@ const loading = ref(false)
 const error = ref('')
 const caisses = ref([])
 const statusFilter = ref('tous')
+const showCreateModal = ref(false)
+const createForm = ref({
+  nom: '',
+  description: '',
+  solde: 0,
+  active: true,
+})
 
 const formatMoney = (amount) => formatMoneyAmount(amount)
 
@@ -154,6 +208,49 @@ const fetchTypes = async () => {
     caisses.value = data.caisses || []
   } catch (e) {
     error.value = e.response?.data?.message || e.message || 'Erreur chargement types de caisse'
+  } finally {
+    loading.value = false
+  }
+}
+
+const resetCreateForm = () => {
+  createForm.value = {
+    nom: '',
+    description: '',
+    solde: 0,
+    active: true,
+  }
+}
+
+const openCreateModal = () => {
+  error.value = ''
+  resetCreateForm()
+  showCreateModal.value = true
+}
+
+const closeCreateModal = () => {
+  showCreateModal.value = false
+}
+
+const createType = async () => {
+  if (!createForm.value.nom) {
+    error.value = 'Le nom du type de caisse est obligatoire.'
+    return
+  }
+
+  loading.value = true
+  error.value = ''
+  try {
+    await api.post('/v1/caisses/types', {
+      nom: createForm.value.nom,
+      description: createForm.value.description || null,
+      solde: Number(createForm.value.solde || 0),
+      active: Boolean(createForm.value.active),
+    })
+    closeCreateModal()
+    await fetchTypes()
+  } catch (e) {
+    error.value = e.response?.data?.message || e.message || 'Impossible de créer le type de caisse'
   } finally {
     loading.value = false
   }
@@ -234,5 +331,20 @@ onMounted(fetchTypes)
 
 .toggle-label {
   font-size: 0.78rem;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(2, 6, 23, 0.46);
+  backdrop-filter: blur(4px);
+}
+
+.create-modal {
+  width: min(760px, 100%);
 }
 </style>

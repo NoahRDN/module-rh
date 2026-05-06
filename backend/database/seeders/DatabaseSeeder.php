@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
             DepartementSeeder::class,
             PosteSeeder::class,
             EmployeSeeder::class,
+            PointageSeeder::class,
             DocumentSeeder::class,
             ContratSeeder::class,
             ContratHistoriqueSeeder::class,
@@ -32,6 +33,7 @@ class DatabaseSeeder extends Seeder
             JourFerieSeeder::class,
             DemandeCongeSampleSeeder::class,
             CompetenceSeeder::class,
+            TestDataSeeder::class,
             // TestCongeExpirationSeeder::class,
         ]);
     }

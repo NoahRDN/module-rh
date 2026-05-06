@@ -29,6 +29,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class PaieController extends Controller
 {
@@ -132,7 +133,7 @@ class PaieController extends Controller
             Log::info("Total retenues: {$retenues}");
             $net = $brut - $retenues;
 
-            $paie = Paie::create([
+            $paiePayload = [
                 'employe_id'            => $employe->id,
                 'mois'                  => $mois,
                 'statut'                => 'en_attente_validation',
@@ -141,8 +142,6 @@ class PaieController extends Controller
                 'heures_travaillees'    => $heuresTrav,
                 'heures_supplementaires'=> $heuresSup,
                 'montant_hs'            => $montantHs,
-                'heures_nuit'           => $heuresNuit,
-                'montant_nuit'          => $montantNuit,
                 'prime_transport'       => $param->prime_transport,
                 'prime_presence'        => $param->prime_presence,
                 'autres_primes'         => $remunerationItemsTotal,
@@ -152,7 +151,17 @@ class PaieController extends Controller
                 'total_brut'            => $brut,
                 'total_retenues'        => $retenues,
                 'net_a_payer'           => $net,
-            ]);
+            ];
+
+            if (Schema::hasColumn('paies', 'heures_nuit')) {
+                $paiePayload['heures_nuit'] = $heuresNuit;
+            }
+
+            if (Schema::hasColumn('paies', 'montant_nuit')) {
+                $paiePayload['montant_nuit'] = $montantNuit;
+            }
+
+            $paie = Paie::create($paiePayload);
 
             foreach ($details as $d) {
                 PaieDetail::create(array_intersect_key(

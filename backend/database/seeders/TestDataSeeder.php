@@ -5,10 +5,13 @@ namespace Database\Seeders;
 use App\Http\Controllers\Api\CaisseController;
 use App\Http\Controllers\Api\PaieController;
 use App\Models\Caisse;
+use App\Models\CaisseMouvement;
 use App\Models\Employe;
 use App\Models\Paie;
 use Illuminate\Database\Seeder;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 
 class TestDataSeeder extends Seeder
 {
@@ -54,17 +57,18 @@ class TestDataSeeder extends Seeder
         ],
     ];
 
-    private const EMPLOYEE_BASES = [
-        'EMP-20260429-0001' => 450000.00,
-        'EMP-20260429-0002' => 380000.00,
-        'EMP-20260429-0003' => 520000.00,
-        'EMP-20260429-0004' => 410000.00,
-        'EMP-20260429-0005' => 395000.00,
-        'EMP-20260429-0007' => 430000.00,
-        'EMP-20260429-0008' => 360000.00,
-        'EMP-20260429-0010' => 500000.00,
+    private const EMPLOYEE_MATRICULES = [
+        'EMP-20260429-0001',
+        'EMP-20260429-0002',
+        'EMP-20260429-0003',
+        'EMP-20260429-0004',
+        'EMP-20260429-0005',
+        'EMP-20260429-0007',
+        'EMP-20260429-0008',
+        'EMP-20260429-0010',
     ];
 
+    // Rotation volontaire des statuts pour exposer plusieurs cas métier sur plusieurs périodes.
     private const STATUS_PATTERNS = [
         '2025-11' => ['paye', 'paye', 'non_paye', 'paye', 'paiement_en_validation', 'non_paye', 'paye', 'paiement_en_validation'],
         '2025-12' => ['paye', 'non_paye', 'paye', 'paiement_en_validation', 'paye', 'paye', 'non_paye', 'paiement_en_validation'],
@@ -78,23 +82,28 @@ class TestDataSeeder extends Seeder
 
     public function run(): void
     {
-        DB::transaction(function () {
-            $employees = Employe::query()
-                ->whereIn('matricule', array_keys(self::EMPLOYEE_BASES))
-                ->get()
-                ->keyBy('matricule');
+        $employees = Employe::query()
+            ->whereIn('matricule', self::EMPLOYEE_MATRICULES)
+            ->get()
+            ->keyBy('matricule');
 
+        $this->call(PointageSeeder::class);
+
+        $paieController = app(PaieController::class);
+        $caisseController = app(CaisseController::class);
+
+        DB::transaction(function () use ($employees, $paieController, $caisseController) {
             $this->resetPreviousScenario($employees->pluck('id')->all());
             $caisses = $this->seedCashboxes();
-            $this->seedPayrollScenario($employees, $caisses);
+            $this->seedPayrollScenario($employees, $caisses, $paieController, $caisseController);
             $this->syncCashboxBalances($caisses->pluck('id')->all());
         });
 
         foreach (self::PAYROLL_MONTHS as $month) {
-            app(PaieController::class)->refreshPaieSyntheseMonth($month);
+            $paieController->refreshPaieSyntheseMonth($month);
         }
 
-        app(CaisseController::class)->refreshCaisseSyntheseDay(self::SYNTHESIS_DAY);
+        $caisseController->refreshCaisseSyntheseDay(self::SYNTHESIS_DAY);
     }
 
     private function resetPreviousScenario(array $employeeIds): void
@@ -169,128 +178,165 @@ class TestDataSeeder extends Seeder
                 'created_at' => self::OPENING_BALANCE_DAY . ' 08:00:00',
                 'updated_at' => self::OPENING_BALANCE_DAY . ' 08:05:00',
             ]);
+
+            $caisse->forceFill([
+                'solde' => $cashbox['solde_initial'],
+                'updated_at' => self::OPENING_BALANCE_DAY . ' 08:05:00',
+            ])->save();
         }
 
         return $caisses;
     }
 
-    private function seedPayrollScenario($employees, $caisses): void
+    private function seedPayrollScenario($employees, $caisses, PaieController $paieController, CaisseController $caisseController): void
     {
-        $matricules = array_keys(self::EMPLOYEE_BASES);
-
         foreach (self::PAYROLL_MONTHS as $monthIndex => $month) {
-            foreach ($matricules as $employeeIndex => $matricule) {
+            foreach (self::EMPLOYEE_MATRICULES as $employeeIndex => $matricule) {
                 $employee = $employees->get($matricule);
 
                 if (!$employee) {
                     continue;
                 }
 
-                $base = self::EMPLOYEE_BASES[$matricule];
                 $status = self::STATUS_PATTERNS[$month][$employeeIndex];
-                $net = $base + ($monthIndex * 15000);
-                $createdAt = $this->monthDateTime($month, 2, 8 + $employeeIndex, 0);
+                $createdAt = $this->monthDateTime($month, 2, 8 + ($employeeIndex % 8), 0);
                 $validatedAt = $this->monthDateTime($month, 27, 17, $employeeIndex * 5);
                 $paymentRequestedAt = $status === 'non_paye'
                     ? null
                     : $this->monthDateTime($month, 28, 9 + ($employeeIndex % 4), ($employeeIndex * 10) % 60);
-                $paidOn = $status === 'paye'
-                    ? $this->monthDate($month, 28)
-                    : null;
+                $paidOn = $status === 'paye' ? $this->monthDate($month, 28) : null;
                 $updatedAt = $status === 'paye'
                     ? $this->monthDateTime($month, 28, 9 + ($employeeIndex % 4), 15 + (($employeeIndex * 10) % 40))
                     : ($paymentRequestedAt ?: $validatedAt);
 
-                $paie = Paie::query()->create([
-                    'employe_id' => $employee->id,
-                    'mois' => $month,
-                    'salaire_base' => $base,
-                    'heures_travaillees' => 173.33,
-                    'heures_supplementaires' => 0,
-                    'montant_hs' => 0,
-                    'prime_transport' => 0,
-                    'prime_presence' => 0,
-                    'autres_primes' => $monthIndex * 5000,
-                    'retenue_cnaps' => 0,
-                    'retenue_ostie' => 0,
-                    'retenue_irsa' => 0,
-                    'total_brut' => $net,
-                    'total_retenues' => 0,
-                    'net_a_payer' => $net,
-                    'paye_le' => $paidOn,
-                    'statut' => $status,
-                    'demande_validation_le' => $paymentRequestedAt,
-                    'valide_le' => $validatedAt,
+                $paie = $this->generatePayroll($paieController, $employee->id, $month);
+                $this->alignGeneratedPayrollTimestamps($paie, $createdAt);
+
+                $this->assertSuccess($paieController->valider($paie->id), "Validation paie {$month} {$matricule}");
+
+                $paie->refresh();
+                $paie->forceFill([
                     'created_at' => $createdAt,
                     'updated_at' => $updatedAt,
-                ]);
+                    'demande_validation_le' => $createdAt,
+                    'valide_le' => $validatedAt,
+                ])->save();
 
-                $movement = $this->movementPayloadForStatus(
-                    $status,
-                    $month,
-                    $employeeIndex,
-                    $employee,
-                    $net,
-                    $paymentRequestedAt,
-                    $updatedAt
-                );
-
-                if (!$movement) {
+                if ($status === 'non_paye') {
                     continue;
                 }
 
-                $caisse = $caisses->get($movement['caisse']);
+                $cashboxName = self::CASHBOX_ROTATION[($employeeIndex + (int) substr($month, -2)) % count(self::CASHBOX_ROTATION)];
+                $caisse = $caisses->get($cashboxName);
 
                 if (!$caisse) {
                     continue;
                 }
 
-                DB::table('caisse_mouvements')->insert([
-                    'caisse_id' => $caisse->id,
-                    'paie_id' => $paie->id,
-                    'type' => 'sortie',
-                    'categorie' => 'paie_employe',
-                    'montant' => $movement['montant'],
-                    'source' => 'Paiement fiche de paie ' . $month,
-                    'description' => $movement['description'],
-                    'statut' => $movement['statut'],
-                    'demande_validation_le' => $movement['demande_validation_le'],
-                    'valide_le' => $movement['valide_le'],
-                    'created_at' => $movement['created_at'],
-                    'updated_at' => $movement['updated_at'],
-                ]);
+                $this->assertSuccess(
+                    $paieController->payer($this->makeRequest(['caisse_id' => $caisse->id]), $paie->id),
+                    "Paiement paie {$month} {$matricule}"
+                );
+
+                $paie->refresh();
+                $mouvement = CaisseMouvement::query()
+                    ->where('paie_id', $paie->id)
+                    ->latest('id')
+                    ->firstOrFail();
+
+                $mouvement->forceFill([
+                    'created_at' => $paymentRequestedAt,
+                    'updated_at' => $status === 'paye' ? $updatedAt : $paymentRequestedAt,
+                    'demande_validation_le' => $paymentRequestedAt,
+                    'valide_le' => $status === 'paye' ? $updatedAt : null,
+                ])->save();
+
+                $paie->forceFill([
+                    'updated_at' => $status === 'paye' ? $updatedAt : $paymentRequestedAt,
+                    'demande_validation_le' => $paymentRequestedAt,
+                    'valide_le' => $validatedAt,
+                    'paye_le' => $paidOn,
+                ])->save();
+
+                if ($status !== 'paye') {
+                    continue;
+                }
+
+                $this->assertSuccess(
+                    $caisseController->valider($mouvement->id),
+                    "Validation mouvement de paiement {$month} {$matricule}"
+                );
+
+                $mouvement->refresh();
+                $mouvement->forceFill([
+                    'created_at' => $paymentRequestedAt,
+                    'updated_at' => $updatedAt,
+                    'demande_validation_le' => $paymentRequestedAt,
+                    'valide_le' => $updatedAt,
+                ])->save();
+
+                $paie->refresh();
+                $paie->forceFill([
+                    'updated_at' => $updatedAt,
+                    'demande_validation_le' => $paymentRequestedAt,
+                    'valide_le' => $validatedAt,
+                    'paye_le' => $paidOn,
+                ])->save();
             }
         }
     }
 
-    private function movementPayloadForStatus(
-        string $status,
-        string $month,
-        int $employeeIndex,
-        Employe $employee,
-        float $amount,
-        ?string $paymentRequestedAt,
-        string $updatedAt
-    ): ?array {
-        if ($status === 'non_paye') {
-            return null;
+    private function generatePayroll(PaieController $paieController, int $employeeId, string $month): Paie
+    {
+        $response = $paieController->genererPaie($this->makeRequest([
+            'employe_id' => $employeeId,
+            'mois' => $month,
+        ]));
+
+        $payload = $this->assertSuccess($response, "Génération paie {$month} employé {$employeeId}");
+        $paieId = data_get($payload, 'paie.id');
+
+        return Paie::query()->findOrFail($paieId);
+    }
+
+    private function alignGeneratedPayrollTimestamps(Paie $paie, string $createdAt): void
+    {
+        $paie->forceFill([
+            'created_at' => $createdAt,
+            'updated_at' => $createdAt,
+            'demande_validation_le' => $createdAt,
+        ])->save();
+
+        DB::table('paie_details')
+            ->where('paie_id', $paie->id)
+            ->update([
+                'created_at' => $createdAt,
+                'updated_at' => $createdAt,
+            ]);
+
+        DB::table('paie_primes')
+            ->where('paie_id', $paie->id)
+            ->update([
+                'created_at' => $createdAt,
+                'updated_at' => $createdAt,
+            ]);
+    }
+
+    private function makeRequest(array $payload): Request
+    {
+        return Request::create('/', 'POST', $payload);
+    }
+
+    private function assertSuccess($response, string $context): array
+    {
+        $status = $response->getStatusCode();
+        $payload = $response->getData(true);
+
+        if ($status >= 400) {
+            throw new RuntimeException($context . ': ' . ($payload['message'] ?? 'Erreur inconnue'));
         }
 
-        $cashbox = self::CASHBOX_ROTATION[($employeeIndex + (int) substr($month, -2)) % count(self::CASHBOX_ROTATION)];
-        $fullName = trim($employee->nom . ' ' . $employee->prenom);
-
-        return [
-            'caisse' => $cashbox,
-            'montant' => $amount,
-            'statut' => $status === 'paye' ? 'valide' : 'en_attente_validation',
-            'description' => $status === 'paye'
-                ? "Paiement de la fiche de paie de {$fullName}"
-                : "Paiement en attente pour {$fullName}",
-            'demande_validation_le' => $paymentRequestedAt,
-            'valide_le' => $status === 'paye' ? $updatedAt : null,
-            'created_at' => $paymentRequestedAt,
-            'updated_at' => $updatedAt,
-        ];
+        return $payload;
     }
 
     private function monthDate(string $month, int $day): string

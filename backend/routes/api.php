@@ -220,6 +220,7 @@ Route::prefix('v1')->group(function () {
     Route::apiResource('irsa-tranches', IrsaTrancheController::class)->only(['index','store','update','destroy']);
     Route::get('paies/{id}/pdf', [PaiePdfController::class, 'telecharger']);
     Route::get('caisses', [CaisseController::class, 'index']);
+    Route::get('caisses/historique', [CaisseController::class, 'historique']);
     Route::get('caisses/types', [CaisseController::class, 'types']);
     Route::post('caisses/types', [CaisseController::class, 'storeType']);
     Route::get('caisses/en-attente-validation', [CaisseController::class, 'enAttente']);

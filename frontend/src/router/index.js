@@ -25,6 +25,7 @@ import PaieDetailView from '../views/PaieDetailView.vue'
 import RemunerationItemsView from '../views/RemunerationItemsView.vue'
 import RemunerationItemFormView from '../views/RemunerationItemFormView.vue'
 import CaisseEtatView from '../views/CaisseEtatView.vue'
+import CaisseHistoriqueView from '../views/CaisseHistoriqueView.vue'
 import CaisseTypesView from '../views/CaisseTypesView.vue'
 import CaisseMouvementCreateView from '../views/CaisseMouvementCreateView.vue'
 import CaisseValidationView from '../views/CaisseValidationView.vue'
@@ -154,6 +155,7 @@ const routes = [
       { path: 'paies/prevision/:employeId/:mois', name: 'paie-prevision', component: PaieDetailView, meta: { subtitle: 'Prévision paie' } },
       { path: 'paies/:id', name: 'paie-detail', component: PaieDetailView, meta: { subtitle: 'Fiche de paie' } },
       { path: 'caisses', name: 'caisses', component: CaisseEtatView, meta: { subtitle: 'État de caisse' } },
+      { path: 'caisses/historique', name: 'caisse-historique', component: CaisseHistoriqueView, meta: { subtitle: 'Historique caisse' } },
       { path: 'caisses/types', name: 'caisse-types', component: CaisseTypesView, meta: { subtitle: 'Types de caisse' } },
       { path: 'caisses/mouvements/nouveau', name: 'caisse-mouvement-create', component: CaisseMouvementCreateView, meta: { subtitle: 'Nouveau mouvement' } },
       { path: 'caisses/validations', name: 'caisse-validations', component: CaisseValidationView, meta: { subtitle: 'Validation caisse' } },

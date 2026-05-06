@@ -22,6 +22,9 @@
               <AppIcon name="plus" :size="18" />
               <span>Nouveau mouvement</span>
             </RouterLink>
+            <RouterLink class="btn btn-secondary" to="/caisses/historique">
+              Historique complet
+            </RouterLink>
             <RouterLink class="btn btn-secondary" to="/caisses/validations">
               Validations
             </RouterLink>
@@ -191,6 +194,14 @@ let synthesePollingTimer = null
 const SYNTHESE_POLLING_SECONDS = 7
 const caisses = ref([])
 const mouvements = ref([])
+const metricsData = ref({
+  solde_total: 0,
+  entrees_validees: 0,
+  entrees_count: 0,
+  sorties_validees: 0,
+  sorties_count: 0,
+  attente_count: 0,
+})
 const categories = ref({ entree: [], sortie: [] })
 const filters = ref({
   caisse_id: '',
@@ -207,16 +218,11 @@ const formatDateTime = (value) => {
 }
 
 const metrics = computed(() => {
-  const soldeTotal = caisses.value.reduce((sum, caisse) => sum + Number(caisse.solde || 0), 0)
-  const entrees = mouvements.value.filter((mouvement) => mouvement.type === 'entree' && mouvement.statut === 'valide')
-  const sorties = mouvements.value.filter((mouvement) => mouvement.type === 'sortie' && mouvement.statut === 'valide')
-  const attente = mouvements.value.filter((mouvement) => mouvement.statut === 'en_attente_validation')
-
   return [
-    { tag: 'Balance', label: 'Solde total', value: formatMoney(soldeTotal), caption: `${caisses.value.length} caisse(s)` },
-    { tag: 'In', label: 'Entrées validées', value: formatMoney(entrees.reduce((sum, item) => sum + Number(item.montant || 0), 0)), caption: `${entrees.length} mouvement(s)` },
-    { tag: 'Out', label: 'Sorties validées', value: formatMoney(sorties.reduce((sum, item) => sum + Number(item.montant || 0), 0)), caption: `${sorties.length} mouvement(s)` },
-    { tag: 'Pending', label: 'À valider', value: String(attente.length), caption: 'Mouvements non appliqués au solde' },
+    { tag: 'Balance', label: 'Solde total', value: formatMoney(metricsData.value.solde_total), caption: `${caisses.value.length} caisse(s)` },
+    { tag: 'In', label: 'Entrées validées', value: formatMoney(metricsData.value.entrees_validees), caption: `${metricsData.value.entrees_count} mouvement(s)` },
+    { tag: 'Out', label: 'Sorties validées', value: formatMoney(metricsData.value.sorties_validees), caption: `${metricsData.value.sorties_count} mouvement(s)` },
+    { tag: 'Pending', label: 'À valider', value: String(metricsData.value.attente_count), caption: 'Mouvements non appliqués au solde' },
   ]
 })
 
@@ -263,6 +269,7 @@ const fetchData = async () => {
     const { data } = await api.get('/v1/caisses', { params })
     caisses.value = data.caisses || []
     mouvements.value = data.mouvements?.data || data.mouvements || []
+    metricsData.value = data.metrics || metricsData.value
     categories.value = data.categories || { entree: [], sortie: [] }
     syntheseStatus.value = caisseSyntheseStatus(data.synthese_status)
     if (['generating', 'stale'].includes(data.synthese_status?.status)) {

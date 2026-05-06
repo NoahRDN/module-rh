@@ -31,26 +31,57 @@ class CaisseController extends Controller
 
         $caisses = Caisse::query()
             ->when($request->has('active'), fn ($query) => $query->where('active', filter_var($request->query('active'), FILTER_VALIDATE_BOOLEAN)))
+            ->when(!empty($validated['caisse_id']), fn ($query) => $query->whereKey($validated['caisse_id']))
             ->orderBy('nom')
             ->get();
 
-        $mouvements = CaisseMouvement::with([
-                'caisse:id,nom,solde',
-                'paie.employe:id,matricule,nom,prenom',
-            ])
-            ->when(!empty($validated['caisse_id']), fn ($query) => $query->where('caisse_id', $validated['caisse_id']))
-            ->when(!empty($validated['type']), fn ($query) => $query->where('type', $validated['type']))
-            ->when(!empty($validated['categorie']), fn ($query) => $query->where('categorie', $validated['categorie']))
-            ->when(!empty($validated['statut']) && $validated['statut'] !== 'tous', fn ($query) => $query->where('statut', $validated['statut']))
-            ->orderByDesc('created_at')
-            ->paginate(20);
+        $mouvementsQuery = $this->buildMouvementsQuery($validated);
+        $mouvements = (clone $mouvementsQuery)->orderByDesc('created_at')->paginate(20);
+        $metrics = $this->movementMetrics(clone $mouvementsQuery, $caisses);
 
         return response()->json([
             'caisses' => $caisses,
             'mouvements' => $mouvements,
+            'metrics' => $metrics,
             'categories' => $categories,
             'synthese' => $this->caisseSynthesePayload(now()->toDateString()),
             'synthese_status' => $this->caisseSyntheseState(now()->toDateString()),
+        ]);
+    }
+
+    public function historique(Request $request)
+    {
+        $validated = $request->validate([
+            'caisse_id' => 'nullable|exists:caisses,id',
+            'type' => 'nullable|in:entree,sortie',
+            'categorie' => 'nullable|string|max:64',
+            'statut' => 'nullable|in:tous,en_attente_validation,valide,rejete',
+            'mois' => 'nullable|date_format:Y-m',
+            'annee' => 'nullable|digits:4',
+            'page' => 'nullable|integer|min:1',
+            'per_page' => 'nullable|integer|min:1|max:100',
+        ]);
+
+        $perPage = (int) ($validated['per_page'] ?? 20);
+        $caisses = Caisse::query()
+            ->when(!empty($validated['caisse_id']), fn ($query) => $query->whereKey($validated['caisse_id']))
+            ->orderBy('nom')
+            ->get();
+        $categories = $this->categories();
+
+        $mouvementsQuery = $this->buildMouvementsQuery($validated);
+        $mouvements = (clone $mouvementsQuery)->orderByDesc('created_at')->paginate($perPage);
+        $metrics = $this->movementMetrics(clone $mouvementsQuery, $caisses);
+
+        return response()->json([
+            'caisses' => $caisses,
+            'mouvements' => $mouvements,
+            'metrics' => $metrics,
+            'categories' => $categories,
+            'filtres' => [
+                'mois' => $validated['mois'] ?? null,
+                'annee' => $validated['annee'] ?? null,
+            ],
         ]);
     }
 
@@ -163,6 +194,43 @@ class CaisseController extends Controller
     private function categories(): array
     {
         return config('caisse_mouvements.categories', ['entree' => [], 'sortie' => []]);
+    }
+
+    private function buildMouvementsQuery(array $validated)
+    {
+        return CaisseMouvement::with([
+                'caisse:id,nom,solde',
+                'paie.employe:id,matricule,nom,prenom',
+            ])
+            ->when(!empty($validated['caisse_id']), fn ($query) => $query->where('caisse_id', $validated['caisse_id']))
+            ->when(!empty($validated['type']), fn ($query) => $query->where('type', $validated['type']))
+            ->when(!empty($validated['categorie']), fn ($query) => $query->where('categorie', $validated['categorie']))
+            ->when(!empty($validated['statut']) && $validated['statut'] !== 'tous', fn ($query) => $query->where('statut', $validated['statut']))
+            ->when(!empty($validated['mois']), function ($query) use ($validated) {
+                $start = Carbon::createFromFormat('Y-m', $validated['mois'])->startOfMonth();
+                $query->whereBetween('created_at', [$start, $start->copy()->endOfMonth()]);
+            })
+            ->when(empty($validated['mois']) && !empty($validated['annee']), function ($query) use ($validated) {
+                $query->whereYear('created_at', (int) $validated['annee']);
+            });
+    }
+
+    private function movementMetrics($query, $caisses): array
+    {
+        $mouvements = $query->get(['id', 'type', 'montant', 'statut']);
+        $entrees = $mouvements->where('type', 'entree')->where('statut', 'valide');
+        $sorties = $mouvements->where('type', 'sortie')->where('statut', 'valide');
+        $attente = $mouvements->where('statut', 'en_attente_validation');
+
+        return [
+            'solde_total' => round($caisses->sum(fn (Caisse $caisse) => (float) $caisse->solde), 2),
+            'entrees_validees' => round($entrees->sum(fn ($mouvement) => (float) $mouvement->montant), 2),
+            'entrees_count' => $entrees->count(),
+            'sorties_validees' => round($sorties->sum(fn ($mouvement) => (float) $mouvement->montant), 2),
+            'sorties_count' => $sorties->count(),
+            'attente_count' => $attente->count(),
+            'mouvements_count' => $mouvements->count(),
+        ];
     }
 
     private function isValidCategory(string $type, string $categorie, array $categories): bool

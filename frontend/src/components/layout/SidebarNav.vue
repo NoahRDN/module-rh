@@ -137,6 +137,7 @@ const groups = [
       { to: '/paie-suivi', label: 'Suivi paie', hint: 'Avancement mensuel', icon: 'clipboard' },
       { to: '/paie-etat', label: 'État de paie', hint: 'Mensuel & annuel', icon: 'clipboard' },
       { to: '/caisses', label: 'État caisse', hint: 'Solde et historique', icon: 'wallet' },
+      { to: '/caisses/historique', label: 'Historique caisse', hint: 'Tous les mouvements', icon: 'history' },
       { to: '/caisses/types', label: 'Types caisse', hint: 'Activer / désactiver', icon: 'settings' },
       { to: '/caisses/mouvements/nouveau', label: 'Mouvement caisse', hint: 'Entrée ou sortie', icon: 'plus' },
       { to: '/caisses/validations', label: 'Validation caisse', hint: 'Appliquer au solde', icon: 'shield' },

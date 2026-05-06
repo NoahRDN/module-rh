@@ -1,75 +1,189 @@
 <template>
-  <div class="page-header">
-    <div class="page-title">
-      <h1>Détail solde de congé</h1>
-      <span v-if="solde">Employé : {{ employeLabel }}</span>
-    </div>
-  </div>
+  <div class="rh-page solde-detail-page">
+    <section class="hero hero-band hero-shared hero-compact">
+      <div class="hero-copy">
+        <p class="hero-kicker">Leave balance detail</p>
+        <h1>Détail solde de congé</h1>
+        <p class="hero-subtitle">
+          Vue détaillée d’un solde de congé avec l’employé concerné, le contrat de référence et l’historique
+          des demandes filtrées sur ce type.
+        </p>
 
-  <div v-if="loading" class="card">Chargement…</div>
-  <div v-else-if="error" class="card text-red-500">Erreur : {{ error }}</div>
-  <div v-else-if="!solde" class="card">Aucune donnée</div>
-  <div v-else class="grid gap-3">
-    <div class="card grid md:grid-cols-2 gap-3">
-      <div class="grid gap-1">
-        <div class="muted">Employé</div>
-        <div class="font-semibold">{{ employeLabel }}</div>
-        <div class="muted">Type de congé</div>
-        <div class="font-semibold">{{ solde.type_conge?.libelle || solde.type_conge_libelle || '—' }}</div>
-        <div class="muted">Contrat</div>
-        <div class="font-semibold">{{ contratLabel }}</div>
-      </div>
-      <div class="grid gap-1">
-        <div class="flex justify-between"><span class="muted">Premier acquis</span><span>{{ formatDate(solde.premier_acquis || solde.acquis_first) || '—' }}</span></div>
-        <div class="flex justify-between"><span class="muted">Expiration max</span><span>{{ expirationMax }}</span></div>
-        <div class="flex justify-between"><span class="muted">Solde actuel</span><span class="font-semibold">{{ solde.solde_actuel }}</span></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="flex items-center justify-between mb-2">
-        <div>
-          <h2 class="text-base font-semibold">Historique des demandes</h2>
-          <div class="muted text-xs">Filtré par employé & type</div>
-        </div>
-        <div class="flex gap-2">
-          <input class="input" type="date" v-model="filters.from" />
-          <input class="input" type="date" v-model="filters.to" />
-          <button class="btn btn-secondary btn-xs" @click="resetFilters">Réinitialiser</button>
+        <div v-if="solde" class="hero-pills">
+          <span class="pill">{{ employeLabel }}</span>
+          <span class="pill">{{ solde.type_conge?.libelle || solde.type_conge_libelle || 'Type inconnu' }}</span>
+          <span class="pill">{{ formatNumber(solde.solde_actuel) }} jour(s)</span>
         </div>
       </div>
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Date début</th>
-            <th>Date fin</th>
-            <th>Statut</th>
-            <th>Motif</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="d in demandes" :key="d.id">
-            <td>{{ formatDate(d.date_debut) || '—' }}</td>
-            <td>{{ formatDate(d.date_fin) || '—' }}</td>
-            <td>{{ d.statut }}</td>
-            <td>{{ d.motif || '—' }}</td>
-          </tr>
-          <tr v-if="!demandes.length">
-            <td colspan="4" class="muted">Aucune demande</td>
-          </tr>
-        </tbody>
-      </table>
+
+      <div class="hero-actions">
+        <div class="filters-panel">
+          <div class="action-row">
+            <button class="btn btn-secondary" type="button" @click="router.back()">Retour</button>
+            <RouterLink class="btn btn-secondary" to="/soldes-conges">Voir tous</RouterLink>
+          </div>
+
+          <div class="hero-meta-list" v-if="solde">
+            <p class="hero-meta">Employé: <strong>{{ employeLabel }}</strong></p>
+            <p class="hero-meta">Contrat: <strong>{{ contratLabel }}</strong></p>
+            <p class="hero-meta">Expiration max: <strong>{{ expirationMax }}</strong></p>
+          </div>
+
+          <div v-if="error" class="status-banner danger">
+            <span class="status-dot"></span>
+            <span>{{ error }}</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div v-if="loading" class="card section-card">
+      <p class="loading-title">Chargement du solde…</p>
+      <p class="muted">Récupération des informations détaillées.</p>
     </div>
+
+    <div v-else-if="!solde" class="card section-card empty-state">
+      <p>Aucune donnée</p>
+      <span>Ce solde de congé est introuvable ou n’est plus disponible.</span>
+    </div>
+
+    <template v-else>
+      <section class="metric-grid">
+        <article v-for="metric in metrics" :key="metric.label" class="metric-card">
+          <span class="metric-chip">{{ metric.tag }}</span>
+          <p class="metric-label">{{ metric.label }}</p>
+          <p class="metric-value">{{ metric.value }}</p>
+          <p class="metric-caption">{{ metric.caption }}</p>
+        </article>
+      </section>
+
+      <section class="content-grid">
+        <div class="main-column">
+          <article class="card section-card">
+            <div class="section-heading">
+              <div>
+                <p class="section-kicker">Balance</p>
+                <h2>Résumé du solde</h2>
+              </div>
+            </div>
+
+            <div class="overview-grid">
+              <div class="overview-card">
+                <p class="overview-label">Employé</p>
+                <p class="overview-value overview-value--wrap">{{ employeLabel }}</p>
+                <p class="overview-copy">Collaborateur rattaché à ce solde</p>
+              </div>
+              <div class="overview-card">
+                <p class="overview-label">Type de congé</p>
+                <p class="overview-value">{{ solde.type_conge?.libelle || solde.type_conge_libelle || '—' }}</p>
+                <p class="overview-copy">Nature du droit suivi</p>
+              </div>
+              <div class="overview-card">
+                <p class="overview-label">Contrat</p>
+                <p class="overview-value overview-value--wrap">{{ contratLabel }}</p>
+                <p class="overview-copy">Référence contractuelle utile au calcul</p>
+              </div>
+              <div class="overview-card">
+                <p class="overview-label">Premier acquis</p>
+                <p class="overview-value">{{ formatDate(solde.premier_acquis || solde.acquis_first) || '—' }}</p>
+                <p class="overview-copy">Date du premier droit crédité</p>
+              </div>
+            </div>
+          </article>
+
+          <article class="card section-card">
+            <div class="section-heading">
+              <div>
+                <p class="section-kicker">Requests</p>
+                <h2>Historique des demandes</h2>
+              </div>
+            </div>
+
+            <p class="section-copy">
+              Historique des demandes filtré sur l’employé concerné et le type de congé associé à ce solde.
+            </p>
+
+            <div class="filters-grid demand-filters">
+              <label class="field-card">
+                <span class="field-label">Date début</span>
+                <input class="input" type="date" v-model="filters.from" />
+              </label>
+
+              <label class="field-card">
+                <span class="field-label">Date fin</span>
+                <input class="input" type="date" v-model="filters.to" />
+              </label>
+
+              <div class="field-card demand-filter-actions">
+                <span class="field-label">Actions</span>
+                <div class="action-row">
+                  <button class="btn btn-secondary btn-sm" type="button" @click="resetFilters">Réinitialiser</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="table-shell">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Date début</th>
+                    <th>Date fin</th>
+                    <th>Statut</th>
+                    <th>Motif</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="d in demandes" :key="d.id">
+                    <td>{{ formatDate(d.date_debut) || '—' }}</td>
+                    <td>{{ formatDate(d.date_fin) || '—' }}</td>
+                    <td><span class="chip">{{ d.statut || '—' }}</span></td>
+                    <td>{{ d.motif || '—' }}</td>
+                  </tr>
+                  <tr v-if="!demandes.length">
+                    <td colspan="4" class="muted">Aucune demande</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+        </div>
+
+        <aside class="sidebar-column">
+          <article class="card section-card side-card">
+            <div class="section-heading compact">
+              <div>
+                <p class="section-kicker">Snapshot</p>
+                <h2>Repères rapides</h2>
+              </div>
+            </div>
+
+            <div class="overview-grid side-grid">
+              <div class="overview-card">
+                <p class="overview-label">Solde actuel</p>
+                <p class="overview-value accent">{{ formatNumber(solde.solde_actuel) }}</p>
+                <p class="overview-copy">Droits disponibles actuellement</p>
+              </div>
+              <div class="overview-card">
+                <p class="overview-label">Expiration max</p>
+                <p class="overview-value">{{ expirationMax }}</p>
+                <p class="overview-copy">Date plafond d’utilisation</p>
+              </div>
+            </div>
+          </article>
+        </aside>
+      </section>
+    </template>
   </div>
 </template>
 
 <script setup>
-import { onMounted, ref, watch, computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, onMounted, ref, watch } from 'vue'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import api from '../services/api'
 import { formatDateValue } from '../utils/formatters'
 
 const route = useRoute()
+const router = useRouter()
 const solde = ref(null)
 const demandes = ref([])
 const loading = ref(false)
@@ -79,7 +193,9 @@ const filters = ref({ from: '', to: '' })
 const employeLabel = computed(() => {
   if (!solde.value) return ''
   const s = solde.value
-  return s.employe ? `${s.employe.matricule} - ${s.employe.nom} ${s.employe.prenom}` : `${s.employe_matricule || ''} ${s.employe_nom || ''} ${s.employe_prenom || ''}`
+  return s.employe
+    ? `${s.employe.matricule} - ${s.employe.nom} ${s.employe.prenom}`
+    : `${s.employe_matricule || ''} ${s.employe_nom || ''} ${s.employe_prenom || ''}`.trim()
 })
 
 const contratLabel = computed(() => {
@@ -115,10 +231,39 @@ const expirationMax = computed(() => {
   if (diffYears <= 3) {
     return formatDate(contratFin)
   }
+
   return formatDate(defaultVal) || defaultVal
 })
 
+const metrics = computed(() => [
+  {
+    tag: 'Solde',
+    label: 'Solde actuel',
+    value: formatNumber(solde.value?.solde_actuel),
+    caption: 'Jours actuellement disponibles',
+  },
+  {
+    tag: 'Type',
+    label: 'Type de congé',
+    value: solde.value?.type_conge?.libelle || solde.value?.type_conge_libelle || '—',
+    caption: 'Droit suivi dans cette fiche',
+  },
+  {
+    tag: 'Acquis',
+    label: 'Premier acquis',
+    value: formatDate(solde.value?.premier_acquis || solde.value?.acquis_first) || '—',
+    caption: 'Date de premier crédit enregistré',
+  },
+  {
+    tag: 'Hist.',
+    label: 'Demandes liées',
+    value: String(demandes.value.length),
+    caption: 'Demandes retrouvées sur ce type',
+  },
+])
+
 const formatDate = (value) => formatDateValue(value)
+const formatNumber = (value) => new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(Number(value || 0))
 
 const fetchSolde = async () => {
   loading.value = true
@@ -135,12 +280,14 @@ const fetchSolde = async () => {
 
 const fetchDemandes = async () => {
   if (!solde.value) return
+
   const params = {
     employe_id: solde.value.employe_id,
     type_id: solde.value.type_conge_id,
     from: filters.value.from || undefined,
     to: filters.value.to || undefined,
   }
+
   try {
     const { data } = await api.get('/v1/demandes-conges', { params })
     demandes.value = data.data || data || []
@@ -151,7 +298,6 @@ const fetchDemandes = async () => {
 
 const resetFilters = () => {
   filters.value = { from: '', to: '' }
-  fetchDemandes()
 }
 
 watch(filters, fetchDemandes, { deep: true })
@@ -163,14 +309,32 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.page-title h1 { margin: 0; }
-.muted { color: #94a3b8; }
-.card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; }
-.grid { display: grid; gap: 12px; }
-.table { width: 100%; border-collapse: collapse; }
-.table th, .table td { padding: 8px; border-bottom: 1px solid #e5e7eb; }
-.table th { text-align: left; background: #f8fafc; }
-.input { border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 8px; }
-.btn { border: none; border-radius: 6px; padding: 6px 10px; cursor: pointer; }
-.btn-secondary { background: #e2e8f0; color: #0f172a; }
+.solde-detail-page .hero-meta strong,
+.overview-value--wrap {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.demand-filters {
+  margin-bottom: 18px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.demand-filter-actions .action-row {
+  align-items: flex-end;
+}
+
+.side-grid {
+  grid-template-columns: 1fr;
+}
+
+.accent {
+  color: var(--brand-600);
+}
+
+@media (max-width: 920px) {
+  .demand-filters {
+    grid-template-columns: 1fr;
+  }
+}
 </style>

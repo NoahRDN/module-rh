@@ -41,7 +41,7 @@
       </article>
     </section>
 
-    <section class="card section-card">
+    <section class="card section-card migration-card">
       <div class="section-heading">
         <div>
           <p class="section-kicker">Migration</p>
@@ -54,7 +54,7 @@
       </p>
     </section>
 
-    <section class="card section-card">
+    <section class="card section-card catalog-card">
       <div class="section-heading">
         <div>
           <p class="section-kicker">Catalog</p>
@@ -107,9 +107,11 @@
           </thead>
           <tbody>
             <tr v-for="item in filteredItems" :key="item.id">
-              <td class="cell-stack">
-                <div class="type-name">{{ item.libelle }}</div>
-                <div class="muted">{{ scopeTargetLabel(item) }}</div>
+              <td>
+                <div class="cell-stack">
+                  <div class="type-name">{{ item.libelle }}</div>
+                  <div class="muted">{{ scopeTargetLabel(item) }}</div>
+                </div>
               </td>
               <td>{{ natureLabel(item.nature) }}</td>
               <td>{{ scopeLabel(item.scope_type) }}</td>
@@ -277,11 +279,38 @@ onMounted(loadItems)
 </script>
 
 <style scoped>
+.remuneration-page {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
+.remuneration-page > * {
+  min-width: 0;
+}
+
+.migration-card,
+.catalog-card {
+  width: 100%;
+  min-width: 0;
+}
+
+.catalog-card {
+  overflow: hidden;
+}
+
 .filters-row {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   margin-bottom: 16px;
+}
+
+.catalog-card .table-shell {
+  width: calc(100% + 44px);
+  margin: 0 -22px -22px;
+  padding: 0 22px 22px;
+  box-sizing: border-box;
 }
 
 .checkbox-field {

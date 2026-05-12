@@ -105,8 +105,6 @@ class PaieController extends Controller
             $salaireProportionnel = $salaireBasePointage;
 
             $brutAvantDeductionsPresence = $salaireProportionnel
-                + $param->prime_transport
-                + $param->prime_presence
                 + $remunerationItemsTotal
                 + $montantHs
                 + $montantNuit;
@@ -142,8 +140,8 @@ class PaieController extends Controller
                 'heures_travaillees'    => $heuresTrav,
                 'heures_supplementaires'=> $heuresSup,
                 'montant_hs'            => $montantHs,
-                'prime_transport'       => $param->prime_transport,
-                'prime_presence'        => $param->prime_presence,
+                'prime_transport'       => 0,
+                'prime_presence'        => 0,
                 'autres_primes'         => $remunerationItemsTotal,
                 'retenue_cnaps'         => $cnaps,
                 'retenue_ostie'         => $ostie,
@@ -179,27 +177,6 @@ class PaieController extends Controller
                         'present_partiel',
                     ])
                 ));
-            }
-
-            if ($param->prime_transport > 0) {
-                PaiePrime::create([
-                    'paie_id' => $paie->id,
-                    'libelle' => 'Prime transport',
-                    'nature' => 'prime',
-                    'is_taxable' => true,
-                    'montant' => $param->prime_transport,
-                    'source_code' => 'param_prime_transport',
-                ]);
-            }
-            if ($param->prime_presence > 0) {
-                PaiePrime::create([
-                    'paie_id' => $paie->id,
-                    'libelle' => 'Prime présence',
-                    'nature' => 'prime',
-                    'is_taxable' => true,
-                    'montant' => $param->prime_presence,
-                    'source_code' => 'param_prime_presence',
-                ]);
             }
 
             foreach ($appliedRemunerationItems as $item) {
@@ -1678,10 +1655,6 @@ class PaieController extends Controller
     {
         $start = Carbon::createFromFormat('Y-m', $mois)->startOfMonth();
         $end = $start->copy()->endOfMonth();
-        $param = PaieParametre::first();
-        $primeTransport = (float) ($param?->prime_transport ?? 0);
-        $primePresence = (float) ($param?->prime_presence ?? 0);
-
         $contrats = Contrat::with(['employe.poste', 'employe.departement'])
             ->where('statut', 'en_cours')
             ->when($employeIds, fn ($query) => $query->whereIn('employe_id', $employeIds))
@@ -1709,7 +1682,7 @@ class PaieController extends Controller
             ->groupBy('paie_id')
             ->map(fn ($items) => $items->first());
 
-        return $contrats->map(function (Contrat $contrat) use ($paies, $paiementMouvements, $mois, $primeTransport, $primePresence) {
+        return $contrats->map(function (Contrat $contrat) use ($paies, $paiementMouvements, $mois) {
             $paie = $paies->get($contrat->employe_id);
             $statut = $this->statutPaie($paie);
             $mouvementPaiement = $paie ? $paiementMouvements->get($paie->id) : null;
@@ -1852,9 +1825,6 @@ class PaieController extends Controller
             'hours_per_day' => $hoursPerDay,
         ]);
 
-        $primeTransport = (float) ($param?->prime_transport ?? 0);
-        $primePresence = (float) ($param?->prime_presence ?? 0);
-
         $primesBrut = (float) $items
             ->where('nature', 'prime')
             ->sum(fn ($item) => (float) ($item->montant_applique ?? $item->montant));
@@ -1869,7 +1839,7 @@ class PaieController extends Controller
             ? $deductionRetards + $deductionAbsences + $deductionPartiel
             : 0;
 
-        $brutAvantDeductionsPresence = $salaireBasePointage + $montantHs + $montantNuit + $primePresence + $primesBrut;
+        $brutAvantDeductionsPresence = $salaireBasePointage + $montantHs + $montantNuit + $primesBrut;
         $brut = max(0, $brutAvantDeductionsPresence - $deductionsPresence);
 
         $baseCnaps = min($brut, (float) ($param?->cnaps_plafond ?? $brut));
@@ -1882,7 +1852,7 @@ class PaieController extends Controller
 
         $retenues = $cnapsEmploye + $ostieEmploye + $irsa;
         $netSalaire = $brut - $retenues;
-        $indemnitesAPayer = $primeTransport + $indemnitesNettes;
+        $indemnitesAPayer = $indemnitesNettes;
         $net = $netSalaire + $indemnitesAPayer;
         $chargesPatronales = $cnapsEmployeur + $ostieEmployeur;
         $coutReelEntreprise = $brut + $chargesPatronales + $indemnitesAPayer;
@@ -1900,8 +1870,8 @@ class PaieController extends Controller
             'montant_hs' => round((float) $montantHs, 2),
             'heures_nuit' => round((float) $heuresNuit, 2),
             'montant_nuit' => round((float) $montantNuit, 2),
-            'prime_transport' => round($primeTransport, 2),
-            'prime_presence' => round($primePresence, 2),
+            'prime_transport' => 0,
+            'prime_presence' => 0,
             'autres_primes' => round($primesBrut + $indemnitesNettes, 2),
             'retenue_cnaps' => round($cnapsEmploye, 2),
             'retenue_ostie' => round($ostieEmploye, 2),
@@ -1922,7 +1892,7 @@ class PaieController extends Controller
                 'jours_feries' => collect($details)->where('ferie', true)->count(),
                 'weekends' => collect($details)->where('weekend', true)->count(),
             ],
-            'primes' => $this->buildForecastPrimesResponse($primeTransport, $primePresence, $items),
+            'primes' => $this->buildForecastPrimesResponse($items),
             'charges_patronales' => [
                 'cnaps' => round($cnapsEmployeur, 2),
                 'ostie' => round($ostieEmployeur, 2),
@@ -1986,17 +1956,9 @@ class PaieController extends Controller
         ], fn (array $item) => $item['montant'] > 0));
     }
 
-    protected function buildForecastPrimesResponse(float $primeTransport, float $primePresence, $appliedRemunerationItems): array
+    protected function buildForecastPrimesResponse($appliedRemunerationItems): array
     {
         $rows = [];
-
-        if ($primeTransport > 0) {
-            $rows[] = ['label' => 'Prime transport', 'montant' => $primeTransport, 'nature' => 'prime', 'is_taxable' => true];
-        }
-
-        if ($primePresence > 0) {
-            $rows[] = ['label' => 'Prime présence', 'montant' => $primePresence, 'nature' => 'prime', 'is_taxable' => true];
-        }
 
         foreach ($appliedRemunerationItems as $item) {
             $rows[] = [

@@ -5,14 +5,14 @@
         <p class="hero-kicker">Payroll settings</p>
         <h1>Paramètres paie</h1>
         <p class="hero-subtitle">
-          Configurez les contributions sociales, les compléments de paie et le barème IRSA avec un
-          niveau de lisibilité adapté à un outil RH moderne.
+          Configurez les contributions sociales et le barème IRSA avec un niveau de lisibilité adapté
+          à un outil RH moderne.
         </p>
 
         <div class="hero-pills">
           <span class="pill">CNAPS / OSTIE</span>
           <span class="pill">IRSA progressif</span>
-          <span class="pill">Heures supplémentaires</span>
+          <span class="pill">Réglementaire</span>
         </div>
       </div>
 
@@ -63,7 +63,7 @@
           <div class="section-heading">
             <div>
               <p class="section-kicker">Social contributions</p>
-              <h2>Cotisations et variables paie</h2>
+              <h2>Cotisations sociales</h2>
             </div>
             <span class="section-chip">2-column structured form</span>
           </div>
@@ -234,11 +234,6 @@ const createDefaultForm = () => ({
   cnaps_taux_employeur: 0,
   ostie_taux_employe: 0,
   ostie_taux_employeur: 0,
-  irsa_base: 0,
-  irsa_taux: 0,
-  hs_taux: 0,
-  prime_transport: 0,
-  prime_presence: 0,
 })
 
 const createDraftTranche = (overrides = {}) => ({
@@ -296,52 +291,6 @@ const fieldGroups = [
       },
     ],
   },
-  {
-    title: 'Seuils et compléments',
-    description: 'Paramètres complémentaires influençant le calcul du net.',
-    fields: [
-      {
-        key: 'irsa_base',
-        label: 'Base IRSA',
-        helper: 'Base ou seuil de référence utilisé par la configuration fiscale.',
-        suffix: 'currency',
-        badge: 'Tax',
-        step: '1',
-      },
-      {
-        key: 'irsa_taux',
-        label: 'Taux IRSA global',
-        helper: 'Taux de référence utilisé par certaines simulations.',
-        suffix: '%',
-        badge: 'Tax',
-        step: '0.01',
-      },
-      {
-        key: 'hs_taux',
-        label: 'Coefficient heures sup',
-        helper: 'Multiplicateur appliqué aux heures supplémentaires.',
-        suffix: 'x',
-        badge: 'Hours',
-        step: '0.01',
-      },
-      {
-        key: 'prime_transport',
-        label: 'Prime transport',
-        helper: 'Montant mensuel par défaut hors base brute.',
-        suffix: 'currency',
-        badge: 'Bonus',
-        step: '1',
-      },
-      {
-        key: 'prime_presence',
-        label: 'Prime présence',
-        helper: 'Prime fixe versée selon les règles internes.',
-        suffix: 'currency',
-        badge: 'Bonus',
-        step: '1',
-      },
-    ],
-  },
 ]
 
 const loading = ref(false)
@@ -377,11 +326,6 @@ const normalizeFormState = (source) => ({
   cnaps_taux_employeur: normalizeNumber(source.cnaps_taux_employeur),
   ostie_taux_employe: normalizeNumber(source.ostie_taux_employe),
   ostie_taux_employeur: normalizeNumber(source.ostie_taux_employeur),
-  irsa_base: normalizeNumber(source.irsa_base),
-  irsa_taux: normalizeNumber(source.irsa_taux),
-  hs_taux: normalizeNumber(source.hs_taux),
-  prime_transport: normalizeNumber(source.prime_transport),
-  prime_presence: normalizeNumber(source.prime_presence),
 })
 
 const sortTranches = (rows) =>
@@ -406,9 +350,6 @@ const employeeContributionRate = computed(
 const employerContributionRate = computed(
   () => normalizedForm.value.cnaps_taux_employeur + normalizedForm.value.ostie_taux_employeur,
 )
-const totalPrimes = computed(
-  () => normalizedForm.value.prime_transport + normalizedForm.value.prime_presence,
-)
 
 const metrics = computed(() => [
   {
@@ -430,33 +371,6 @@ const metrics = computed(() => [
     label: 'Tranches IRSA',
     value: `${tranches.value.length}`,
     caption: 'Lignes actives dans le barème',
-  },
-])
-
-const overviewCards = computed(() => [
-  {
-    label: 'Charge salariale',
-    value: formatPercent(employeeContributionRate.value),
-    copy: 'CNAPS et OSTIE retenus côté collaborateur.',
-    tag: 'Salarié',
-  },
-  {
-    label: 'Charge employeur',
-    value: formatPercent(employerContributionRate.value),
-    copy: 'Part patronale appliquée sur le brut soumis.',
-    tag: 'Entreprise',
-  },
-  {
-    label: 'Primes fixes',
-    value: formatCurrency(totalPrimes.value),
-    copy: 'Transport et présence intégrés au paramétrage.',
-    tag: 'Primes',
-  },
-  {
-    label: 'Base IRSA',
-    value: formatCurrency(normalizedForm.value.irsa_base),
-    copy: 'Seuil fiscal de référence pour vos simulations.',
-    tag: 'Fiscalité',
   },
 ])
 

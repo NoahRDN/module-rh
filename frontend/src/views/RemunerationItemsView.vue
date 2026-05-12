@@ -44,6 +44,19 @@
     <section class="card section-card">
       <div class="section-heading">
         <div>
+          <p class="section-kicker">Migration</p>
+          <h2>Primes globales</h2>
+        </div>
+      </div>
+      <p class="muted">
+        Prime transport et Prime présence se configurent désormais ici. Créez-les comme éléments
+        globaux récurrents pour qu’ils soient repris dans la paie.
+      </p>
+    </section>
+
+    <section class="card section-card">
+      <div class="section-heading">
+        <div>
           <p class="section-kicker">Catalog</p>
           <h2>Liste des éléments</h2>
         </div>

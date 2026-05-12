@@ -41,7 +41,7 @@ class EntrepriseSettingController extends Controller
                 $storage->delete($setting->logo_path);
             }
 
-            $setting->logo_path = $storage->publicUrl($storage->upload($request->file('logo'), 'entreprise'));
+            $setting->logo_path = $storage->upload($request->file('logo'), 'entreprise');
         }
 
         $setting->save();

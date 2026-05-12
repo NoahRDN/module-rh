@@ -439,9 +439,7 @@ class DocumentGeneratorService
 
         return array_merge($data, [
             'entreprise' => $entreprise,
-            'entreprise_logo_path' => $entreprise->logo_path
-                ? storage_path('app/public/' . $entreprise->logo_path)
-                : null,
+            'entreprise_logo_path' => $entreprise->resolvePdfLogoSrc(),
         ]);
     }
 }

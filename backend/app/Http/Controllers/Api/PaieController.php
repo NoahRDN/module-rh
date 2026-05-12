@@ -1483,13 +1483,7 @@ class PaieController extends Controller
                 [],
                 ['nom' => config('app.name', 'Module RH')]
             );
-            $entrepriseLogoPath = null;
-            if (!empty($entreprise->logo_path)) {
-                $candidateLogoPath = storage_path('app/public/' . ltrim((string) $entreprise->logo_path, '/'));
-                if (is_file($candidateLogoPath)) {
-                    $entrepriseLogoPath = $candidateLogoPath;
-                }
-            }
+            $entrepriseLogoPath = $entreprise->resolvePdfLogoSrc();
 
             $mouvement = CaisseMouvement::with('caisse')
                 ->where('paie_id', $paie->id)

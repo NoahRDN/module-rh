@@ -34,25 +34,25 @@ class TestDataSeeder extends Seeder
         [
             'nom' => 'Banque',
             'description' => 'Compte bancaire principal',
-            'solde_initial' => 5500000.00,
+            'solde_initial' => 20000000.00,
             'mouvement_description' => 'Solde initial de la caisse Banque',
         ],
         [
             'nom' => 'Espèces',
             'description' => 'Caisse en espèces',
-            'solde_initial' => 5500000.00,
+            'solde_initial' => 20000000.00,
             'mouvement_description' => 'Solde initial de la caisse Espèces',
         ],
         [
             'nom' => 'Mobile Money',
             'description' => 'Caisse mobile money',
-            'solde_initial' => 4000000.00,
+            'solde_initial' => 20000000.00,
             'mouvement_description' => 'Solde initial de la caisse Mobile Money',
         ],
         [
             'nom' => 'Caisse paie',
             'description' => 'Caisse dédiée au paiement des salaires',
-            'solde_initial' => 5000000.00,
+            'solde_initial' => 20000000.00,
             'mouvement_description' => 'Solde initial de la caisse paie',
         ],
     ];
